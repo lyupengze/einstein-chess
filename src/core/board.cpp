@@ -65,7 +65,15 @@ int Board::count_pieces(Side side) const {
 
 void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) {
     if (side == Side::None) {
-        throw std::invalid_argument("side should not be None");
+        throw std::invalid_argument("side 不能为 None");
+    }
+
+    std::array<bool, kChessCount> seen{};
+    for (int id : layout) {
+        if (id <= 0 || id > kChessCount || seen[id - 1]) {
+            throw std::invalid_argument("不合法的 layout");
+        }
+        seen[id - 1] = true;
     }
 
     constexpr std::array<Pos, kChessCount> kRedPos{

@@ -1,6 +1,7 @@
 #ifndef GAME_H_
 #define GAME_H_
 
+#include <array>
 #include <random>
 
 #include "game_state.h"
