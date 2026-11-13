@@ -8,7 +8,7 @@
 
 namespace core {
 
-enum class Phase { ThrowingDice, Player1Thinking, Player2Thinking, Moving };
+enum class Phase { ThrowingDice, Player1Thinking, Player2Thinking, GameOver };
 
 struct GameState {
     Board board;
