@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(third_party/sqlite)
 
-add_executable(main src/main.cpp src/core/board.cpp)
+add_executable(main src/main.cpp src/core/board.cpp src/core/rules.cpp)
 
 target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Werror -O2)
 target_link_libraries(main PRIVATE sqlite3)

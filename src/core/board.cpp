@@ -1,7 +1,7 @@
 #include "board.h"
 
-#include <array>
 #include <cstddef>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -29,13 +29,46 @@ Piece& Board::at(const Pos& p) {
     return const_cast<Piece&>(static_cast<const Board*>(this)->at(p));
 }
 
+bool Board::has_piece(Side side, int id) const {
+    for (std::size_t i = 0; i < kSize; ++i) {
+        for (std::size_t j = 0; j < kSize; ++j) {
+            if (at({i, j}).side == side && at({i, j}).id == id) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+std::optional<Pos> Board::find_piece(Side side, int id) const {
+    for (std::size_t i = 0; i < kSize; ++i) {
+        for (std::size_t j = 0; j < kSize; ++j) {
+            if (at({i, j}).side == side && at({i, j}).id == id) {
+                return Pos{i, j};
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+int Board::count_pieces(Side side) const {
+    int count = 0;
+    for (std::size_t i = 0; i < kSize; ++i) {
+        for (std::size_t j = 0; j < kSize; ++j) {
+            if (at({i, j}).side == side) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
 void Board::setup_initial() {
     cells_ = {};
-    constexpr int kChessCount{6};
     constexpr std::array<Pos, kChessCount> kRedPos{
-        {{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {1, 2}}};
+        {{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {2, 0}}};
     constexpr std::array<Pos, kChessCount> kBluePos{
-        {{4, 4}, {4, 3}, {4, 2}, {3, 4}, {3, 3}, {3, 2}}};
+        {{4, 4}, {4, 3}, {4, 2}, {3, 4}, {3, 3}, {2, 4}}};
 
     for (int i = 0; i < kChessCount; ++i) {
         at(kRedPos[i]) = {Side::Red, i + 1};
@@ -54,7 +87,7 @@ std::string Board::to_string() const {
     for (std::size_t i = 0; i < kSize; ++i) {
         oss << i;
         for (std::size_t j = 0; j < kSize; ++j) {
-            const Piece& cell = at({j, i});
+            const Piece& cell = at({i, j});
             switch (cell.side) {
                 case Side::None:
                     oss << " . ";
