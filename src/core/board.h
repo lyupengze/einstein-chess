@@ -26,7 +26,7 @@ public:
     [[nodiscard]] std::optional<Pos> find_piece(Side side, int id) const;
     [[nodiscard]] int count_pieces(Side side) const;
 
-    void setup_initial();
+    void setup_custom(Side side, const std::array<int, kChessCount>& layout);
 
     [[nodiscard]] std::string to_string() const;
 

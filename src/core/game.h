@@ -11,7 +11,9 @@ class Game {
 public:
     Game();
 
-    void new_game(Side player1_side);
+    void prepare_new_game(Side player1_side);
+
+    void submit_layout(Side side, const std::array<int, 6>& layout);
 
     void load_game(GameState game_state);
 
@@ -22,6 +24,8 @@ public:
     [[nodiscard]] const GameState& get_state() const;
 
 private:
+    void check_both_ready();
+
     GameState game_state_;
     std::mt19937 gen_;
 };

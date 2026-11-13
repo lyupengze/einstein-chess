@@ -63,16 +63,22 @@ int Board::count_pieces(Side side) const {
     return count;
 }
 
-void Board::setup_initial() {
-    cells_ = {};
+void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) {
+    if (side == Side::None) {
+        throw std::invalid_argument("side should not be None");
+    }
+
     constexpr std::array<Pos, kChessCount> kRedPos{
         {{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {2, 0}}};
     constexpr std::array<Pos, kChessCount> kBluePos{
         {{4, 4}, {4, 3}, {4, 2}, {3, 4}, {3, 3}, {2, 4}}};
 
     for (int i = 0; i < kChessCount; ++i) {
-        at(kRedPos[i]) = {Side::Red, i + 1};
-        at(kBluePos[i]) = {Side::Blue, i + 1};
+        if (side == Side::Red) {
+            at(kRedPos[i]) = {Side::Red, layout[i]};
+        } else {
+            at(kBluePos[i]) = {Side::Blue, layout[i]};
+        }
     }
 }
 

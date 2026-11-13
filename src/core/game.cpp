@@ -13,13 +13,22 @@ namespace core {
 Game::Game() : gen_(std::random_device{}()) {
 }
 
-void Game::new_game(Side player1_side) {
-    game_state_.board.setup_initial();
+void Game::prepare_new_game(Side player1_side) {
+    game_state_ = GameState{};
     game_state_.player1_side = player1_side;
-    game_state_.current_side = Side::Red;
-    game_state_.phase = Phase::ThrowingDice;
-    game_state_.current_dice = std::nullopt;
-    game_state_.winner = Side::None;
+    game_state_.phase = Phase::LayOut;
+}
+
+void Game::submit_layout(Side side, const std::array<int, 6>& layout) {
+    game_state_.board.setup_custom(side, layout);
+
+    if (side == game_state_.player1_side) {
+        game_state_.player1_ready = true;
+    } else {
+        game_state_.player2_ready = true;
+    }
+
+    check_both_ready();
 }
 
 void Game::load_game(GameState game_state) {
@@ -27,6 +36,9 @@ void Game::load_game(GameState game_state) {
 }
 
 void Game::roll_dice() {
+    if (game_state_.phase != Phase::ThrowingDice) {
+        throw std::invalid_argument("现在不能扔骰子！");
+    }
     game_state_.current_dice = std::uniform_int_distribution<int>(1, 6)(gen_);
     if (game_state_.current_side == game_state_.player1_side) {
         game_state_.phase = Phase::Player1Thinking;
@@ -53,6 +65,13 @@ void Game::make_move(Pos from, Pos to) {
 
 const GameState& Game::get_state() const {
     return game_state_;
+}
+
+void Game::check_both_ready() {
+    if (game_state_.player1_ready && game_state_.player2_ready) {
+        game_state_.phase = Phase::ThrowingDice;
+        game_state_.current_side = Side::Red;
+    }
 }
 
 }  // namespace core

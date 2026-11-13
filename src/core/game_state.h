@@ -8,15 +8,17 @@
 
 namespace core {
 
-enum class Phase { ThrowingDice, Player1Thinking, Player2Thinking, GameOver };
+enum class Phase { LayOut, ThrowingDice, Player1Thinking, Player2Thinking, GameOver };
 
 struct GameState {
     Board board;
     Side player1_side{Side::None};
     Side current_side{Side::None};
-    Phase phase{Phase::ThrowingDice};
+    Phase phase{Phase::LayOut};
     std::optional<int> current_dice;
     Side winner{Side::None};
+    bool player1_ready{false};
+    bool player2_ready{false};
 };
 
 }  // namespace core
