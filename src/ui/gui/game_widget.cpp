@@ -46,12 +46,19 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
     roll_btn_->setEnabled(false);
 }
 
-void GameWidget::start_new_game() {
-    game_.prepare_new_game(core::Side::Red);
-    game_.submit_layout(core::Side::Red, ai::decide_layout());
-    game_.submit_layout(core::Side::Blue, ai::decide_layout());
+void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>& human_layout) {
+    game_.prepare_new_game(human_side);
+
+    // 人类布阵
+    game_.submit_layout(human_side, human_layout);
+
+    // AI 布阵
+    core::Side ai_side = (human_side == core::Side::Red) ? core::Side::Blue : core::Side::Red;
+    game_.submit_layout(ai_side, ai::decide_layout());
+
     selected_pos_ = std::nullopt;
     update_ui();
+    trigger_ai_if_needed();
 }
 
 void GameWidget::on_exit_clicked() {
@@ -92,7 +99,8 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
             game_.make_move(*selected_pos_, pos);
             selected_pos_ = std::nullopt;
             update_ui();
-            QTimer::singleShot(500, this, &GameWidget::handle_ai_turn);
+
+            trigger_ai_if_needed();  // <--- 替换这行
             return;
         } catch (const std::exception& e) {
             auto piece = state.board.at(pos);
@@ -138,19 +146,42 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
     }
 }
 
+void GameWidget::trigger_ai_if_needed() {
+    auto state = game_.get_state();
+    // 游戏结束，或者轮到人类了，就不管
+    if (state.phase == core::Phase::GameOver) {
+        return;
+    }
+    if (state.current_side == state.player1_side) {
+        return;
+    }
+
+    // 轮到电脑了，延迟 500 毫秒让它走，给玩家一点视觉缓冲
+    QTimer::singleShot(500, this, &GameWidget::handle_ai_turn);
+}
+
 void GameWidget::handle_ai_turn() {
-    if (game_.get_state().phase == core::Phase::GameOver) {
+    auto state = game_.get_state();
+
+    // 防御：如果此时不是 AI 的回合，直接退出
+    if (state.phase == core::Phase::GameOver) {
         return;
     }
-    if (game_.get_state().current_side == game_.get_state().player1_side) {
+    if (state.current_side == state.player1_side) {
+        return;
+    }
+    if (state.phase != core::Phase::ThrowingDice) {
         return;
     }
 
-    game_.roll_dice();
-    ai::Move move = ai::decide_move(game_.get_state());
-    game_.make_move(move.from, move.to);
-
-    update_ui();
+    try {
+        game_.roll_dice();
+        ai::Move move = ai::decide_move(game_.get_state());
+        game_.make_move(move.from, move.to);
+        update_ui();
+    } catch (const std::exception& e) {
+        qDebug() << "AI 行动异常:" << e.what();
+    }
 }
 
 void GameWidget::update_ui() {

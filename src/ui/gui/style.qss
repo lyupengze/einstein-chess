@@ -20,3 +20,18 @@ QPushButton {
 QPushButton:hover {
     background-color: #2980b9;
 }
+QDialog {
+    background-color: #2c3e50;
+}
+QDialog QLabel {
+    color: #ecf0f1;
+    font-size: 14px;
+}
+QRadioButton {
+    color: #ecf0f1;
+    font-size: 14px;
+}
+QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+}

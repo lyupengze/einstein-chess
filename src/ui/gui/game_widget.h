@@ -19,7 +19,7 @@ public:
     explicit GameWidget(QWidget* parent = nullptr);
 
     // 供 MainWindow 调用来开局
-    void start_new_game();
+    void start_new_game(core::Side human_side, const std::array<int, 6>& human_layout);
 
 signals:
     // 告诉 MainWindow 我要回菜单
@@ -34,6 +34,7 @@ private:
     void update_ui();
     void handle_ai_turn();
     void show_message(const QString& msg);
+    void trigger_ai_if_needed();  // 新增
 
     std::vector<core::Pos> get_selectable_positions() const;
     std::vector<core::Pos> get_reachable_positions(core::Pos from) const;

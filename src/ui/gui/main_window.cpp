@@ -3,6 +3,8 @@
 #include <QDebug>
 #include <QVBoxLayout>
 
+#include "setup_dialog.h"
+
 namespace ui {
 
 MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
@@ -21,8 +23,17 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     layout->addWidget(stacked_widget_);
 
     connect(menu_widget_, &MenuWidget::start_game_clicked, this, [this]() {
-        game_widget_->start_new_game();
-        stacked_widget_->setCurrentWidget(game_widget_);
+        SetupDialog dialog(this);
+
+        // exec() 会阻塞直到弹窗关闭
+        if (dialog.exec() == QDialog::Accepted) {
+            // 获取用户选择的颜色和数组
+            int side_int = dialog.get_selected_side();
+            core::Side human_side = (side_int == 1) ? core::Side::Red : core::Side::Blue;
+            auto player_layout = dialog.get_layout();  // 改叫 player_layout 或 my_layout
+            game_widget_->start_new_game(human_side, player_layout);
+            stacked_widget_->setCurrentWidget(game_widget_);
+        }
     });
 
     connect(game_widget_, &GameWidget::exit_to_menu, this,
