@@ -1,0 +1,4 @@
+add_library(einstein_storage STATIC save_manager.cpp sqlite_wrapper.cpp)
+target_include_directories(einstein_storage PUBLIC ..)
+target_link_libraries(einstein_storage PUBLIC einstein_core PRIVATE sqlite3)
+target_link_libraries(einstein_storage PRIVATE einstein_warnings)
