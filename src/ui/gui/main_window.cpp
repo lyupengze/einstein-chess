@@ -1,9 +1,12 @@
 #include "main_window.h"
 
 #include <QDebug>
+#include <QMessageBox>
 #include <QVBoxLayout>
 
+#include "save_load_dialog.h"
 #include "setup_dialog.h"
+#include "storage/save_manager.h"
 
 namespace ui {
 
@@ -33,6 +36,27 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
             auto player_layout = dialog.get_layout();  // 改叫 player_layout 或 my_layout
             game_widget_->start_new_game(human_side, player_layout);
             stacked_widget_->setCurrentWidget(game_widget_);
+        }
+    });
+
+    connect(menu_widget_, &MenuWidget::load_game_clicked, this, [this]() {
+        SaveLoadDialog dialog(DialogMode::Load, this);
+        if (dialog.exec() == QDialog::Accepted) {
+            std::string name = dialog.get_selected_name();
+            try {
+                storage::SaveManager save_manager("einstein_save.db");
+                auto state_opt = save_manager.load_game(name);
+
+                if (state_opt) {
+                    // 告诉 GameWidget 载入这个状态
+                    game_widget_->load_game_state(*state_opt);
+                    stacked_widget_->setCurrentWidget(game_widget_);
+                } else {
+                    QMessageBox::warning(this, "错误", "找不到该存档。");
+                }
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "读取失败", e.what());
+            }
         }
     });
 

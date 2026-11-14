@@ -8,6 +8,7 @@ add_executable(einstein_gui
     menu_widget.cpp
     game_widget.cpp
     setup_dialog.cpp
+    save_load_dialog.cpp
     resources.qrc
 )
 

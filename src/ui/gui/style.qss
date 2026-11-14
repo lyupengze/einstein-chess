@@ -35,3 +35,37 @@ QRadioButton::indicator {
     width: 16px;
     height: 16px;
 }
+/* 针对输入框的修复 */
+QLineEdit {
+    background-color: #1a252f; /* 用比背景更深一点的颜色 */
+    color: #ecf0f1;            /* 文字变成白色 */
+    border: 1px solid #3498db; /* 给个蓝色边框，显得有质感 */
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+/* 针对存档列表的修复 */
+QListWidget {
+    background-color: #1a252f;
+    color: #ecf0f1;
+    border: 1px solid #34495e;
+    border-radius: 5px;
+    outline: none; /* 去掉点击时的丑陋虚线框 */
+}
+
+/* 列表里的每一项 */
+QListWidget::item {
+    padding: 8px;
+}
+
+/* 列表被选中的那一项 */
+QListWidget::item:selected {
+    background-color: #3498db;
+    color: white;
+}
+
+/* 顺便把 QDialog 的背景也固定一下，防止以后弹窗又变白 */
+QDialog {
+    background-color: #2c3e50;
+}

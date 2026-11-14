@@ -1,10 +1,13 @@
 #include <QApplication>
 #include <QDebug>
+#include <QDir>
 #include <QFile>
 
 #include "main_window.h"
 
 int main(int argc, char* argv[]) {
+    QDir::setCurrent(QCoreApplication::applicationDirPath());
+
     QApplication app(argc, argv);
 
     QFile styleFile(":/style.qss");

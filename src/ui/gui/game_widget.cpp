@@ -2,11 +2,14 @@
 
 #include <QDebug>
 #include <QHBoxLayout>
+#include <QMessageBox>  // 引入弹窗提示框
 #include <QTimer>
 #include <QVBoxLayout>
 
 #include "ai/ai.h"
 #include "core/rules.h"
+#include "save_load_dialog.h"
+#include "storage/save_manager.h"  // 引入存档管理
 
 namespace ui {
 
@@ -23,14 +26,17 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
 
     roll_btn_ = new QPushButton("掷骰子", this);
     exit_btn_ = new QPushButton("返回主页", this);
+    save_btn_ = new QPushButton("保存", this);
     roll_btn_->setFixedSize(100, 40);
     exit_btn_->setFixedSize(100, 40);
+    save_btn_->setFixedSize(100, 40);
 
     top_layout->addWidget(status_label_);
     top_layout->addWidget(message_label_);
     top_layout->addStretch();
     top_layout->addWidget(roll_btn_);
     top_layout->addWidget(exit_btn_);
+    top_layout->addWidget(save_btn_);  // 放在掷骰子旁边
     main_layout->addLayout(top_layout);
 
     board_widget_ = new BoardWidget(this);
@@ -41,6 +47,7 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
 
     connect(roll_btn_, &QPushButton::clicked, this, &GameWidget::on_roll_dice_clicked);
     connect(exit_btn_, &QPushButton::clicked, this, &GameWidget::on_exit_clicked);
+    connect(save_btn_, &QPushButton::clicked, this, &GameWidget::on_save_clicked);
     connect(board_widget_, &BoardWidget::cell_clicked, this, &GameWidget::on_cell_clicked);
 
     roll_btn_->setEnabled(false);
@@ -61,6 +68,13 @@ void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>&
     trigger_ai_if_needed();
 }
 
+void GameWidget::load_game_state(const core::GameState& state) {
+    game_.load_game(state);
+    selected_pos_ = std::nullopt;
+    update_ui();
+    trigger_ai_if_needed();  // 如果载入后刚好是 AI 回合，唤醒它
+}
+
 void GameWidget::on_exit_clicked() {
     emit exit_to_menu();
 }
@@ -75,6 +89,20 @@ void GameWidget::on_roll_dice_clicked() {
             qDebug() << "掷骰子失败:" << e.what();
         }
     });
+}
+
+void GameWidget::on_save_clicked() {
+    SaveLoadDialog dialog(DialogMode::Save, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        std::string name = dialog.get_save_name();
+        try {
+            storage::SaveManager save_manager("einstein_save.db");
+            save_manager.save_game(name, game_.get_state());
+            show_message("游戏已保存！");  // 复用之前的提示
+        } catch (const std::exception& e) {
+            QMessageBox::critical(this, "保存失败", e.what());
+        }
+    }
 }
 
 void GameWidget::show_message(const QString& msg) {
