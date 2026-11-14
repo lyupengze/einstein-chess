@@ -16,5 +16,5 @@ add_subdirectory(src/core)
 add_subdirectory(src/storage)
 add_subdirectory(src/ai)
 
-# add_subdirectory(src/ui/cli)
+add_subdirectory(src/ui/cli)
 add_subdirectory(src/ui/gui)
