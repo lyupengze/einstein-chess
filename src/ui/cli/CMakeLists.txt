@@ -1,0 +1,3 @@
+add_executable(einstein_cli main_cli.cpp)
+target_link_libraries(einstein_cli PRIVATE einstein_core einstein_storage einstein_ai)
+target_link_libraries(einstein_cli PRIVATE einstein_warnings)

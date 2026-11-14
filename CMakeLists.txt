@@ -15,10 +15,9 @@ add_subdirectory(src/core)
 add_subdirectory(src/storage)
 add_subdirectory(src/ai)
 
-add_executable(einstein_cli src/cli/main_cli.cpp)
-target_link_libraries(einstein_cli PRIVATE einstein_core einstein_storage einstein_ai)
+add_subdirectory(src/ui/cli)
 
-target_link_libraries(einstein_cli PRIVATE einstein_warnings)
+
 
 # add_executable(einstein_botzone src/botzone/main_botzone.cpp)
 # target_link_libraries(einstein_botzone PRIVATE einstein_core)
