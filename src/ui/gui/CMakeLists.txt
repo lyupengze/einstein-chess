@@ -5,6 +5,8 @@ add_executable(einstein_gui
     main_window.cpp
     board_widget.cpp
     dice_widget.cpp
+    menu_widget.cpp
+    game_widget.cpp
     resources.qrc
 )
 
