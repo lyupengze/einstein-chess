@@ -88,8 +88,10 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
             std::string pause;
             std::getline(std::cin, pause);
 
-            game.roll_dice();
-            std::cout << "电脑掷出了: " << *game.get_state().current_dice << "\n";
+            if (game.get_state().phase == core::Phase::ThrowingDice) {
+                game.roll_dice();
+                std::cout << "电脑掷出了: " << *game.get_state().current_dice << "\n";
+            }
 
             ai::Move move = ai::decide_move(game.get_state());
             game.make_move(move.from, move.to);
@@ -217,7 +219,6 @@ int main() {
 
             if (!parse_success) {
                 std::cout << "命令不合法\n\n";
-                std::getline(std::cin, layout_input);
                 continue;
             }
 

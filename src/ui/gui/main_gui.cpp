@@ -6,9 +6,8 @@
 #include "main_window.h"
 
 int main(int argc, char* argv[]) {
-    QDir::setCurrent(QCoreApplication::applicationDirPath());
-
     QApplication app(argc, argv);
+    QDir::setCurrent(QCoreApplication::applicationDirPath());
 
     QFile styleFile(":/style.qss");
     if (styleFile.open(QFile::ReadOnly | QFile::Text)) {

@@ -1,5 +1,6 @@
 #include "save_manager.h"
 
+#include <array>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -81,6 +82,7 @@ core::GameState deserialize(const std::string& data) {
         state.current_dice = dice;
     }
 
+    std::array<std::array<bool, 7>, 2> seen{};
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
             int val;
@@ -92,8 +94,16 @@ core::GameState deserialize(const std::string& data) {
             }
 
             if (val > 0) {
+                if (seen[0][val - 1]) {
+                    throw std::runtime_error("反序列化失败: 重复的棋子编号");
+                }
+                seen[0][val - 1] = true;
                 state.board.at({x, y}) = {core::Side::Red, val};
             } else if (val < 0) {
+                if (seen[1][-val - 1]) {
+                    throw std::runtime_error("反序列化失败: 重复的棋子编号");
+                }
+                seen[1][-val - 1] = true;
                 state.board.at({x, y}) = {core::Side::Blue, -val};
             } else {
                 state.board.at({x, y}) = {core::Side::None, 0};

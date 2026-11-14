@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 #include "core/board.h"

@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <random>
+#include <stdexcept>
 
 #include "board.h"
 #include "game_state.h"
