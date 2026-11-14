@@ -15,6 +15,10 @@ inline bool operator==(const Pos& a, const Pos& b) {
     return a.x == b.x && a.y == b.y;
 }
 
+inline bool operator!=(const Pos& a, const Pos& b) {
+    return !(a == b);
+}
+
 enum class Side { None, Red, Blue };
 
 struct Piece {
