@@ -8,7 +8,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(third_party/sqlite)
 
-add_executable(main src/main.cpp src/core/board.cpp src/core/rules.cpp src/core/game.cpp)
+add_library(einstein_warnings INTERFACE)
+target_compile_options(einstein_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Werror $<$<CONFIG:Debug>:-Og -g> $<$<NOT:$<CONFIG:Debug>>:-O2>)
 
-target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Werror -O2)
-target_link_libraries(main PRIVATE sqlite3)
+add_subdirectory(src/core)
+add_subdirectory(src/ai)
+
+add_executable(einstein_cli src/cli/main_cli.cpp)
+target_link_libraries(einstein_cli PRIVATE einstein_core)
+target_link_libraries(einstein_cli PRIVATE einstein_ai)
+
+# add_executable(einstein_botzone src/botzone/main_botzone.cpp)
+# target_link_libraries(einstein_botzone PRIVATE einstein_core)
+
+# add_executable(einstein_gui src/gui/main_gui.cpp)
+# target_link_libraries(einstein_gui PRIVATE einstein_core Qt6::Widgets)
+
+target_link_libraries(einstein_cli PRIVATE einstein_warnings)
