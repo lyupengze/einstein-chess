@@ -16,12 +16,5 @@ add_subdirectory(src/core)
 add_subdirectory(src/storage)
 add_subdirectory(src/ai)
 
-add_subdirectory(src/ui/cli)
-
-
-
-# add_executable(einstein_botzone src/botzone/main_botzone.cpp)
-# target_link_libraries(einstein_botzone PRIVATE einstein_core)
-
-# add_executable(einstein_gui src/gui/main_gui.cpp)
-# target_link_libraries(einstein_gui PRIVATE einstein_core Qt6::Widgets)
+# add_subdirectory(src/ui/cli)
+add_subdirectory(src/ui/gui)
