@@ -5,7 +5,7 @@
 #include <QPushButton>
 #include <QWidget>
 
-#include "board_widget.h"  // 引入你的棋盘组件
+#include "board_widget.h"
 #include "core/game.h"
 
 namespace ui {
@@ -17,7 +17,7 @@ public:
 
 private:
     core::Game game_;
-    BoardWidget* board_widget_;  // 持有组件的指针
+    BoardWidget* board_widget_;
     QLabel* status_label_;
 };
 

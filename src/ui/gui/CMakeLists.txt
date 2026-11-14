@@ -6,6 +6,7 @@ add_executable(einstein_gui
     board_widget.cpp
     resources.qrc
 )
+
 target_link_libraries(einstein_gui PRIVATE
     einstein_core einstein_ai einstein_storage einstein_warnings Qt6::Widgets
 )
