@@ -27,9 +27,8 @@ private:
     QRadioButton* red_radio_;
     QRadioButton* blue_radio_;
 
-    // 5x5 的微型棋盘按钮
     QPushButton* grid_btns_[5][5];
-    std::array<int, 6> layout_;  // 记录按顺序填入的 6 个数字
+    std::array<int, 6> layout_;
 
     void update_grid_ui();
     bool is_red_region(int x, int y) const;

@@ -11,11 +11,10 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle("布阵阶段");
     setFixedSize(400, 520);
 
-    layout_.fill(0);  // 初始全为 0，表示未放棋子
+    layout_.fill(0);
 
     auto* main_layout = new QVBoxLayout(this);
 
-    // 1. 选色
     auto* side_layout = new QHBoxLayout();
     side_layout->addWidget(new QLabel("你的阵营："));
     red_radio_ = new QRadioButton("红方 (先手 / 左上)");
@@ -29,7 +28,6 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
 
     main_layout->addWidget(new QLabel("点击亮起的格子循环切换数字 1~6："));
 
-    // 2. 微型 5x5 棋盘
     auto* grid_layout = new QGridLayout();
     grid_layout->setSpacing(2);
 
@@ -40,7 +38,6 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
             grid_btns_[i][j]->setStyleSheet(
                 "border-radius: 4px; font-size: 20px; font-weight: bold;");
 
-            // 绑定点击事件，注意捕获 i, j
             connect(grid_btns_[i][j], &QPushButton::clicked, this,
                     [this, i, j]() { on_grid_clicked(i, j); });
 
@@ -50,7 +47,6 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     main_layout->addLayout(grid_layout);
     main_layout->addSpacing(15);
 
-    // 3. 确认按钮
     auto* confirm_btn = new QPushButton("确认布阵", this);
     confirm_btn->setStyleSheet(
         "padding: 12px; font-size: 16px; background-color: #2ecc71; font-weight: bold;");
@@ -60,7 +56,7 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     connect(red_radio_, &QRadioButton::toggled, this, &SetupDialog::on_side_changed);
     connect(blue_radio_, &QRadioButton::toggled, this, &SetupDialog::on_side_changed);
 
-    on_side_changed();  // 初始化 UI
+    on_side_changed();
 }
 
 bool SetupDialog::is_red_region(int x, int y) const {
@@ -72,7 +68,6 @@ bool SetupDialog::is_blue_region(int x, int y) const {
 }
 
 int SetupDialog::get_index_in_region(int x, int y) const {
-    // 把二维坐标映射到 0~5 的索引
     if (red_radio_->isChecked()) {
         if (x == 0 && y == 0) {
             return 0;
@@ -116,7 +111,7 @@ int SetupDialog::get_index_in_region(int x, int y) const {
 }
 
 void SetupDialog::on_side_changed() {
-    layout_.fill(0);  // 切换颜色，重置布阵
+    layout_.fill(0);
     update_grid_ui();
 }
 
@@ -130,11 +125,11 @@ void SetupDialog::update_grid_ui() {
             if (active) {
                 int idx = get_index_in_region(i, j);
                 if (layout_[idx] == 0) {
-                    layout_[idx] = idx + 1;  // 默认填入 1~6
+                    layout_[idx] = idx + 1;
                 }
                 grid_btns_[i][j]->setEnabled(true);
                 grid_btns_[i][j]->setText(QString::number(layout_[idx]));
-                // 激活的格子用红/蓝色显示
+
                 grid_btns_[i][j]->setStyleSheet(
                     QString("background-color: %1; color: white; border-radius: 4px; font-size: "
                             "20px; font-weight: bold;")
@@ -142,7 +137,7 @@ void SetupDialog::update_grid_ui() {
             } else {
                 grid_btns_[i][j]->setEnabled(false);
                 grid_btns_[i][j]->setText("");
-                // 不可用区域用深色背景
+
                 grid_btns_[i][j]->setStyleSheet(
                     "background-color: #34495e; border-radius: 4px; border: none;");
             }
@@ -156,7 +151,6 @@ void SetupDialog::on_grid_clicked(int x, int y) {
         return;
     }
 
-    // 数字循环 1~6
     layout_[idx] = (layout_[idx] % 6) + 1;
     grid_btns_[x][y]->setText(QString::number(layout_[idx]));
 }

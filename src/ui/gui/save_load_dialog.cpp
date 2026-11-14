@@ -23,7 +23,6 @@ SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(paren
         name_input_->setPlaceholderText("例如：绝地反击");
         layout->addWidget(name_input_);
 
-        // 给出已有存档的提示
         layout->addWidget(new QLabel("已有存档（同名将覆盖）："));
     } else {
         if (saves.empty()) {
@@ -45,7 +44,6 @@ SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(paren
 
     connect(confirm_btn, &QPushButton::clicked, this, &SaveLoadDialog::on_confirm_clicked);
 
-    // 如果是 Load 模式，点击列表项直接填入输入框（虽然输入框没显示，但我们可以用它记录选中项）
     if (mode_ == DialogMode::Load && !saves.empty()) {
         list_widget_->setCurrentRow(0);
     }

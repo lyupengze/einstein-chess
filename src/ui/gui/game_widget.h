@@ -18,25 +18,24 @@ class GameWidget : public QWidget {
 public:
     explicit GameWidget(QWidget* parent = nullptr);
 
-    // 供 MainWindow 调用来开局
     void start_new_game(core::Side human_side, const std::array<int, 6>& human_layout);
     void load_game_state(const core::GameState& state);
 
 signals:
-    // 告诉 MainWindow 我要回菜单
+
     void exit_to_menu();
 
 private slots:
     void on_roll_dice_clicked();
     void on_cell_clicked(core::Pos pos);
-    void on_exit_clicked();  // 返回主页按钮
-    void on_save_clicked();  // 新增
+    void on_exit_clicked();
+    void on_save_clicked();
 
 private:
     void update_ui();
     void handle_ai_turn();
     void show_message(const QString& msg);
-    void trigger_ai_if_needed();  // 新增
+    void trigger_ai_if_needed();
 
     std::vector<core::Pos> get_selectable_positions() const;
     std::vector<core::Pos> get_reachable_positions(core::Pos from) const;
@@ -48,7 +47,7 @@ private:
     QLabel* message_label_;
     QPushButton* roll_btn_;
     QPushButton* exit_btn_;
-    QPushButton* save_btn_;  // 新增
+    QPushButton* save_btn_;
     std::optional<core::Pos> selected_pos_;
 };
 

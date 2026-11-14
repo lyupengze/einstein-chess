@@ -17,9 +17,8 @@ class SaveLoadDialog : public QDialog {
 public:
     explicit SaveLoadDialog(DialogMode mode, QWidget* parent = nullptr);
 
-    // 如果是 Save 模式，获取用户输入的存档名
     std::string get_save_name() const;
-    // 如果是 Load 模式，获取选中的存档名
+
     std::string get_selected_name() const;
 
 private slots:
@@ -28,7 +27,7 @@ private slots:
 private:
     DialogMode mode_;
     QListWidget* list_widget_;
-    QLineEdit* name_input_;  // 仅在 Save 模式下显示
+    QLineEdit* name_input_;
 };
 
 }  // namespace ui

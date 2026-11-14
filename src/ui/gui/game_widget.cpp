@@ -2,14 +2,14 @@
 
 #include <QDebug>
 #include <QHBoxLayout>
-#include <QMessageBox>  // 引入弹窗提示框
+#include <QMessageBox>
 #include <QTimer>
 #include <QVBoxLayout>
 
 #include "ai/ai.h"
 #include "core/rules.h"
 #include "save_load_dialog.h"
-#include "storage/save_manager.h"  // 引入存档管理
+#include "storage/save_manager.h"
 
 namespace ui {
 
@@ -36,7 +36,7 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
     top_layout->addStretch();
     top_layout->addWidget(roll_btn_);
     top_layout->addWidget(exit_btn_);
-    top_layout->addWidget(save_btn_);  // 放在掷骰子旁边
+    top_layout->addWidget(save_btn_);
     main_layout->addLayout(top_layout);
 
     board_widget_ = new BoardWidget(this);
@@ -56,10 +56,8 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
 void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>& human_layout) {
     game_.prepare_new_game(human_side);
 
-    // 人类布阵
     game_.submit_layout(human_side, human_layout);
 
-    // AI 布阵
     core::Side ai_side = (human_side == core::Side::Red) ? core::Side::Blue : core::Side::Red;
     game_.submit_layout(ai_side, ai::decide_layout());
 
@@ -72,7 +70,7 @@ void GameWidget::load_game_state(const core::GameState& state) {
     game_.load_game(state);
     selected_pos_ = std::nullopt;
     update_ui();
-    trigger_ai_if_needed();  // 如果载入后刚好是 AI 回合，唤醒它
+    trigger_ai_if_needed();
 }
 
 void GameWidget::on_exit_clicked() {
@@ -98,7 +96,7 @@ void GameWidget::on_save_clicked() {
         try {
             storage::SaveManager save_manager("einstein_save.db");
             save_manager.save_game(name, game_.get_state());
-            show_message("游戏已保存！");  // 复用之前的提示
+            show_message("游戏已保存！");
         } catch (const std::exception& e) {
             QMessageBox::critical(this, "保存失败", e.what());
         }
@@ -128,7 +126,7 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
             selected_pos_ = std::nullopt;
             update_ui();
 
-            trigger_ai_if_needed();  // <--- 替换这行
+            trigger_ai_if_needed();
             return;
         } catch (const std::exception& e) {
             auto piece = state.board.at(pos);
@@ -176,7 +174,7 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
 
 void GameWidget::trigger_ai_if_needed() {
     auto state = game_.get_state();
-    // 游戏结束，或者轮到人类了，就不管
+
     if (state.phase == core::Phase::GameOver) {
         return;
     }
@@ -184,14 +182,12 @@ void GameWidget::trigger_ai_if_needed() {
         return;
     }
 
-    // 轮到电脑了，延迟 500 毫秒让它走，给玩家一点视觉缓冲
     QTimer::singleShot(500, this, &GameWidget::handle_ai_turn);
 }
 
 void GameWidget::handle_ai_turn() {
     auto state = game_.get_state();
 
-    // 防御：如果此时不是 AI 的回合，直接退出
     if (state.phase == core::Phase::GameOver) {
         return;
     }

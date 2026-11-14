@@ -5,7 +5,7 @@
 namespace ui {
 
 DiceWidget::DiceWidget(QWidget* parent) : QWidget(parent) {
-    setMinimumSize(100, 100);  // 给骰子预留空间
+    setMinimumSize(100, 100);
     setMaximumSize(150, 150);
 }
 
@@ -19,26 +19,24 @@ void DiceWidget::paintEvent(QPaintEvent*) {
     painter.setRenderHint(QPainter::Antialiasing);
 
     if (!current_dice_.has_value()) {
-        return;  // 没点数就不画
+        return;
     }
 
     int dice_val = *current_dice_;
-    int size = std::min(width(), height()) - 20;  // 留点边距
+    int size = std::min(width(), height()) - 20;
     int x = (width() - size) / 2;
     int y = (height() - size) / 2;
 
     QRect dice_rect(x, y, size, size);
 
-    // 画白色圆角底色带阴影
     painter.setPen(Qt::NoPen);
     painter.setBrush(QColor(0, 0, 0, 50));
-    painter.drawRoundedRect(dice_rect.translated(3, 3), size / 5, size / 5);  // 阴影
+    painter.drawRoundedRect(dice_rect.translated(3, 3), size / 5, size / 5);
 
     painter.setPen(QPen(QColor("#95a5a6"), 2));
     painter.setBrush(Qt::white);
     painter.drawRoundedRect(dice_rect, size / 5, size / 5);
 
-    // 画点数
     painter.setPen(Qt::NoPen);
     painter.setBrush(QColor("#c0392b"));
 

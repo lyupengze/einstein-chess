@@ -11,7 +11,6 @@ class DiceWidget : public QWidget {
 public:
     explicit DiceWidget(QWidget* parent = nullptr);
 
-    // 接收最新的骰子点数
     void set_dice(std::optional<int> dice);
 
 protected:
