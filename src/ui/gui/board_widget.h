@@ -12,11 +12,9 @@ class BoardWidget : public QWidget {
 public:
     explicit BoardWidget(QWidget* parent = nullptr);
 
-    // 提供更新棋盘数据的方法
     void update_state(const core::GameState& state);
 
 protected:
-    // 负责把所有东西画出来
     void paintEvent(QPaintEvent* event) override;
 
 private:

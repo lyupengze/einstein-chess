@@ -24,6 +24,12 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     // 棋盘组件
     board_widget_ = new BoardWidget(this);
     main_layout->addWidget(board_widget_, 1);  // 占满剩余空间
+
+    // 在 main_window.cpp 的构造函数末尾加：
+    game_.prepare_new_game(core::Side::Red);
+    game_.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6});
+    game_.submit_layout(core::Side::Blue, {6, 5, 4, 3, 2, 1});
+    board_widget_->update_state(game_.get_state());
 }
 
 }  // namespace ui
