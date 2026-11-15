@@ -1,9 +1,10 @@
 #ifndef SQLITE_WRAPPER_H_
 #define SQLITE_WRAPPER_H_
 
-#include <sqlite3.h>
-
 #include <string>
+
+struct sqlite3;
+struct sqlite3_stmt;
 
 namespace storage {
 

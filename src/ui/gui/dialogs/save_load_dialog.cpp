@@ -14,7 +14,7 @@ SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(paren
 
     auto* layout = new QVBoxLayout(this);
 
-    storage::SaveManager save_manager("einstein_save.db");
+    storage::SaveManager save_manager(storage::kDefaultDbPath);
     auto saves = save_manager.list_saves();
 
     if (mode_ == DialogMode::Save) {

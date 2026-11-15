@@ -42,7 +42,7 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
         if (dialog.exec() == QDialog::Accepted) {
             std::string name = dialog.get_selected_name();
             try {
-                storage::SaveManager save_manager("einstein_save.db");
+                storage::SaveManager save_manager(storage::kDefaultDbPath);
                 auto state_opt = save_manager.load_game(name);
 
                 if (state_opt) {

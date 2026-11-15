@@ -118,7 +118,7 @@ int main() {
 #endif
     std::cout << "=== 爱因斯坦棋 (CLI) ===\n";
 
-    storage::SaveManager save_manager("einstein_save.db");
+    storage::SaveManager save_manager(storage::kDefaultDbPath);
 
     while (true) {
         std::cout << "1. 开始游戏\n";

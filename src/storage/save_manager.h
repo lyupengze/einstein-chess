@@ -10,6 +10,8 @@
 
 namespace storage {
 
+constexpr const char* kDefaultDbPath = "einstein_save.db";
+
 class SaveManager {
 public:
     explicit SaveManager(const std::string& db_path);

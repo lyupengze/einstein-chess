@@ -108,7 +108,7 @@ void GameWidget::on_save_clicked() {
     if (dialog.exec() == QDialog::Accepted) {
         std::string name = dialog.get_save_name();
         try {
-            storage::SaveManager save_manager("einstein_save.db");
+            storage::SaveManager save_manager(storage::kDefaultDbPath);
             save_manager.save_game(name, game_.get_state());
             show_message("游戏已保存！");
         } catch (const std::exception& e) {
