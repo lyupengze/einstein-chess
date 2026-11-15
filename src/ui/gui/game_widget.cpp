@@ -17,12 +17,10 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
     auto* main_layout = new QVBoxLayout(this);
     auto* top_layout = new QHBoxLayout();
     auto* content_layout = new QHBoxLayout();
+    auto* right_panel = new QVBoxLayout();
 
     status_label_ = new QLabel("等待开始游戏...", this);
     status_label_->setObjectName("statusLabel");
-
-    message_label_ = new QLabel("", this);
-    message_label_->setStyleSheet("color: #e74c3c; font-size: 14px; margin-left: 20px;");
 
     roll_btn_ = new QPushButton("掷骰子", this);
     exit_btn_ = new QPushButton("返回主页", this);
@@ -32,7 +30,6 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
     save_btn_->setFixedSize(100, 40);
 
     top_layout->addWidget(status_label_);
-    top_layout->addWidget(message_label_);
     top_layout->addStretch();
     top_layout->addWidget(roll_btn_);
     top_layout->addWidget(exit_btn_);
@@ -41,8 +38,14 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
 
     board_widget_ = new BoardWidget(this);
     dice_widget_ = new DiceWidget(this);
+    history_list_ = new QListWidget(this);
+    history_list_->setObjectName("historyList");
+    history_list_->setFixedWidth(200);
+
+    right_panel->addWidget(dice_widget_, 0, Qt::AlignHCenter);
+    right_panel->addWidget(history_list_);
     content_layout->addWidget(board_widget_, 1);
-    content_layout->addWidget(dice_widget_);
+    content_layout->addLayout(right_panel);
     main_layout->addLayout(content_layout, 1);
 
     connect(roll_btn_, &QPushButton::clicked, this, &GameWidget::on_roll_dice_clicked);
@@ -51,6 +54,9 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
     connect(board_widget_, &BoardWidget::cell_clicked, this, &GameWidget::on_cell_clicked);
 
     roll_btn_->setEnabled(false);
+
+    toast_ = new ToastWidget(this);
+    toast_->hide();
 }
 
 void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>& human_layout) {
@@ -62,6 +68,9 @@ void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>&
     game_.submit_layout(ai_side, ai::decide_layout());
 
     selected_pos_ = std::nullopt;
+
+    history_list_->clear();
+
     update_ui();
     trigger_ai_if_needed();
 }
@@ -69,6 +78,9 @@ void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>&
 void GameWidget::load_game_state(const core::GameState& state) {
     game_.load_game(state);
     selected_pos_ = std::nullopt;
+
+    history_list_->clear();
+
     update_ui();
     trigger_ai_if_needed();
 }
@@ -79,6 +91,8 @@ void GameWidget::on_exit_clicked() {
 
 void GameWidget::on_roll_dice_clicked() {
     roll_btn_->setEnabled(false);
+    status_label_->setText("🎲 正在掷骰子...");
+
     QTimer::singleShot(400, this, [this]() {
         try {
             game_.roll_dice();
@@ -104,8 +118,12 @@ void GameWidget::on_save_clicked() {
 }
 
 void GameWidget::show_message(const QString& msg) {
-    message_label_->setText("❌ " + msg);
-    QTimer::singleShot(3000, this, [this]() { message_label_->setText(""); });
+    toast_->show_message(msg);
+}
+
+void GameWidget::add_history_log(const QString& text) {
+    history_list_->addItem(text);
+    history_list_->scrollToBottom();
 }
 
 void GameWidget::on_cell_clicked(core::Pos pos) {
@@ -124,6 +142,20 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
         try {
             game_.make_move(*selected_pos_, pos);
             selected_pos_ = std::nullopt;
+
+            auto target_piece = state.board.at(pos);
+            QString log = QString("你: (%1,%2)->(%3,%4)")
+                              .arg(selected_pos_->x)
+                              .arg(selected_pos_->y)
+                              .arg(pos.x)
+                              .arg(pos.y);
+            if (target_piece.side != core::Side::None) {
+                log += QString(" 吃 %1%2")
+                           .arg(target_piece.side == core::Side::Red ? "R" : "B")
+                           .arg(target_piece.id);
+            }
+
+            add_history_log(log);
             update_ui();
 
             trigger_ai_if_needed();
@@ -187,24 +219,37 @@ void GameWidget::trigger_ai_if_needed() {
 
 void GameWidget::handle_ai_turn() {
     auto state = game_.get_state();
-
-    if (state.phase == core::Phase::GameOver) {
-        return;
-    }
-    if (state.current_side == state.player1_side) {
-        return;
-    }
-    if (state.phase != core::Phase::ThrowingDice) {
+    if (state.phase == core::Phase::GameOver || state.current_side == state.player1_side) {
         return;
     }
 
-    try {
+    if (state.phase == core::Phase::ThrowingDice) {
         game_.roll_dice();
-        ai::Move move = ai::decide_move(game_.get_state());
-        game_.make_move(move.from, move.to);
         update_ui();
-    } catch (const std::exception& e) {
-        qDebug() << "AI 行动异常:" << e.what();
+
+        QTimer::singleShot(800, this, [this]() {
+            try {
+                auto move = ai::decide_move(game_.get_state());
+
+                auto target_piece = game_.get_state().board.at(move.to);
+                QString log = QString("电脑: (%1,%2)->(%3,%4)")
+                                  .arg(move.from.x)
+                                  .arg(move.from.y)
+                                  .arg(move.to.x)
+                                  .arg(move.to.y);
+                if (target_piece.side != core::Side::None) {
+                    log += QString(" 吃 %1%2")
+                               .arg(target_piece.side == core::Side::Red ? "R" : "B")
+                               .arg(target_piece.id);
+                }
+                add_history_log(log);
+
+                game_.make_move(move.from, move.to);
+                update_ui();
+            } catch (const std::exception& e) {
+                qDebug() << "AI 异常:" << e.what();
+            }
+        });
     }
 }
 
@@ -227,7 +272,7 @@ void GameWidget::update_ui() {
 
     if (state.phase == core::Phase::GameOver) {
         status_label_->setText(
-            QString("%1 获胜！").arg(QString::fromStdString(core::side_name(state.winner))));
+            QString("🏆 %1 获胜！").arg(QString::fromStdString(core::side_name(state.winner))));
         roll_btn_->setEnabled(false);
         return;
     }
@@ -237,11 +282,17 @@ void GameWidget::update_ui() {
             status_label_->setText("轮到你了，请掷骰子");
             roll_btn_->setEnabled(true);
         } else {
-            status_label_->setText("你掷出了 " + QString::number(*state.current_dice) + "，请走棋");
+            status_label_->setText("🎲 你掷出了 " + QString::number(*state.current_dice) +
+                                   "，请走棋");
             roll_btn_->setEnabled(false);
         }
     } else {
-        status_label_->setText("电脑思考中...");
+        if (state.phase == core::Phase::ThrowingDice) {
+            status_label_->setText("🤖 电脑正在掷骰子...");
+        } else {
+            status_label_->setText("🎲 电脑掷出了 " + QString::number(*state.current_dice) +
+                                   "，正在思考...");
+        }
         roll_btn_->setEnabled(false);
     }
 }

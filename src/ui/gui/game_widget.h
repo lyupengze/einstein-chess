@@ -2,6 +2,7 @@
 #define GAME_WIDGET_H_
 
 #include <QLabel>
+#include <QListWidget>
 #include <QPushButton>
 #include <QWidget>
 #include <optional>
@@ -10,6 +11,7 @@
 #include "board_widget.h"
 #include "core/game.h"
 #include "dice_widget.h"
+#include "toast_widget.h"
 
 namespace ui {
 
@@ -17,6 +19,8 @@ class GameWidget : public QWidget {
     Q_OBJECT
 public:
     explicit GameWidget(QWidget* parent = nullptr);
+
+    enum class MessageType { Success, Error };
 
     void start_new_game(core::Side human_side, const std::array<int, 6>& human_layout);
     void load_game_state(const core::GameState& state);
@@ -36,6 +40,7 @@ private:
     void handle_ai_turn();
     void show_message(const QString& msg);
     void trigger_ai_if_needed();
+    void add_history_log(const QString& text);
 
     std::vector<core::Pos> get_selectable_positions() const;
     std::vector<core::Pos> get_reachable_positions(core::Pos from) const;
@@ -44,10 +49,11 @@ private:
     BoardWidget* board_widget_;
     DiceWidget* dice_widget_;
     QLabel* status_label_;
-    QLabel* message_label_;
+    ToastWidget* toast_;
     QPushButton* roll_btn_;
     QPushButton* exit_btn_;
     QPushButton* save_btn_;
+    QListWidget* history_list_;
     std::optional<core::Pos> selected_pos_;
 };
 

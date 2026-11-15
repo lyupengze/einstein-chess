@@ -84,21 +84,20 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
                 break;
             }
         } else {
-            std::cout << "电脑思考中...按回车继续...\n";
-            std::string pause;
-            std::getline(std::cin, pause);
-
             if (game.get_state().phase == core::Phase::ThrowingDice) {
                 game.roll_dice();
-                std::cout << "电脑掷出了: " << *game.get_state().current_dice << "\n";
             }
 
             ai::Move move = ai::decide_move(game.get_state());
             game.make_move(move.from, move.to);
 
-            std::cout << "电脑已走棋, 按回车继续...";
-            std::string pause2;
-            std::getline(std::cin, pause2);
+            std::cout << "电脑掷出了: " << *game.get_state().current_dice << "，从 (" << move.from.x
+                      << "," << move.from.y << ") 走到了 (" << move.to.x << "," << move.to.y
+                      << ")\n";
+
+            std::cout << "按回车继续...";
+            std::string pause;
+            std::getline(std::cin, pause);
         }
     }
 
