@@ -45,7 +45,7 @@ _(注：可执行文件位于 `build/bin/`，共 `einstein_gui.exe` / `einstein_
 
 - `einstein_gui.exe` 动态链接 `Qt6Core/Qt6Gui/Qt6Widgets`，需让运行时能在 `PATH` 中找到这些 DLL（开发环境为 `msys64/ucrt64/bin`），发布前可用 `windeployqt` 收集。
 - `einstein_cli.exe` 与 `einstein_botzone.exe` 不依赖 Qt，只需 MinGW 运行时（`libstdc++-6.dll`、`libgcc_s_seh-1.dll`）。
-- 存档写入**当前工作目录**下的 `einstein_save.db`（相对路径，见 `storage::kDefaultDbPath`）；GUI 与 CLI 在同一工作目录启动时共用同一份存档。
+- 存档固定写入 `einstein_save.db`（相对路径，见 `storage::kDefaultDbPath`）：GUI 启动时会 `QDir::setCurrent(applicationDirPath())`，因此存档落在 exe 旁边；CLI 则跟随启动目录，两者只有指向同一目录时才共用存档。
 
 ### GUI 版本 (推荐)
 
@@ -74,8 +74,8 @@ echo '{"initdata":{"player":0},"requests":[{"phase":"move","dice":3,"board":[[1,
 # {"response":{"x0":0,"x1":1,"y0":0,"y1":0}}     ← 三个合法落点中随机，每次不同
 ```
 
-- 输入：`initdata.player` 为己方颜色（0 先手）；`requests` 为完整历史，适配层只取最后一条。`requests` 缺失或为空、以及 `phase` 为 `layout` 都返回布阵；`phase` 为 `move` 时按 `dice` 与 5x5 `board`（外层 x、内层 y，正数红方、负数蓝方）返回走法；其他 `phase` 返回空 `response`。
-- 输出：`response.layout`（6 个编号）或 `response.x0/y0/x1/y1`。JSON 解析失败时 stderr 打印 `Bot error: ...`、stdout 输出 `{"response":{}}`，且进程退出码仍为 0。
+- 输入：`initdata.player` 为己方颜色（0 先手）；`requests` 为完整历史，适配层只取最后一条。`requests` 缺失或为空、以及 `phase` 为 `layout` 都返回布阵；`phase` 为 `move` 时按 `dice` 与 5x5 `board`（外层 x、内层 y，正数红方、负数蓝方）返回走法，`board` 不足 5x5 时缺失格按空位处理；其他 `phase` 返回空 `response`。
+- 输出：`response.layout`（6 个编号）或 `response.x0/y0/x1/y1`。请求非法时（JSON 解析失败、`dice` 缺失或不在 1~6、`board` 缺失或类型错误）stderr 打印 `Bot error: ...`、stdout 输出 `{"response":{}}`，进程退出码仍为 0。
 
 ## 📂 项目结构
 
@@ -117,7 +117,7 @@ echo '{"initdata":{"player":0},"requests":[{"phase":"move","dice":3,"board":[[1,
 
 - **AI 为占位实现**：`decide_move()` 只在合法走法中均匀随机挑选，`decide_layout()` 随机打乱，没有搜索与局面评估，后续优化。
 - **无自动化测试**：仓库未包含测试用例，也未启用 CTest；Botzone 适配层目前靠手工 JSON 用例验证。
-- **适配层输入契约宽松**：字段读取走的是 nlohmann 的 const `operator[]`，`move` 请求缺 `dice`/`board` 时 Debug 构建会断言中止（Release 仅碰巧转成异常）；`requests` 整个缺失会被静默当作空历史、返回随机布阵；未知 `phase` 返回空 `response`。正式接入平台前应改为 `at()`/`value()` 显式校验。
+- **适配层未校验棋子编号**：`board` 里的 `|val|` 没有限制在 1~6，非法编号会被当成真实棋子装载，最终以「AI 无路可走」收场而不是明确报错（`save_manager` 的反序列化对此是有校验的）。
 
 ## 👥 作者与分工
 
