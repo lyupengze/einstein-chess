@@ -140,13 +140,15 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
 
     if (selected_pos_) {
         try {
+            const core::Pos from_pos = *selected_pos_;
+
             game_.make_move(*selected_pos_, pos);
             selected_pos_ = std::nullopt;
 
             auto target_piece = state.board.at(pos);
             QString log = QString("你: (%1,%2)->(%3,%4)")
-                              .arg(selected_pos_->x)
-                              .arg(selected_pos_->y)
+                              .arg(from_pos.x)
+                              .arg(from_pos.y)
                               .arg(pos.x)
                               .arg(pos.y);
             if (target_piece.side != core::Side::None) {

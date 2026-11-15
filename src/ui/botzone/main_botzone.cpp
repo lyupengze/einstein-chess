@@ -8,6 +8,16 @@
 
 using json = nlohmann::json;
 
+namespace {
+
+constexpr int kBotzoneRedPlayer = 0;
+constexpr int kBotzoneBluePlayer = 1;
+constexpr int kNoPiece = 0;
+constexpr int kMinDice = 1;
+constexpr int kMaxDice = 6;
+
+}  // namespace
+
 int main() {
     std::string inputLine;
     if (!std::getline(std::cin, inputLine)) {
@@ -17,7 +27,7 @@ int main() {
     try {
         json input = json::parse(inputLine);
 
-        int my_color = 0;
+        int my_color = kBotzoneRedPlayer;
         if (input.contains("initdata") && input["initdata"].contains("player")) {
             my_color = input["initdata"]["player"].get<int>();
         }
@@ -25,7 +35,7 @@ int main() {
         json output;
         output["response"] = json::object();
 
-        const json& requests = input["requests"];
+        json requests = input.value("requests", json::array());
 
         if (requests.empty()) {
             auto layout = ai::decide_layout();
@@ -40,21 +50,37 @@ int main() {
             } else if (phase == "move") {
                 core::GameState state;
                 state.player1_side = core::Side::Red;
-                state.current_side = (my_color == 0) ? core::Side::Red : core::Side::Blue;
+                state.current_side =
+                    (my_color == kBotzoneRedPlayer) ? core::Side::Red : core::Side::Blue;
                 state.phase = core::Phase::Player1Thinking;
 
-                state.current_dice = latest_req["dice"].get<int>();
+                int dice = latest_req.value("dice", kNoPiece);
+                if (dice < kMinDice || dice > kMaxDice) {
+                    throw std::runtime_error("Missing or invalid dice");
+                }
+                state.current_dice = dice;
 
+                if (!latest_req.contains("board") || !latest_req["board"].is_array()) {
+                    throw std::runtime_error("Missing board");
+                }
                 const json& board_json = latest_req["board"];
-                for (std::size_t x = 0; x < 5; ++x) {
-                    for (std::size_t y = 0; y < 5; ++y) {
-                        int val = board_json[x][y].get<int>();
-                        if (val > 0) {
+
+                for (std::size_t x = 0; x < core::Board::kSize; ++x) {
+                    for (std::size_t y = 0; y < core::Board::kSize; ++y) {
+                        int val = kNoPiece;
+
+                        if (board_json.size() > x) {
+                            if (board_json[x].is_array() && board_json[x].size() > y) {
+                                val = board_json[x][y].get<int>();
+                            }
+                        }
+
+                        if (val > kNoPiece) {
                             state.board.at({x, y}) = {core::Side::Red, val};
-                        } else if (val < 0) {
+                        } else if (val < kNoPiece) {
                             state.board.at({x, y}) = {core::Side::Blue, -val};
                         } else {
-                            state.board.at({x, y}) = {core::Side::None, 0};
+                            state.board.at({x, y}) = {core::Side::None, kNoPiece};
                         }
                     }
                 }
