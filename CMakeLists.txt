@@ -18,3 +18,4 @@ add_subdirectory(src/ai)
 
 add_subdirectory(src/ui/cli)
 add_subdirectory(src/ui/gui)
+add_subdirectory(src/ui/botzone)
