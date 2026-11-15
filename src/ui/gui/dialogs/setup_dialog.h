@@ -2,37 +2,61 @@
 #define SETUP_DIALOG_H_
 
 #include <QDialog>
-#include <QGridLayout>
 #include <QPushButton>
 #include <QRadioButton>
 #include <array>
-#include <optional>
 
+// 布阵对话框（SetupDialog）的接口声明。
+// 玩家在这里选阵营，并把 1~6 六个编号摆进己方三角区；确定后由 MainWindow 取出
+// (阵营, layout) 交给 GameWidget::start_new_game，本类不接触 core::Game。
 namespace ui {
 
+/// @brief 布阵阶段对话框：选阵营 + 点击己方三角区循环切换棋子编号。
+///
+/// 5x5 按钮网格与棋盘同构：行下标 x 即 Pos.x（向下增大），列下标 y 即 Pos.y（向右增大）。
+/// 只有红/蓝三角区内的格子可点，其余格子禁用且显示为空。
 class SetupDialog : public QDialog {
     Q_OBJECT
 public:
+    /// @brief 搭 5x5 网格、阵营单选与确认按钮，并把阵营重置成红方。
+    /// @param parent 父控件，模态执行时以它为父窗口
     explicit SetupDialog(QWidget* parent = nullptr);
 
+    /// @brief 人类选择的阵营。
+    /// @return 1 表示红方（先手 / 左上），2 表示蓝方（后手 / 右下）
+    /// @note 1/2 只是本对话框的约定，MainWindow 会按 1、2 显式映射到 core::Side，
+    ///       不依赖 Side 的枚举数值。
     int get_selected_side() const;
+    /// @brief 六个编号的布阵结果。
+    /// @return 下标 0~5 与 Board::setup_custom 的落位顺序一一对应
+    /// @note 只有 accept() 之后取才有意义；对话框已保证六个编号互不重复且在 1~6。
     std::array<int, 6> get_layout() const;
 
 private slots:
+    /// @brief 确认按钮：先查重复编号，全部通过才 accept()。
     void on_confirm_clicked();
+    /// @brief 阵营切换：清空已摆好的编号并重画网格。
     void on_side_changed();
+    /// @brief 点击网格中的一格，把该格编号按 1->2->…->6->1 循环。
+    /// @param x 行号，对应 Pos.x
+    /// @param y 列号，对应 Pos.y
     void on_grid_clicked(int x, int y);
 
 private:
-    QRadioButton* red_radio_;
-    QRadioButton* blue_radio_;
+    QRadioButton* red_radio_;   ///< 红方（先手 / 左上），默认选中
+    QRadioButton* blue_radio_;  ///< 蓝方（后手 / 右下）
 
-    QPushButton* grid_btns_[5][5];
-    std::array<int, 6> layout_;
+    QPushButton* grid_btns_[5][5];  ///< 网格按钮，下标即 x、y，与 Pos 同序
+    std::array<int, 6> layout_;     ///< 布阵结果；0 表示“该格尚未分配编号”
 
+    /// @brief 按当前阵营重画 5x5 网格：活动格着色并显示编号，其余格禁用清空。
     void update_grid_ui();
+    /// @brief 判断某格是否属于红方三角区（左上角 3+2+1 格）。
     bool is_red_region(int x, int y) const;
+    /// @brief 判断某格是否属于蓝方三角区（右下角 3+2+1 格）。
     bool is_blue_region(int x, int y) const;
+    /// @brief 把坐标换算成己方三角区内的 0~5 下标。
+    /// @return 落在三角区内返回 0~5，否则返回 -1（调用方须自行过滤）
     int get_index_in_region(int x, int y) const;
 };
 

@@ -1,5 +1,6 @@
 #include "board.h"
 
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <sstream>
@@ -10,6 +11,8 @@
 
 namespace core {
 
+// std::array 的 value-initialization 会把每个 Piece 的 side 置为 None、id 置为 0，
+// 因此空棋盘不需要额外初始化逻辑。
 Board::Board() : cells_{} {
 }
 
@@ -25,10 +28,14 @@ const Piece& Board::at(const Pos& p) const {
     return cells_[p.x][p.y];
 }
 
+// 非 const 版本复用 const 版本的边界检查，避免两处逻辑漂移；
+// 因为已经确认坐标合法、且 this 指向真实对象，这里的 const_cast 是安全的。
 Piece& Board::at(const Pos& p) {
     return const_cast<Piece&>(static_cast<const Board*>(this)->at(p));
 }
 
+// 三个查询函数都是全盘 25 格扫描：棋盘极小，不值得为此维护额外的索引结构。
+// 注意：空格子的 id 恒为 0，因此 side 为红/蓝时按 id 查找传 0 不会命中。
 bool Board::has_piece(Side side, int id) const {
     for (std::size_t i = 0; i < kSize; ++i) {
         for (std::size_t j = 0; j < kSize; ++j) {
@@ -51,6 +58,7 @@ std::optional<Pos> Board::find_piece(Side side, int id) const {
     return std::nullopt;
 }
 
+// 只统计 side 匹配的格子；由于允许吃己方棋子，结果可能小于 kChessCount。
 int Board::count_pieces(Side side) const {
     int count = 0;
     for (std::size_t i = 0; i < kSize; ++i) {
@@ -64,10 +72,12 @@ int Board::count_pieces(Side side) const {
 }
 
 void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) {
+    // Side::None 无法映射到任何一方，必须先拒绝，否则下面的分支会把它当蓝方处理。
     if (side == Side::None) {
         throw std::invalid_argument("side 不能为 None");
     }
 
+    // layout 必须是 1~6 的排列：用 seen 数组同时检查越界（id <= 0 或 > 6）与重复。
     std::array<bool, kChessCount> seen{};
     for (int id : layout) {
         if (id <= 0 || id > kChessCount || seen[id - 1]) {
@@ -76,6 +86,10 @@ void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) 
         seen[id - 1] = true;
     }
 
+    // 初始区六个格子的落位顺序：layout[0..5] 依次写入这里列出的坐标。
+    // 红方从左上角按行优先展开，蓝方从右下角按镜像顺序展开。
+    // 该顺序与 SetupDialog::get_index_in_region 的返回值一一对应，
+    // 改动任意一边都会让图形布阵与棋盘实际落子错位。
     constexpr std::array<Pos, kChessCount> kRedPos{
         {{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {2, 0}}};
     constexpr std::array<Pos, kChessCount> kBluePos{
@@ -90,6 +104,10 @@ void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) 
     }
 }
 
+// 输出格式（供 CLI 阅读）：
+//     0  1  2  3  4     <- 列号 y
+//   0 .  R1 B2 .  .    <- 行号 x 在行首，格子固定 3 个字符宽
+// 空格子为 " . "，棋子为 " R<编号>"/" B<编号>"（R=红方，B=蓝方）。
 std::string Board::to_string() const {
     std::ostringstream oss;
     oss << ' ';

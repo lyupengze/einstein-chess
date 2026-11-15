@@ -1,17 +1,24 @@
+# 顶层构建脚本：定义全局编译选项，并按依赖顺序组装各子目录的 targets。
+# 所有可执行文件统一输出到构建目录下的 bin/（如 build/bin）。
 cmake_minimum_required(VERSION 3.20)
 
 project(einstein_chess LANGUAGES C CXX)
 
+# 全项目统一 C++17，禁止编译器私有扩展，保证不同平台行为一致。
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+# SQLite 以 amalgamation 源码形式内嵌在 third_party 下，编译成独立静态库。
 add_subdirectory(third_party/sqlite)
 
+# 公共告警选项以 INTERFACE 库下发：任何 target 链接它即继承同一套编译参数。
+# -Werror 表示新增代码不允许引入任何告警；Debug 用 -Og -g，其余配置用 -O2。
 add_library(einstein_warnings INTERFACE)
 target_compile_options(einstein_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Werror $<$<CONFIG:Debug>:-Og -g> $<$<NOT:$<CONFIG:Debug>>:-O2>)
 
+# 依赖顺序：core 无外部依赖；storage / ai 依赖 core；三个可执行目标最后加入。
 add_subdirectory(src/core)
 add_subdirectory(src/storage)
 add_subdirectory(src/ai)

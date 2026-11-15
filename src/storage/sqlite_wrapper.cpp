@@ -4,11 +4,11 @@
 
 #include <stdexcept>
 #include <string>
-#include <utility>
 
 namespace storage {
 
 Database::Database(const std::string& db_path) {
+    // sqlite3_open 失败时也可能分配了句柄，必须 close 再抛，否则泄漏。
     int rc = sqlite3_open(db_path.c_str(), &db_);
     if (rc != SQLITE_OK) {
         std::string err_msg = sqlite3_errmsg(db_);
@@ -25,12 +25,15 @@ Database::~Database() {
     }
 }
 
+// 移动语义都是"接管指针 + 源对象置空"，
+// 这样源对象析构时不会关闭已经转移出去的连接。
 Database::Database(Database&& other) noexcept : db_(other.db_) {
     other.db_ = nullptr;
 }
 
 Database& Database::operator=(Database&& other) noexcept {
     if (this != &other) {
+        // 先释放自己持有的连接，否则被覆盖后泄漏。
         if (db_ != nullptr) {
             sqlite3_close(db_);
         }
@@ -45,6 +48,7 @@ sqlite3* Database::get() const {
 }
 
 Statement::Statement(Database& db, const std::string& sql) {
+    // nByte = -1：sql 以 NUL 结尾；末尾输出参数（未编译的尾巴）本项目用不到，传 nullptr。
     int rc = sqlite3_prepare_v2(db.get(), sql.c_str(), -1, &stmt_, nullptr);
     if (rc != SQLITE_OK) {
         throw std::runtime_error("Failed to prepare statement: " +
@@ -83,6 +87,8 @@ void Statement::bind(int index, double value) {
 }
 
 void Statement::bind(int index, const std::string& value) {
+    // SQLITE_TRANSIENT：让 SQLite 立即拷贝字符串内容。
+    // 不用 SQLITE_STATIC，是因为调用方的 value 可能先于语句失效。
     sqlite3_bind_text(stmt_, index, value.c_str(), -1, SQLITE_TRANSIENT);
 }
 
@@ -97,12 +103,15 @@ bool Statement::step() {
     } else if (rc == SQLITE_DONE) {
         return false;
     } else {
+        // 其余返回码（约束冲突、IO 错误等）统一升级为异常，
+        // 调用方不必逐个检查 C 风格返回码。
         throw std::runtime_error("Failed to step statement: " +
                                  std::string(sqlite3_errmsg(sqlite3_db_handle(stmt_))));
     }
 }
 
 void Statement::reset() {
+    // clear_bindings 不能省：reset 只复位执行状态，不会清理已绑定的参数。
     sqlite3_reset(stmt_);
     sqlite3_clear_bindings(stmt_);
 }
@@ -114,6 +123,7 @@ double Statement::column_double(int col) const {
     return sqlite3_column_double(stmt_, col);
 }
 std::string Statement::column_text(int col) const {
+    // 列值为 SQL NULL（或内存不足）时返回 nullptr，这里统一折叠成空串。
     const unsigned char* text = sqlite3_column_text(stmt_, col);
     return text ? reinterpret_cast<const char*>(text) : "";
 }

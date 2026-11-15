@@ -1,7 +1,13 @@
+/* ==========================================================================
+   全局基础样式
+   ========================================================================== */
+
+/* 所有基础控件（包括主窗口、普通页面）的深色背景 */
 QMainWindow, QWidget {
     background-color: #2c3e50;
 }
 
+/* 对局页顶部的状态提示文字：亮白、加粗、稍大 */
 QLabel#statusLabel {
     color: #ecf0f1;
     font-family: "Microsoft YaHei";
@@ -9,6 +15,11 @@ QLabel#statusLabel {
     font-weight: bold;
 }
 
+/* ==========================================================================
+   通用按钮样式
+   ========================================================================== */
+
+/* 默认主按钮：蓝色背景、圆角、白字 */
 QPushButton {
     background-color: #3498db;
     color: white;
@@ -17,29 +28,50 @@ QPushButton {
     font-weight: bold;
 }
 
+/* 按钮悬浮反馈：鼠标移上去变深蓝，提供交互感 */
 QPushButton:hover {
     background-color: #2980b9;
 }
 
+/* 按钮按下时的反馈：颜色更深，显得有“按下去”的物理感 */
+QPushButton:pressed {
+    background-color: #1f618d;
+}
+
+/* 按钮禁用时的样子：变成半透明的灰色，让玩家一眼看出“现在不能点” */
+QPushButton:disabled {
+    background-color: #7f8c8d;
+    color: rgba(255, 255, 255, 0.4); /* 文字变暗 */
+}
+
+/* ==========================================================================
+   弹窗与表单控件样式（布阵、存读档对话框）
+   ========================================================================== */
+
+/* 弹窗本体背景与主窗口保持一致 */
 QDialog {
     background-color: #2c3e50;
 }
 
+/* 弹窗内的普通文字标签 */
 QDialog QLabel {
     color: #ecf0f1;
     font-size: 14px;
 }
 
+/* 单选按钮（红方/蓝方）的文字 */
 QRadioButton {
     color: #ecf0f1;
     font-size: 14px;
 }
 
+/* 单选按钮的小圆圈图标大小 */
 QRadioButton::indicator {
     width: 16px;
     height: 16px;
 }
 
+/* 文本输入框（存档命名）：深色背景、蓝色边框高亮 */
 QLineEdit {
     background-color: #1a252f;
     color: #ecf0f1;
@@ -49,6 +81,7 @@ QLineEdit {
     font-size: 14px;
 }
 
+/* 通用列表控件（如存档列表）：去掉了系统默认的虚线选中框(outline: none) */
 QListWidget {
     background-color: #1a252f;
     color: #ecf0f1;
@@ -57,19 +90,22 @@ QListWidget {
     outline: none;
 }
 
+/* 列表项的内边距 */
 QListWidget::item {
     padding: 8px;
 }
 
+/* 列表项被选中时的背景色 */
 QListWidget::item:selected {
     background-color: #3498db;
     color: white;
 }
 
-QDialog {
-    background-color: #2c3e50;
-}
+/* ==========================================================================
+   自定义组件专属样式（通过 objectName 精准命中）
+   ========================================================================== */
 
+/* Toast 悬浮轻提示：半透明黑底、白字、圆角 */
 QLabel#toast {
     background-color: rgba(0, 0, 0, 0.85);
     color: white;
@@ -79,6 +115,7 @@ QLabel#toast {
     font-family: "Microsoft YaHei";
 }
 
+/* 走子历史记录列表：专属的边框、字号调整（会覆盖上方通用的 QListWidget 样式） */
 QListWidget#historyList {
     background-color: #1a252f;
     color: #ecf0f1;
@@ -88,11 +125,13 @@ QListWidget#historyList {
     border: 1px solid #34495e;
 }
 
+/* 历史列表的每一行：底部加一条极细的深色分割线 */
 QListWidget#historyList::item {
     padding: 4px 0px;
     border-bottom: 1px solid #2c3e50;
 }
 
+/* 历史列表行被选中时的高亮 */
 QListWidget#historyList::item:selected {
     background-color: #3498db;
     color: white;

@@ -102,13 +102,13 @@ echo '{"initdata":{"player":0},"requests":[{"phase":"move","dice":3,"board":[[1,
 
 ### 构建目标与依赖
 
-| 目标 | 类型 | 依赖 |
-| --- | --- | --- |
-| `einstein_core` | 静态库 | 无 |
-| `einstein_ai` | 静态库 | core |
-| `einstein_storage` | 静态库 | core、`sqlite3`（内部封装，不外泄 `<sqlite3.h>`） |
-| `einstein_cli` | 可执行 | core、ai、storage |
-| `einstein_gui` | 可执行 | core、ai、storage、`Qt6::Widgets` |
+| 目标               | 类型   | 依赖                                               |
+| ------------------ | ------ | -------------------------------------------------- |
+| `einstein_core`    | 静态库 | 无                                                 |
+| `einstein_ai`      | 静态库 | core                                               |
+| `einstein_storage` | 静态库 | core、`sqlite3`（内部封装，不外泄 `<sqlite3.h>`）  |
+| `einstein_cli`     | 可执行 | core、ai、storage                                  |
+| `einstein_gui`     | 可执行 | core、ai、storage、`Qt6::Widgets`                  |
 | `einstein_botzone` | 可执行 | core、ai + `nlohmann/json`（不接存档，保持无状态） |
 
 各库以 `target_include_directories(... PUBLIC ..)` 暴露 `src/`，因此跨模块 include 统一写作 `core/game.h`、`ai/ai.h` 这类限定路径。顶层还定义了 INTERFACE 目标 `einstein_warnings`（`-Wall -Wextra -Wpedantic -Wshadow -Werror`），`src/` 下的每个目标都必须链接它。
