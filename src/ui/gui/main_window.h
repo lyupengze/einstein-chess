@@ -4,8 +4,8 @@
 #include <QStackedWidget>
 #include <QWidget>
 
-#include "game_widget.h"
-#include "menu_widget.h"
+#include "views/game_widget.h"
+#include "views/menu_widget.h"
 
 namespace ui {
 

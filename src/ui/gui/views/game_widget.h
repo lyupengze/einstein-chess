@@ -8,10 +8,10 @@
 #include <optional>
 #include <vector>
 
-#include "board_widget.h"
+#include "components/board_widget.h"
+#include "components/dice_widget.h"
+#include "components/toast_widget.h"
 #include "core/game.h"
-#include "dice_widget.h"
-#include "toast_widget.h"
 
 namespace ui {
 

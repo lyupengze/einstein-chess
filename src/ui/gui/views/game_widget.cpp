@@ -8,7 +8,7 @@
 
 #include "ai/ai.h"
 #include "core/rules.h"
-#include "save_load_dialog.h"
+#include "dialogs/save_load_dialog.h"
 #include "storage/save_manager.h"
 
 namespace ui {
