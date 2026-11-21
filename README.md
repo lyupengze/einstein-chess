@@ -64,18 +64,24 @@ cmake --build . -j
 无状态单次调用适配层：从 stdin 读取**一行** JSON 请求，向 stdout 写出**一行** JSON 响应后退出。不链接 `storage`，也不写任何文件。
 
 ```bash
-# 请求布阵：requests 为空即进入布阵阶段
-echo '{"initdata":{"player":0},"requests":[]}' | ./build/bin/einstein_botzone.exe
-# {"response":{"layout":[1,3,2,4,5,6]}}          ← 布阵为随机排列，每次不同
-
-# 请求走子：红方 1 号在 (0,0)，掷出 3 点但 3 号不在场，按规则降级为可选 1 号
-echo '{"initdata":{"player":0},"requests":[{"phase":"move","dice":3,"board":[[1,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,-1]]}]}' \
+# 布阵：每条 request 由裁判给出 color 与 region（这里以蓝方为例）
+echo '{"requests":[{"phase":"layout","color":1,"region":[[4,4],[4,3],[4,2],[3,4],[3,3],[2,4]]}],"responses":[]}' \
   | ./build/bin/einstein_botzone.exe
-# {"response":{"x0":0,"x1":1,"y0":0,"y1":0}}     ← 三个合法落点中随机，每次不同
+# {"response":{"layout":[2,5,1,6,3,4]}}            ← 布阵为随机排列，每次不同
+
+# 走子：蓝方（color=1）掷出 4 点，初始局面下 4 号棋子在 (3,4)
+echo '{"requests":[{"phase":"move","color":1,"dice":4,"board":[[1,2,3,0,0],[4,5,0,0,0],[6,0,0,0,-6],[0,0,0,-5,-4],[0,0,-3,-2,-1]]}],"responses":[]}' \
+  | ./build/bin/einstein_botzone.exe
+# {"response":{"x0":3,"y0":4,"x1":2,"y1":3}}        ← 三个合法落点中随机，每次不同
+
+# 骰点降级：红方掷出 3 点但 3 号不在场，按规则降级为可选 1 号
+echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,-1]]}],"responses":[]}' \
+  | ./build/bin/einstein_botzone.exe
+# {"response":{"x0":0,"y0":0,"x1":1,"y1":1}}        ← 三个合法落点中随机，每次不同
 ```
 
-- 输入：`initdata.player` 为己方颜色（0 先手）；`requests` 为完整历史，适配层只取最后一条。`requests` 缺失或为空、以及 `phase` 为 `layout` 时返回布阵；`phase` 为 `move` 时，依据 `dice` 与 5×5 `board`（外层 x、内层 y，正数红方、负数蓝方）返回走法；`board` 不足 5×5 时，缺失格按空位处理；其他 `phase` 返回空 `response`。
-- 输出：`response.layout`（6 个编号）或 `response.x0/y0/x1/y1`。请求非法时（JSON 解析失败、`dice` 缺失或不在 1~6、`board` 缺失或类型错误），stderr 打印 `Bot error: ...`，stdout 输出 `{"response":{}}`，进程退出码仍为 0。
+- 输入：`requests` 为完整历史，适配层只取最后一条。平台不会给 Bot 下发顶层 `initdata`；本方阵营来自该条 request 的 `color` 字段（0 = 红方先手，1 = 蓝方）。`requests` 缺失或为空、以及 `phase` 为 `layout` 时返回布阵（布阵与颜色无关，按裁判 `region` 顺序落位，与 core 的初始区逐格一致）；`phase` 为 `move` 时，依据 `dice` 与 5×5 `board`（外层行 x、内层列 y，正数红方 1~6、负数蓝方 1~6、0 空格）返回走法；`board` 不足 5×5 时，缺失格按空位处理；其他 `phase` 返回空 `response`。
+- 输出：`response.layout`（6 个编号）或 `response.x0/y0/x1/y1`。请求非法时（JSON 解析失败、`dice` 缺失或不在 1~6、`board` 缺失或类型错误、`color` 不是 0/1），stderr 打印 `Bot error: ...`，stdout 输出 `{"response":{}}`，进程退出码仍为 0。
 
 ## 📂 项目结构
 

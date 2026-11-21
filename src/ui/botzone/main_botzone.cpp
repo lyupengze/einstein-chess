@@ -3,7 +3,8 @@
 // 输入/输出协议（详见 README 的 Botzone 一节）：
 //   - requests 为空：首次调用，返回 response.layout 布阵；
 //   - 最后一个 request 的 phase == "layout"：再次布阵；
-//   - 最后一个 request 的 phase == "move"：读取棋盘与骰子，返回 x0/y0/x1/y1 走法。
+//   - 最后一个 request 的 phase == "move"：读取 color、棋盘与骰子，返回 x0/y0/x1/y1 走法。
+// 注意：本方阵营来自 request 的 color 字段，而不是顶层 initdata——平台不会给 Bot 下发 initdata。
 
 #include <cstddef>
 #include <iostream>
@@ -19,13 +20,42 @@ using json = nlohmann::json;
 
 namespace {
 
-// initdata.player 的取值约定：0 = 红方，1 = 蓝方。
+// 阵营取值约定（裁判在 request 的 color 字段里给出）：0 = 红方（先手），1 = 蓝方。
 constexpr int kBotzoneRedPlayer = 0;
 constexpr int kBotzoneBluePlayer = 1;
 // 棋盘格编码：正数 = 红方棋子编号，负数 = 蓝方棋子编号，0 = 空格。
 constexpr int kNoPiece = 0;
 constexpr int kMinDice = 1;
 constexpr int kMaxDice = 6;
+
+// 校验并返回 0/1 阵营值。非整数或越界都按协议错误抛异常：静默当成某一方
+// 会让整局棋从一开始就走错颜色，反而不如让上层回空 response。
+int check_color(const json& value, const char* field_name) {
+    if (!value.is_number_integer()) {
+        throw std::runtime_error(std::string("Invalid color in ") + field_name);
+    }
+    const int color = value.get<int>();
+    if (color != kBotzoneRedPlayer && color != kBotzoneBluePlayer) {
+        throw std::runtime_error(std::string("Invalid color in ") + field_name);
+    }
+    return color;
+}
+
+// 从最新一帧 request 取本方阵营。裁判在每个 request 的 content 里都带
+// color 字段，这是平台上的唯一来源。
+//
+// 顶层 input["initdata"]["player"] 只是早期本地手工用例的写法（平台从不下发
+// 顶层 initdata），保留它仅为兼容旧命令；两者都缺时退回红方，与最早的行为一致。
+int resolve_color(const json& latest_req, const json& input) {
+    if (latest_req.contains("color")) {
+        return check_color(latest_req["color"], "request color");
+    }
+    if (input.contains("initdata") && input["initdata"].is_object() &&
+        input["initdata"].contains("player")) {
+        return check_color(input["initdata"]["player"], "initdata.player");
+    }
+    return kBotzoneRedPlayer;
+}
 
 }  // namespace
 
@@ -40,14 +70,6 @@ int main() {
         // JSON 语法错误会在这里抛异常，由下面的 catch 统一兜底。
         json input = json::parse(inputLine);
 
-        // 从 initdata 取本方阵营；缺字段时按红方处理（只影响 move 阶段
-        // 构造的 current_side）。contains 先行判断，避免 operator[] 在
-        // 缺字段时向 json 插入 null。
-        int my_color = kBotzoneRedPlayer;
-        if (input.contains("initdata") && input["initdata"].contains("player")) {
-            my_color = input["initdata"]["player"].get<int>();
-        }
-
         // 先放一个空 response：走任何分支都能保证输出是结构合法的 JSON。
         json output;
         output["response"] = json::object();
@@ -57,7 +79,8 @@ int main() {
         json requests = input.value("requests", json::array());
 
         if (requests.empty()) {
-            // 首次调用：平台只需要布阵。
+            // 平台正常流程不会走到这里：布阵帧同样带 phase == "layout"。
+            // 只有本地手工用例会给空 requests，按布阵回复即可。
             auto layout = ai::decide_layout();
             // std::array<int, 6> 会被 nlohmann 直接序列化成 JSON 数组。
             output["response"]["layout"] = layout;
@@ -72,14 +95,15 @@ int main() {
                 auto layout = ai::decide_layout();
                 output["response"]["layout"] = layout;
             } else if (phase == "move") {
-                // 协议只给"棋盘 + 骰子"，这里拼出 ai::decide_move 所需的最小
+                // 协议只给"颜色 + 棋盘 + 骰子"，这里拼出 ai::decide_move 所需的最小
                 // GameState：player1_side 固定写红方（decide_move 并不关心它），
                 // current_side 才是真正要决策的一方；phase 设为思考阶段以通过
                 // decide_move 的前置检查。
                 core::GameState state;
                 state.player1_side = core::Side::Red;
-                state.current_side =
-                    (my_color == kBotzoneRedPlayer) ? core::Side::Red : core::Side::Blue;
+                state.current_side = (resolve_color(latest_req, input) == kBotzoneRedPlayer)
+                                         ? core::Side::Red
+                                         : core::Side::Blue;
                 state.phase = core::Phase::Player1Thinking;
 
                 // 骰子缺失时 value() 返回 kNoPiece(0)，随即被范围检查拒绝，
