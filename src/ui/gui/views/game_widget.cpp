@@ -125,9 +125,11 @@ void GameWidget::on_roll_dice_clicked() {
             game_.roll_dice();
             update_ui();
         } catch (const std::exception& e) {
-            // 正常操作到不了这里（按钮已按阶段禁用），出错只记日志，不弹窗打断玩家。
-            // 注意: 异常分支不恢复按钮，掷骰失败后界面会一直停在禁用态无法自行恢复。
+            // 正常操作到不了这里（按钮已按阶段禁用）。出错时恢复界面而不是只记日志：
+            // update_ui 会按当前阶段重新决定文案与按钮可用性，否则按钮会永久停在禁用态。
             qDebug() << "掷骰子失败:" << e.what();
+            show_message(QString("掷骰失败: ") + e.what());
+            update_ui();
         }
     });
 }
@@ -135,18 +137,20 @@ void GameWidget::on_roll_dice_clicked() {
 void GameWidget::on_save_clicked() {
     // 对话框只收集名字，写库放在调用方；路径是相对名 kDefaultDbPath，
     // 因为 main_gui.cpp 已把工作目录切到 exe 所在目录，存档就落在 exe 旁边。
-    // 注意: 这一行在 try 之外，而对话框构造时就会打开数据库，失败时异常无人接住。
-    SaveLoadDialog dialog(DialogMode::Save, this);
-    if (dialog.exec() == QDialog::Accepted) {
-        std::string name = dialog.get_save_name();
-        try {
-            // 每次新建而不是做成成员：SQLite 连接的生命周期就被限制在这个块里。
-            storage::SaveManager save_manager(storage::kDefaultDbPath);
-            save_manager.save_game(name, game_.get_state());
-            show_message("游戏已保存！");
-        } catch (const std::exception& e) {
-            QMessageBox::critical(this, "保存失败", e.what());
+    // 注意: SaveLoadDialog 构造时就会打开数据库，所以连对话框构造一起放进 try，
+    //       否则库打不开时异常会穿出 Qt 事件循环直接终止进程。
+    try {
+        SaveLoadDialog dialog(DialogMode::Save, this);
+        if (dialog.exec() != QDialog::Accepted) {
+            return;
         }
+        std::string name = dialog.get_save_name();
+        // 每次新建而不是做成成员：SQLite 连接的生命周期就被限制在这个块里。
+        storage::SaveManager save_manager(storage::kDefaultDbPath);
+        save_manager.save_game(name, game_.get_state());
+        show_message("游戏已保存！");
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "保存失败", e.what());
     }
 }
 
@@ -164,6 +168,11 @@ void GameWidget::add_history_log(const QString& text) {
 void GameWidget::on_cell_clicked(core::Pos pos) {
     // 先取一份快照：后面所有分支都用它做只读判断，不必每步重新 get_state()。
     auto state = game_.get_state();
+    // 防御性边界检查：坐标换算一旦有误（board_widget 的整除余量历史上就会产生
+    // 下标 5），这里直接丢弃，不让越界 Pos 流到 Board::at 抛异常。
+    if (pos.x >= core::Board::kSize || pos.y >= core::Board::kSize) {
+        return;
+    }
     // 只接受“人类这一方 + 轮到它走子”的点击。阶段名 Player1 指的是发起方（人类），
     // 不是红方，所以人类执蓝时这个条件同样成立；不在此时点击一律静默忽略。
     if (state.current_side != state.player1_side || state.phase != core::Phase::Player1Thinking) {
@@ -277,47 +286,76 @@ void GameWidget::trigger_ai_if_needed() {
 }
 
 void GameWidget::handle_ai_turn() {
-    // 定时器回调期间局面可能已经变了（玩家返回主页、重开一局、或已分出胜负），
-    // 所以进来先复查一次，条件不满足就放弃这次 AI 行动。
+    // 定时器回调期间局面可能已经变了（玩家返回主页、重开一局、读档、或已分出胜负），
+    // 所以每次进来都重新读局面，按“阶段 + 当前方”决定下一步，而不是依赖调用时的快照。
+    // 这也让本函数成为 AI 回合的统一驱动器：任何一次进入都会把回合推进到人类回合，
+    // 包括读档直接落在 Player2Thinking 的情况（过去会永久卡在“正在思考...”）。
     auto state = game_.get_state();
     if (state.phase == core::Phase::GameOver || state.current_side == state.player1_side) {
         return;
     }
 
-    // 注意: 只在 ThrowingDice 分支行动；若存档停在 Player2Thinking，对局会卡住无法推进。
-    if (state.phase == core::Phase::ThrowingDice) {
-        game_.roll_dice();
-        update_ui();
-
-        // 掷骰后再等 800ms 才要着法：让“电脑掷出了 X，正在思考...”有可见的停留时间，
-        // 这正是三段延迟里最长的一段。
-        QTimer::singleShot(800, this, [this]() {
+    switch (state.phase) {
+        case core::Phase::LayOut:
+        case core::Phase::Player1Thinking:
+            // 不属于电脑可行动的状态，没有可推进的动作。
+            return;
+        case core::Phase::ThrowingDice:
             try {
-                auto move = ai::decide_move(game_.get_state());
-
-                // 先记日志再落子：落子后终点已是己方棋子，就读不到被吃掉的是谁了。
-                // 注意: 这里读的是尚未落子的当前棋盘，与人类分支用快照的写法不同。
-                auto target_piece = game_.get_state().board.at(move.to);
-                QString log = QString("电脑: (%1,%2)->(%3,%4)")
-                                  .arg(move.from.x)
-                                  .arg(move.from.y)
-                                  .arg(move.to.x)
-                                  .arg(move.to.y);
-                if (target_piece.side != core::Side::None) {
-                    log += QString(" 吃 %1%2")
-                               .arg(target_piece.side == core::Side::Red ? "R" : "B")
-                               .arg(target_piece.id);
-                }
-                add_history_log(log);
-
-                game_.make_move(move.from, move.to);
-                update_ui();
+                game_.roll_dice();
             } catch (const std::exception& e) {
-                // 注意: AI 抛异常时只记日志，阶段停在 Player2Thinking，界面不会自行恢复。
-                qDebug() << "AI 异常:" << e.what();
+                qDebug() << "电脑掷骰失败:" << e.what();
+                show_message(QString("电脑掷骰失败: ") + e.what());
+                return;
             }
-        });
+            update_ui();
+            // 掷骰后再等 800ms 才要着法：让“电脑掷出了 X，正在思考...”有可见的停留时间。
+            // 重新进入 handle_ai_turn，这一次会落到 Player2Thinking 分支。
+            QTimer::singleShot(800, this, &GameWidget::handle_ai_turn);
+            return;
+        case core::Phase::Player2Thinking:
+            break;  // 骰子已就绪，落到下面走子
+        case core::Phase::GameOver:
+            return;  // 开头已判过，这里只为让 switch 覆盖全部枚举值
     }
+
+    // Player2Thinking：选点走子。失败时不能只记日志——阶段会停在 Player2Thinking，
+    // 界面永久卡住；这里让电脑放弃本回合，把局面推回可继续的状态。
+    try {
+        auto move = ai::decide_move(game_.get_state());
+
+        // 先记日志再落子：落子后终点已是己方棋子，就读不到被吃掉的是谁了。
+        auto target_piece = game_.get_state().board.at(move.to);
+        QString log = QString("电脑: (%1,%2)->(%3,%4)")
+                          .arg(move.from.x)
+                          .arg(move.from.y)
+                          .arg(move.to.x)
+                          .arg(move.to.y);
+        if (target_piece.side != core::Side::None) {
+            log += QString(" 吃 %1%2")
+                       .arg(target_piece.side == core::Side::Red ? "R" : "B")
+                       .arg(target_piece.id);
+        }
+        add_history_log(log);
+
+        game_.make_move(move.from, move.to);
+        update_ui();
+    } catch (const std::exception& e) {
+        qDebug() << "AI 异常:" << e.what();
+        show_message(QString("电脑走子失败，本回合判为放弃: ") + e.what());
+        // 放弃本回合：清骰子、把行动权交给对面并回到掷骰阶段。
+        // Game 只暴露 load_game 这一种整份写入接口，这里写入的字段本身是自洽的。
+        auto recovery = game_.get_state();
+        recovery.current_dice = std::nullopt;
+        recovery.current_side =
+            (recovery.current_side == core::Side::Red) ? core::Side::Blue : core::Side::Red;
+        recovery.phase = core::Phase::ThrowingDice;
+        game_.load_game(recovery);
+        update_ui();
+    }
+
+    // 统一再检查一次是否仍该由电脑行动，保证没有任何分支会漏触发。
+    trigger_ai_if_needed();
 }
 
 void GameWidget::update_ui() {
@@ -350,6 +388,11 @@ void GameWidget::update_ui() {
         return;
     }
 
+    // current_dice 在“思考”阶段理论上必有值，但存档可能不自洽（旧版本会写出
+    // “思考阶段却没有点数”的局面），这里统一安全格式化，不再直接解引用 optional。
+    const QString dice_text =
+        state.current_dice ? QString::number(*state.current_dice) : QString("?");
+
     if (state.current_side == state.player1_side) {
         if (state.phase == core::Phase::ThrowingDice) {
             // 人类回合且尚未掷骰：这是全局唯一允许点亮掷骰按钮的组合。
@@ -357,9 +400,7 @@ void GameWidget::update_ui() {
             roll_btn_->setEnabled(true);
         } else {
             // 人类回合且已掷骰：展示点数，按钮保持禁用。
-            // 注意: 直接解引用 current_dice，若在 LayOut 阶段被调用会解引用空 optional。
-            status_label_->setText("🎲 你掷出了 " + QString::number(*state.current_dice) +
-                                   "，请走棋");
+            status_label_->setText("🎲 你掷出了 " + dice_text + "，请走棋");
             roll_btn_->setEnabled(false);
         }
     } else {
@@ -367,8 +408,7 @@ void GameWidget::update_ui() {
         if (state.phase == core::Phase::ThrowingDice) {
             status_label_->setText("🤖 电脑正在掷骰子...");
         } else {
-            status_label_->setText("🎲 电脑掷出了 " + QString::number(*state.current_dice) +
-                                   "，正在思考...");
+            status_label_->setText("🎲 电脑掷出了 " + dice_text + "，正在思考...");
         }
         roll_btn_->setEnabled(false);
     }

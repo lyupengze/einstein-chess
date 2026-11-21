@@ -24,6 +24,10 @@ struct Move {
 /// 下标 i 对应己方第 i 个初始格（红方自左上、蓝方自右下按固定顺序排列）。
 [[nodiscard]] std::array<int, 6> decide_layout();
 
+/// @brief 显式设置随机种子，便于测试/复现。
+/// 随机源本身是线程局部的，因此该种子只影响调用线程。
+void set_random_seed(unsigned int seed);
+
 /// 为当前回合方（state.current_side）随机选择一步合法走法。
 /// @throws std::invalid_argument phase 不是 Player1Thinking / Player2Thinking
 /// @throws std::runtime_error 枚举不到任何合法着法

@@ -15,8 +15,14 @@ add_subdirectory(third_party/sqlite)
 
 # 公共告警选项以 INTERFACE 库下发：任何 target 链接它即继承同一套编译参数。
 # -Werror 表示新增代码不允许引入任何告警；Debug 用 -Og -g，其余配置用 -O2。
+# MSVC 不认 -Wall/-Wextra/-Wpedantic，必须换成 /W4 + /permissive-，否则 Windows
+# 上直接用 MSVC 构建会失败。
 add_library(einstein_warnings INTERFACE)
-target_compile_options(einstein_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Werror $<$<CONFIG:Debug>:-Og -g> $<$<NOT:$<CONFIG:Debug>>:-O2>)
+if(MSVC)
+    target_compile_options(einstein_warnings INTERFACE /W4 /WX /permissive- $<$<CONFIG:Debug>:/Od /Zi> $<$<NOT:$<CONFIG:Debug>>:/O2>)
+else()
+    target_compile_options(einstein_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Werror $<$<CONFIG:Debug>:-Og -g> $<$<NOT:$<CONFIG:Debug>>:-O2>)
+endif()
 
 # 依赖顺序：core 无外部依赖；storage / ai 依赖 core；三个可执行目标最后加入。
 add_subdirectory(src/core)
@@ -26,3 +32,11 @@ add_subdirectory(src/ai)
 add_subdirectory(src/ui/cli)
 add_subdirectory(src/ui/gui)
 add_subdirectory(src/ui/botzone)
+
+# 回归测试：默认随构建一起编译，用 ctest 运行（见 tests/CMakeLists.txt）。
+# 允许通过 -DEINSTEIN_BUILD_TESTS=OFF 关掉，方便只关心产物的打包场景。
+option(EINSTEIN_BUILD_TESTS "Build regression tests" ON)
+if(EINSTEIN_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

@@ -1,10 +1,11 @@
-# einstein_gui：Qt6 Widgets 图形界面可执行目标。
+# einstein_gui：Qt6 Widgets 图形界面。
 # 源文件按 视图（views）/ 组件（components）/ 弹窗（dialogs）分层组织，
 # resources.qrc 内嵌样式表等资源。
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
-add_executable(einstein_gui
-    main_gui.cpp
+# 界面逻辑单独做成静态库：可执行文件与 tests/ 下的回归测试共用同一份对象，
+# 测试不必重复编译一遍界面源码（Q_OBJECT 的 moc 也只生成一次）。
+add_library(einstein_gui_lib STATIC
     main_window.cpp
 
     views/menu_widget.cpp
@@ -16,17 +17,24 @@ add_executable(einstein_gui
 
     dialogs/setup_dialog.cpp
     dialogs/save_load_dialog.cpp
-
-    resources.qrc
 )
 
 # 把本目录加入 include 路径，源码里才能按 "views/xxx.h" 等相对路径包含。
-target_include_directories(einstein_gui PRIVATE .)
+# PUBLIC：链接本库的测试同样需要这些头文件。
+target_include_directories(einstein_gui_lib PUBLIC .)
 
-target_link_libraries(einstein_gui PRIVATE
-    einstein_core einstein_ai einstein_storage einstein_warnings Qt6::Widgets
+target_link_libraries(einstein_gui_lib
+    PUBLIC einstein_core einstein_ai einstein_storage Qt6::Widgets
+    PRIVATE einstein_warnings
 )
 
-# Qt 的元对象与资源编译需要显式开启：
-# AUTOMOC 处理带 Q_OBJECT 的类，AUTORCC 把 .qrc 编译进可执行文件。
+# AUTOMOC 处理带 Q_OBJECT 的类。资源不放这里：静态库里的 rcc 对象可能因为
+# 没有被引用而在链接时被丢弃，样式表就会静默失效，因此 .qrc 留在可执行文件一侧。
+set_target_properties(einstein_gui_lib PROPERTIES AUTOMOC ON)
+
+add_executable(einstein_gui main_gui.cpp resources.qrc)
+
+target_link_libraries(einstein_gui PRIVATE einstein_gui_lib einstein_warnings)
+
+# AUTORCC 把 .qrc 编译进可执行文件本身，保证资源一定被注册。
 set_target_properties(einstein_gui PROPERTIES AUTOMOC ON AUTORCC ON)

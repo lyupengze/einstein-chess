@@ -6,6 +6,7 @@
 //   - 最后一个 request 的 phase == "move"：读取 color、棋盘与骰子，返回 x0/y0/x1/y1 走法。
 // 注意：本方阵营来自 request 的 color 字段，而不是顶层 initdata——平台不会给 Bot 下发 initdata。
 
+#include <array>
 #include <cstddef>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -27,6 +28,8 @@ constexpr int kBotzoneBluePlayer = 1;
 constexpr int kNoPiece = 0;
 constexpr int kMinDice = 1;
 constexpr int kMaxDice = 6;
+// 棋子编号只有 1~6；超出范围的值不是“强一点的棋子”，而是协议错误。
+constexpr int kMaxPieceId = core::Board::kChessCount;
 
 // 校验并返回 0/1 阵营值。非整数或越界都按协议错误抛异常：静默当成某一方
 // 会让整局棋从一开始就走错颜色，反而不如让上层回空 response。
@@ -122,6 +125,10 @@ int main() {
 
                 // 逐格读入；行/列长度不足的部分按空格处理，避免越界访问。
                 // 非整数的单元格会在 get<int>() 处抛异常，由外层统一兜底。
+                // seen 记录每方已出现的编号：编号越界或重复都视为协议错误并显式拒绝。
+                // 过去这里不校验，非法值会被当成“红方 99 号”塞进棋盘，规则找不到该棋子，
+                // 最终以“AI 无路可走”的空 response 收场，平台只能判负。
+                std::array<std::array<bool, kMaxPieceId + 1>, 2> seen{};
                 for (std::size_t x = 0; x < core::Board::kSize; ++x) {
                     for (std::size_t y = 0; y < core::Board::kSize; ++y) {
                         int val = kNoPiece;
@@ -130,6 +137,18 @@ int main() {
                             if (board_json[x].is_array() && board_json[x].size() > y) {
                                 val = board_json[x][y].get<int>();
                             }
+                        }
+
+                        const int piece_id = (val < 0) ? -val : val;
+                        if (piece_id > kMaxPieceId) {
+                            throw std::runtime_error("Invalid piece id on board");
+                        }
+                        if (piece_id != kNoPiece) {
+                            const std::size_t side_index = (val > 0) ? 0 : 1;
+                            if (seen[side_index][static_cast<std::size_t>(piece_id)]) {
+                                throw std::runtime_error("Duplicate piece id on board");
+                            }
+                            seen[side_index][static_cast<std::size_t>(piece_id)] = true;
                         }
 
                         // 编码与存档一致：正数红方、负数蓝方、0 空格。

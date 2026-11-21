@@ -14,13 +14,27 @@
 
 namespace ai {
 
+namespace {
+
+// 线程局部的随机引擎。原来的写法是函数内 static：只在首次初始化，这一点是对的，
+// 但它是所有线程共享的同一份状态——并发决策会产生数据竞争（std::mt19937 不保证
+// 线程安全），测试里也无法通过固定种子复现。thread_local 让每个线程各持一份，
+// 既保留“只播种一次”，又消除了共享。
+std::mt19937& engine() {
+    thread_local std::mt19937 gen(std::random_device{}());
+    return gen;
+}
+
+}  // namespace
+
+void set_random_seed(unsigned int seed) {
+    engine() = std::mt19937(seed);
+}
+
 std::array<int, 6> decide_layout() {
     // 先构造顺序排列再打乱，结果天然是 1~6 的合法排列，无需额外校验。
     std::array<int, 6> layout{1, 2, 3, 4, 5, 6};
-    // static：随机引擎只初始化一次。若每次调用都重建并重新播种，
-    // 同一时间内的多次调用可能拿到相同种子，产生相同的"随机"序列。
-    static std::mt19937 gen(std::random_device{}());
-    std::shuffle(layout.begin(), layout.end(), gen);
+    std::shuffle(layout.begin(), layout.end(), engine());
     return layout;
 }
 
@@ -67,9 +81,8 @@ Move decide_move(const core::GameState& state) {
     }
 
     // 占位策略：在全部合法着法中均匀随机挑一步，不考虑吃子、位置或胜负。
-    static std::mt19937 gen(std::random_device{}());
     std::uniform_int_distribution<std::size_t> dist(0, legal_moves.size() - 1);
-    return legal_moves[dist(gen)];
+    return legal_moves[dist(engine())];
 }
 
 }  // namespace ai

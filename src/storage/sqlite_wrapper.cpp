@@ -7,6 +7,20 @@
 
 namespace storage {
 
+namespace {
+
+// 统一检查 sqlite3_bind_* 的返回码。绑定失败通常意味着参数下标越界、
+// 内存不足或语句已失效；过去直接丢弃返回码，错误会拖到 step 阶段才暴露，
+// 报错信息也不再指向真正的根因（例如绑错列却报约束冲突）。
+void check_bind(int rc, sqlite3_stmt* stmt) {
+    if (rc != SQLITE_OK) {
+        throw std::runtime_error("Failed to bind parameter: " +
+                                 std::string(sqlite3_errmsg(sqlite3_db_handle(stmt))));
+    }
+}
+
+}  // namespace
+
 Database::Database(const std::string& db_path) {
     // sqlite3_open 失败时也可能分配了句柄，必须 close 再抛，否则泄漏。
     int rc = sqlite3_open(db_path.c_str(), &db_);
@@ -79,21 +93,21 @@ Statement& Statement::operator=(Statement&& other) noexcept {
 }
 
 void Statement::bind(int index, int value) {
-    sqlite3_bind_int(stmt_, index, value);
+    check_bind(sqlite3_bind_int(stmt_, index, value), stmt_);
 }
 
 void Statement::bind(int index, double value) {
-    sqlite3_bind_double(stmt_, index, value);
+    check_bind(sqlite3_bind_double(stmt_, index, value), stmt_);
 }
 
 void Statement::bind(int index, const std::string& value) {
     // SQLITE_TRANSIENT：让 SQLite 立即拷贝字符串内容。
     // 不用 SQLITE_STATIC，是因为调用方的 value 可能先于语句失效。
-    sqlite3_bind_text(stmt_, index, value.c_str(), -1, SQLITE_TRANSIENT);
+    check_bind(sqlite3_bind_text(stmt_, index, value.c_str(), -1, SQLITE_TRANSIENT), stmt_);
 }
 
 void Statement::bind_null(int index) {
-    sqlite3_bind_null(stmt_, index);
+    check_bind(sqlite3_bind_null(stmt_, index), stmt_);
 }
 
 bool Statement::step() {

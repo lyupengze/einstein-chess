@@ -50,25 +50,28 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
 
     // 流程二：读取存档。清空 selected_pos_ 与历史、覆盖式载入，然后同样切到对局页。
     connect(menu_widget_, &MenuWidget::load_game_clicked, this, [this]() {
-        SaveLoadDialog dialog(DialogMode::Load, this);
-        if (dialog.exec() == QDialog::Accepted) {
-            std::string name = dialog.get_selected_name();
-            try {
-                // 每次新建：数据库连接的生命周期就锁在这个 lambda 里。
-                storage::SaveManager save_manager(storage::kDefaultDbPath);
-                auto state_opt = save_manager.load_game(name);
-
-                if (state_opt) {
-                    game_widget_->load_game_state(*state_opt);
-                    stacked_widget_->setCurrentWidget(game_widget_);
-                } else {
-                    // 记录可能在对话框打开后已被删除，所以查不到不算异常。
-                    QMessageBox::warning(this, "错误", "找不到该存档。");
-                }
-            } catch (const std::exception& e) {
-                // 反序列化对损坏数据抛异常（字段缺失、编号重复等），报错并留在菜单页。
-                QMessageBox::critical(this, "读取失败", e.what());
+        // 对话框构造时就会打开数据库，所以整段（含构造）都在 try 内，
+        // 避免异常穿出 Qt 事件循环把进程直接终止。
+        try {
+            SaveLoadDialog dialog(DialogMode::Load, this);
+            if (dialog.exec() != QDialog::Accepted) {
+                return;
             }
+            std::string name = dialog.get_selected_name();
+            // 每次新建：数据库连接的生命周期就锁在这个 lambda 里。
+            storage::SaveManager save_manager(storage::kDefaultDbPath);
+            auto state_opt = save_manager.load_game(name);
+
+            if (state_opt) {
+                game_widget_->load_game_state(*state_opt);
+                stacked_widget_->setCurrentWidget(game_widget_);
+            } else {
+                // 记录可能在对话框打开后已被删除，所以查不到不算异常。
+                QMessageBox::warning(this, "错误", "找不到该存档。");
+            }
+        } catch (const std::exception& e) {
+            // 数据库打不开或反序列化对损坏数据抛异常，报错并留在菜单页。
+            QMessageBox::critical(this, "读取失败", e.what());
         }
     });
 

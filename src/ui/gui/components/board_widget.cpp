@@ -8,12 +8,40 @@
 
 namespace ui {
 
+namespace {
+
+// 棋盘几何参数。绘制与命中判定共用这一份计算：
+// 过去两处各自用 board_size = min(w, h) 和 cell_size = board_size / 5 重复整除，
+// 判定用 board_size 而网格只覆盖 cell_size * 5，最右/最下一小条因此会把点击
+// 换算成下标 5（越界）。现在统一以 cell_size * 5 得到的 span 为准。
+struct BoardGeometry {
+    int cell_size = 0;  // 单格边长
+    int span = 0;       // 棋盘实际覆盖的像素边长，恒等于 cell_size * 5
+    int offset_x = 0;   // 棋盘左上角横坐标（居中留白）
+    int offset_y = 0;   // 棋盘左上角纵坐标
+};
+
+BoardGeometry compute_geometry(int widget_width, int widget_height) {
+    BoardGeometry geometry;
+    const int board_size = std::min(widget_width, widget_height);
+    geometry.cell_size = board_size / 5;
+    geometry.span = geometry.cell_size * 5;
+    // 按 span 而不是 board_size 居中：上限最多 4 像素的整除余量平均分到两侧，
+    // 保证网格、区域填充与点击判定共用同一条边。
+    geometry.offset_x = (widget_width - geometry.span) / 2;
+    geometry.offset_y = (widget_height - geometry.span) / 2;
+    return geometry;
+}
+
+}  // namespace
+
 // 棋盘控件实现。本文件只做两件事：把快照画出来、把点击换算回坐标。
 // 绘制严格分层，后画的覆盖先画的：棋盘格 → 红/蓝初始区 → 网格线 →
 // 棋子（投影 + 径向渐变 + 高光 + 编号）→ 三种高亮圈；高亮放在最后，
 // 保证它永远压在棋子之上，不会被棋子挡住。
-// 坐标换算在两处出现且互为逆运算：paintEvent 由 (行 x, 列 y) 求出屏幕 (纵, 横)，
-// mousePressEvent 再由屏幕 (横, 纵) 反推 (列, 行)，改一处必须同步另一处。
+// 坐标换算在两处出现：paintEvent 由 (行 x, 列 y) 求出屏幕 (纵, 横)，
+// mousePressEvent 再由屏幕 (横, 纵) 反推 (列, 行)。几何参数统一由
+// compute_geometry 计算一次，两处共用，避免整除余量导致判定与绘制不一致。
 
 BoardWidget::BoardWidget(QWidget* parent) : QWidget(parent) {
     // 最小 400x400：再小格子会挤到看不清编号，布局也会优先保住这个下限。
@@ -37,12 +65,12 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     painter.setRenderHint(QPainter::Antialiasing);
 
     // 取短边作为正方形棋盘边长，剩余空间平分成两侧留白，控件被拉成长方形时棋盘仍然居中。
-    int board_size = std::min(width(), height());
-    int offset_x = (width() - board_size) / 2;
-    int offset_y = (height() - board_size) / 2;
-    // 注意: 整除最多丢 4 像素；蓝区多边形按 board_size 画、网格与红区按 cell_size 画，
-    //       右/下边缘会差几像素。
-    int cell_size = board_size / 5;
+    // 几何参数统一由 compute_geometry 给出，绘制与 mousePressEvent 不再各算一遍。
+    const BoardGeometry geometry = compute_geometry(width(), height());
+    const int cell_size = geometry.cell_size;
+    const int board_size = geometry.span;  // 网格与区域填充严格覆盖 5 * cell_size
+    const int offset_x = geometry.offset_x;
+    const int offset_y = geometry.offset_y;
 
     // 第一层：25 个格子按 (row + col) 的奇偶交替填色，得到经典棋盘纹；
     // 这里的 row/col 就是 Pos.x / Pos.y，屏幕位置按 (列→横、行→纵) 摆放。
@@ -180,23 +208,28 @@ void BoardWidget::mousePressEvent(QMouseEvent* event) {
     int click_x = event->pos().x();
     int click_y = event->pos().y();
 
-    // 与 paintEvent 用同一套几何参数重算一遍，不留缓存，避免尺寸变化后两者失配。
-    int board_size = std::min(width(), height());
-    int offset_x = (width() - board_size) / 2;
-    int offset_y = (height() - board_size) / 2;
-    int cell_size = board_size / 5;
+    // 与 paintEvent 共用同一份几何参数：两边都调用 compute_geometry，
+    // 不会再出现“判定用 board_size、网格只有 cell_size * 5”的余量失配。
+    const BoardGeometry geometry = compute_geometry(width(), height());
+    const int cell_size = geometry.cell_size;
+    const int offset_x = geometry.offset_x;
+    const int offset_y = geometry.offset_y;
 
     // 边界判定是左闭右开：正好压在右边或下边线上的点算棋盘外，落在留白里的点击直接丢弃。
-    // 注意: 整除余量使最右/最下一小条算出下标 5，会发出越界 Pos（Board::at 将抛异常）。
-    if (click_x < offset_x || click_x >= offset_x + board_size || click_y < offset_y ||
-        click_y >= offset_y + board_size) {
+    if (click_x < offset_x || click_x >= offset_x + geometry.span || click_y < offset_y ||
+        click_y >= offset_y + geometry.span) {
         return;
     }
 
     // 反推：横坐标落在第几列即 y，纵坐标落在第几行即 x，与 paintEvent 的换算互为逆运算。
-    std::size_t col_y = static_cast<std::size_t>((click_x - offset_x) / cell_size);
-    std::size_t row_x = static_cast<std::size_t>((click_y - offset_y) / cell_size);
-    core::Pos clicked_pos{row_x, col_y};
+    const std::size_t col_y = static_cast<std::size_t>((click_x - offset_x) / cell_size);
+    const std::size_t row_x = static_cast<std::size_t>((click_y - offset_y) / cell_size);
+    // 双保险：span 由 cell_size * 5 推出，理论上必然落在 0..4；
+    // 这里仍防御性拒绝 5，避免以后改动几何参数时又把越界坐标抛给上层。
+    if (col_y >= core::Board::kSize || row_x >= core::Board::kSize) {
+        return;
+    }
+    const core::Pos clicked_pos{row_x, col_y};
 
     // 这里不做任何命中判定（有没有子、是不是己方、轮到谁）就把坐标抛出去，由接收方全权决定。
     emit cell_clicked(clicked_pos);

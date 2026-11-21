@@ -52,8 +52,8 @@ constexpr int kNoDice = -1;
 
 // 反序列化并做严格的值域校验：任何不合预期的输入都抛 std::runtime_error，
 // 保证返回的 GameState 各字段至少落在合法取值范围内。
-// 不做"阶段与局面是否自洽"（如思考阶段却没有骰子）这类语义校验，
-// 与 core::Game::load_game 的约定一致：载入时信任存档内容。
+// 读满全部字段后还会做一次“语义自洽”校验（阶段与骰子是否匹配），
+// 因为单看字段都合法、组合起来却不可能出现的状态一样会让 UI 解引用空 optional。
 core::GameState deserialize(const std::string& data) {
     std::istringstream iss(data);
     core::GameState state;
@@ -141,6 +141,19 @@ core::GameState deserialize(const std::string& data) {
     std::string extra;
     if (iss >> extra) {
         throw std::runtime_error("反序列化失败: 数据格式中存在冗余内容");
+    }
+
+    // 语义自洽校验：上面每个字段都各自合法，但组合起来可能对应不上任何真实对局。
+    // 最典型的是"思考阶段却没有骰子点数"——GUI 的 update_ui 会直接解引用
+    // current_dice，读到空 optional 就是未定义行为。存档一旦损坏就应在载入时报错，
+    // 而不是把不自洽的状态交给上层去猜。
+    const bool thinking =
+        state.phase == core::Phase::Player1Thinking || state.phase == core::Phase::Player2Thinking;
+    if (thinking && !state.current_dice) {
+        throw std::runtime_error("反序列化失败: 思考阶段缺少骰子点数");
+    }
+    if (!thinking && state.current_dice) {
+        throw std::runtime_error("反序列化失败: 非思考阶段却带有骰子点数");
     }
 
     return state;

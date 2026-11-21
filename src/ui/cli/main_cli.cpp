@@ -1,12 +1,15 @@
 // 命令行版爱因斯坦棋：在单进程内完成"选色 → 布阵 → 掷骰 / 走子"的完整对局，
 // 对手由 ai 模块扮演，存档通过 storage::SaveManager 写入 SQLite。
 // 交互约定：人类回合内输入 save 可存档、输入 exit 返回主菜单。
+// 启动参数 --seed <n> 固定 AI 随机种子，便于复现同一局。
 // 所有输入都按整行读取再自行解析，避免 operator>> 在输入缓冲区留下换行残渣。
 
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -18,17 +21,30 @@
 
 namespace {
 
+// 读取一整行输入。stdin 到达 EOF（管道读完、Ctrl+D / Ctrl+Z）时返回 false：
+// 调用方必须立刻退出，否则 getline 会持续失败、外层循环拿着空串空转成死循环。
+bool read_line(std::string& line) { return static_cast<bool>(std::getline(std::cin, line)); }
+
 // 询问存档名并立即保存；直接回车则使用默认名 autosave。
-void save(storage::SaveManager& save_manager, const core::GameState& state) {
+// 返回 false 表示输入已结束，调用方应结束本局。
+bool save(storage::SaveManager& save_manager, const core::GameState& state) {
     std::cout << "请输入存档名 (直接回车默认名为 autosave) : ";
     std::string save_name;
-    std::getline(std::cin, save_name);
+    if (!read_line(save_name)) {
+        return false;
+    }
     if (save_name.empty()) {
         save_name = "autosave";
     }
-    // 同名槽位会被覆盖（见 SaveManager::save_game）。
-    save_manager.save_game(save_name, state);
-    std::cout << "存档成功！\n";
+    // 同名槽位会被覆盖（见 SaveManager::save_game）。写库失败不应该终止进程，
+    // 打印原因后继续对局，由玩家决定是否重试。
+    try {
+        save_manager.save_game(save_name, state);
+        std::cout << "存档成功！\n";
+    } catch (const std::exception& e) {
+        std::cout << "存档失败: " << e.what() << "\n";
+    }
+    return true;
 }
 
 // 单局主循环，直到 phase 进入 GameOver 才返回。
@@ -48,10 +64,15 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
                 // 人类回合开始：先等一次回车再掷骰；这里同时兼作 save / exit 入口。
                 std::cout << "轮到你了. 按回车掷骰子...";
                 std::string pause;
-                std::getline(std::cin, pause);
+                if (!read_line(pause)) {
+                    std::cout << "\n输入已结束，本局结束。\n";
+                    return;
+                }
 
                 if (pause == "save") {
-                    save(save_manager, game.get_state());
+                    if (!save(save_manager, game.get_state())) {
+                        return;
+                    }
                     continue;  // 回到循环开头重新提示掷骰
                 } else if (pause == "exit") {
                     return;  // 放弃本局，回到主菜单
@@ -72,11 +93,16 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
                 std::cout << "\n请输入起点和终点 (如 0 2 1 2): ";
 
                 std::string move_input;
-                std::getline(std::cin, move_input);
+                if (!read_line(move_input)) {
+                    std::cout << "\n输入已结束，本局结束。\n";
+                    return;
+                }
 
                 // save / exit 在等待走子时同样可用。
                 if (move_input == "save") {
-                    save(save_manager, game.get_state());
+                    if (!save(save_manager, game.get_state())) {
+                        return;
+                    }
                     continue;
                 } else if (move_input == "exit") {
                     return;
@@ -106,21 +132,24 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
                 game.roll_dice();
             }
 
+            // make_move 结束时会把 current_dice 复位为空 optional，所以必须在走子
+            // 之前先把点数存到局部变量；走子之后再解引用 *current_dice 是未定义行为
+            // （Release 下只是恰好能从残留存储里读到旧点数，看起来“正常”）。
+            const int ai_dice = game.get_state().current_dice.value_or(0);
+
             ai::Move move = ai::decide_move(game.get_state());
             game.make_move(move.from, move.to);
 
-            // 注意：make_move 结束时已把 current_dice 复位为空 optional，
-            // 下面解引用 *current_dice 属于未定义行为——Release 下只是"碰巧"
-            // 还能从残留存储读到旧点数。若要修，应在 make_move 之前先把点数
-            // 保存到局部变量。
-            std::cout << "电脑掷出了: " << *game.get_state().current_dice << "，从 (" << move.from.x
-                      << "," << move.from.y << ") 走到了 (" << move.to.x << "," << move.to.y
-                      << ")\n";
+            std::cout << "电脑掷出了: " << ai_dice << "，从 (" << move.from.x << ","
+                      << move.from.y << ") 走到了 (" << move.to.x << "," << move.to.y << ")\n";
 
             // 停一下，让玩家看清 AI 这一手再进入下一轮。
             std::cout << "按回车继续...";
             std::string pause;
-            std::getline(std::cin, pause);
+            if (!read_line(pause)) {
+                std::cout << "\n输入已结束，本局结束。\n";
+                return;
+            }
         }
     }
 
@@ -131,20 +160,47 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
     std::cout << core::side_name(winner) << " 获胜！\n";
     std::cout << "按回车返回主菜单...";
     std::string pause;
-    std::getline(std::cin, pause);
+    read_line(pause);  // EOF 时直接返回主菜单，不会卡住
 }
 
 }  // namespace
 
-int main() {
+int main(int argc, char* argv[]) {
 #ifdef _WIN32
     // Windows 控制台切到 UTF-8 代码页，否则中文与棋盘符号会乱码。
     system("chcp 65001 > nul");
 #endif
     std::cout << "=== 爱因斯坦棋 (CLI) ===\n";
 
+    // --seed <n>：固定 AI 随机种子（BUG-10 的配套入口），同种子可复现同一局。
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--seed" && i + 1 < argc) {
+            const char* text = argv[++i];
+            char* end = nullptr;
+            const unsigned long value = std::strtoul(text, &end, 10);
+            if (end == text || *end != '\0') {
+                std::cerr << "--seed 需要一个非负整数，收到: " << text << "\n";
+                return 2;
+            }
+            ai::set_random_seed(static_cast<unsigned int>(value));
+        } else {
+            std::cerr << "未知参数: " << arg << "（可用: --seed <n>）\n";
+            return 2;
+        }
+    }
+
     // 打开默认存档库（文件不存在会自动创建）；实际落盘位置由进程工作目录决定。
-    storage::SaveManager save_manager(storage::kDefaultDbPath);
+    // 打不开（工作目录不可写、路径被同名目录占用等）时打印指引并退出，
+    // 而不是让异常穿出 main 触发 std::terminate。
+    std::unique_ptr<storage::SaveManager> save_manager;
+    try {
+        save_manager = std::make_unique<storage::SaveManager>(storage::kDefaultDbPath);
+    } catch (const std::exception& e) {
+        std::cerr << "无法打开存档库 " << storage::kDefaultDbPath << ": " << e.what() << "\n"
+                  << "请确认当前工作目录可写（存档库会创建在工作目录下）。\n";
+        return 1;
+    }
 
     // 主菜单循环：每轮处理一次选择。
     while (true) {
@@ -154,7 +210,10 @@ int main() {
         std::cout << "请选择: ";
 
         std::string choice_str;
-        std::getline(std::cin, choice_str);
+        if (!read_line(choice_str)) {
+            std::cout << "\n输入已结束，退出。\n";
+            break;
+        }
 
         if (choice_str == "3") {
             std::cout << "感谢你的游玩\n";
@@ -165,7 +224,7 @@ int main() {
         // 无论走"读档"还是"新局"，后续逻辑都只操作这个实例。
         core::Game game;
         if (choice_str == "2") {
-            auto saves = save_manager.list_saves();
+            auto saves = save_manager->list_saves();
             if (saves.empty()) {
                 std::cout << "没有找到任何存档！\n";
                 continue;
@@ -179,16 +238,27 @@ int main() {
 
             // 展示编号从 1 开始、数组下标从 0 开始，读入后统一减 1。
             std::string save_id_str;
-            std::getline(std::cin, save_id_str);
+            if (!read_line(save_id_str)) {
+                std::cout << "\n输入已结束，退出。\n";
+                return 0;
+            }
             try {
                 int choice = std::stoi(save_id_str);
                 if (choice > 0 && choice <= static_cast<int>(saves.size())) {
-                    auto state = save_manager.load_game(saves[choice - 1]);
-                    if (state) {
-                        game.load_game(*state);
-                        std::cout
-                            << "已开始游戏 (在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
-                        game_loop(game, save_manager);
+                    // 读档失败（存档被改坏、字段不自洽等）只影响这一次读取：
+                    // 打印具体原因后回主菜单，不能把异常吞成一句"无效的选择"。
+                    try {
+                        auto state = save_manager->load_game(saves[choice - 1]);
+                        if (state) {
+                            game.load_game(*state);
+                            std::cout
+                                << "已开始游戏 (在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
+                            game_loop(game, *save_manager);
+                        } else {
+                            std::cout << "该存档槽位没有数据。\n";
+                        }
+                    } catch (const std::exception& e) {
+                        std::cout << "读档失败: " << e.what() << "\n";
                     }
                     continue;  // 读档后（无论是否取到数据）都回主菜单，不落入新局流程
                 }
@@ -215,7 +285,10 @@ int main() {
             std::cout << "请选择你方颜色 (1. 红色, 2. 蓝色；红色先手) : ";
 
             std::string color_str;
-            std::getline(std::cin, color_str);
+            if (!read_line(color_str)) {
+                std::cout << "\n输入已结束，退出。\n";
+                return 0;
+            }
 
             if (color_str == "1") {
                 std::cout << "你选择了红方\n\n";
@@ -244,7 +317,10 @@ int main() {
             // 整行读入后按空白切出 6 个整数；不足 6 个视为格式错误，
             // 多余的部分忽略。
             std::string layout_input;
-            std::getline(std::cin, layout_input);
+            if (!read_line(layout_input)) {
+                std::cout << "\n输入已结束，退出。\n";
+                return 0;
+            }
             std::istringstream iss_layout(layout_input);
             std::array<int, 6> player_layout;
             bool parse_success = true;
@@ -274,7 +350,7 @@ int main() {
         }
 
         std::cout << "【开始游戏】\n";
-        game_loop(game, save_manager);
+        game_loop(game, *save_manager);
     }
 
     return 0;
