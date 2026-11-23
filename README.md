@@ -38,7 +38,7 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-> 可执行文件统一输出到 `build/bin/`，共三个目标：`einstein_gui`、`einstein_cli`、`einstein_botzone`（Windows 下带 `.exe` 后缀）。
+> 可执行文件统一输出到 `build/bin/`，共三个可执行程序目标：`einstein_gui`、`einstein_cli`、`einstein_botzone`（Windows 下带 `.exe` 后缀）；回归测试的可执行文件也输出到同一目录。
 
 **让 CMake 找到 Qt6**：`find_package(Qt6)` 会搜索默认前缀、`PATH`、`CMAKE_PREFIX_PATH` 等位置，Qt6 装在这些位置之外时配置会直接失败。可任选一种处理：
 
@@ -65,7 +65,7 @@ ctest --test-dir build --output-on-failure
 1. 启动 `./build/bin/einstein_gui`（Windows 下为 `einstein_gui.exe`）。
 2. 点击“开始新游戏”，在弹窗中选择阵营（红方先手），再点击格子循环切换 1~6 号棋子完成布阵。
 3. 掷骰后，可选棋子会以绿色虚线框标出；点击选中后边框变为金色实线，同时显示所有可达落点。
-4. 对局中可随时点击“保存”，输入存档名后存档。
+4. 对局中可随时点击“保存”，输入存档名后存档；保存成功等提示会以淡入淡出的浮层短暂显示。
 
 ### CLI 版本 (备用)
 
@@ -129,7 +129,8 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 | `einstein_ai`      | 静态库 | core                                              |
 | `einstein_storage` | 静态库 | core、`sqlite3`（内部封装，不外泄 `<sqlite3.h>`） |
 | `einstein_cli`     | 可执行 | core、ai、storage                                 |
-| `einstein_gui`     | 可执行 | core、ai、storage、`Qt6::Widgets`                 |
+| `einstein_gui_lib` | 静态库 | core、ai、storage、`Qt6::Widgets`；GUI 逻辑供 exe 与测试共享 |
+| `einstein_gui`     | 可执行 | `einstein_gui_lib`、`Qt6::Widgets`、`resources.qrc` |
 | `einstein_botzone` | 可执行 | core、ai + `nlohmann/json`（不接存档，保持无状态）|
 
 各库通过 `target_include_directories(... PUBLIC ..)` 将 `src/` 暴露为公共头文件目录，因此跨模块 include 统一写作 `core/game.h`、`ai/ai.h` 这类限定路径。顶层另定义 INTERFACE 目标 `einstein_warnings`（`-Wall -Wextra -Wpedantic -Wshadow -Werror`），`src/` 下的每个目标都必须链接它。
@@ -138,7 +139,8 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 - **AI 为占位实现**：`decide_move()` 仅在合法走法中均匀随机挑选，`decide_layout()` 随机打乱；既没有搜索，也没有局面评估，留待后续优化。
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证，也没有 CI，`-Werror` 下其他编译器的告警差异可能带来额外修改。
-- **测试覆盖有限**：CTest 目前只有 4 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`gui_reconcile`（GUI 状态收敛）、`cli_eof`（CLI 的 EOF 处理），规则与存档的完整分支尚无覆盖。
+- **测试覆盖有限**：CTest 目前只有 5 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`cli_eof`（CLI 的 EOF 处理），规则与存档的完整分支尚无覆盖。
+- **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
 - **Windows 下 GUI 附带控制台窗口**：`einstein_gui` 未标记 `WIN32` 子系统，启动时会多出一个控制台窗口，不影响功能。
 
 ## 👥 作者与分工
