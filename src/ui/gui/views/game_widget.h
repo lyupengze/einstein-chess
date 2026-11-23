@@ -4,6 +4,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
+#include <QTimer>
 #include <QWidget>
 #include <array>
 #include <optional>
@@ -31,11 +32,6 @@ public:
     /// @param parent 父控件，生命周期交给 Qt 对象树
     explicit GameWidget(QWidget* parent = nullptr);
 
-    /// @brief 提示类型，用于区分成功与失败两种 Toast 配色。
-    /// @note 当前实现没有按类型分支，ToastWidget::show_message 也不接收它，
-    ///       这个枚举暂时只是占位，留给后续按类型换色。
-    enum class MessageType { Success, Error };
-
     /// @brief 开新局：重置对局状态，提交双方布阵后刷新界面。
     /// @param human_side 人类的阵营，另一阵营自动交给 AI
     /// @param human_layout 人类布阵，下标 0~5 对应 Board::setup_custom 的落位顺序
@@ -52,6 +48,8 @@ signals:
 private slots:
     /// @brief 掷骰按钮：先禁用按钮并改文案，400ms 后才真正调用 game_.roll_dice()。
     void on_roll_dice_clicked();
+    /// @brief roll_timer_ 的超时回调：真正执行掷骰，失败时恢复界面并提示。
+    void on_roll_dice_timeout();
     /// @brief 棋盘点击的唯一入口，含取消选中、走子、换选、选中四个动作。
     /// @param pos 被点击的格；Pos.x 是行号，Pos.y 是列号
     void on_cell_clicked(core::Pos pos);
@@ -64,6 +62,9 @@ private:
     /// @brief 按当前 GameState 统一刷新棋盘高亮、骰子、状态文案与掷骰按钮可用性。
     /// @note 状态文案与按钮可用性是一组联动，改一边必须同步改另一边。
     void update_ui();
+    /// @brief 取消所有尚未执行的延迟动作：掷骰 400ms、AI 500/800ms。
+    /// @note 开新局与读档必须先调用它，否则上一局排队的回调会作用到新局上。
+    void cancel_pending_actions();
     /// @brief 定时器回调：AI 回合先掷骰，800ms 后再向 ai::decide_move 要着法。
     void handle_ai_turn();
     /// @brief 用悬浮 Toast 提示一句，到期自动消失。
@@ -93,6 +94,11 @@ private:
     QPushButton* save_btn_;                  ///< 保存，任何时候都可用
     QListWidget* history_list_;              ///< 走子历史，按发生顺序追加
     std::optional<core::Pos> selected_pos_;  ///< 人类已选起点；nullopt 表示未选
+
+    /// 延迟动作全部用成员 QTimer 而不是 QTimer::singleShot：
+    /// singleShot 没有句柄，开了新局或读了档也取消不掉，旧回调会落到新局上。
+    QTimer roll_timer_;  ///< 人类掷骰的 400ms 延迟，单发
+    QTimer ai_timer_;    ///< AI 回合的 500/800ms 延迟，单发；两次启动共用同一支定时器
 };
 
 }  // namespace ui

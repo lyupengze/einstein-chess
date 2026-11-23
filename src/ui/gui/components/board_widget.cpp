@@ -33,6 +33,15 @@ BoardGeometry compute_geometry(int widget_width, int widget_height) {
     return geometry;
 }
 
+// 棋子在格内占用的矩形：四周各留 1/8 格边距，相邻棋子之间才有间隙。
+// 绘制棋子与绘制高亮圈共用这一份计算，改边距时只需改这里，
+// 不会出现“棋子按一套边距画、圈按另一套边距画”的错位。
+QRect piece_rect_at(int offset_x, int offset_y, int cell_size, int row, int col) {
+    const int margin = cell_size / 8;
+    return QRect(offset_x + col * cell_size + margin, offset_y + row * cell_size + margin,
+                 cell_size - margin * 2, cell_size - margin * 2);
+}
+
 }  // namespace
 
 // 棋盘控件实现。本文件只做两件事：把快照画出来、把点击换算回坐标。
@@ -85,14 +94,19 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     // 区域填充不描边，只靠 alpha=50 的半透明色叠在格子之上。
     painter.setPen(Qt::NoPen);
 
-    // 第二层之一：红方初始区。从左上角出发，沿"列+行=3"的阶梯折回原点，围出一个五边形；
+    // 第二层之一：红方初始区。从左上角出发，沿格子边界逐级折回，围出一个阶梯多边形；
     // 顶点按 (横向 = 列, 纵向 = 行) 给出，与 QPoint 的 (x, y) 含义一致。
-    // 顶点取到坐标 3，对应 0~2 三行三列围出的 6 格初始区；阴影仅作区域提示。
+    // 每一级折线都正好跨一格，围出的区域恰好是 row + col <= 2 的 6 个整格；
+    // 若只取 5 个顶点，中间四个点会落在同一条斜线上，实际画成三角形而不是 6 格。
     painter.setBrush(QColor(231, 76, 60, 50));
     QPolygon red_region;
-    red_region << QPoint(offset_x, offset_y) << QPoint(offset_x + 3 * cell_size, offset_y)
+    red_region << QPoint(offset_x, offset_y)
+               << QPoint(offset_x + 3 * cell_size, offset_y)
+               << QPoint(offset_x + 3 * cell_size, offset_y + cell_size)
                << QPoint(offset_x + 2 * cell_size, offset_y + cell_size)
+               << QPoint(offset_x + 2 * cell_size, offset_y + 2 * cell_size)
                << QPoint(offset_x + cell_size, offset_y + 2 * cell_size)
+               << QPoint(offset_x + cell_size, offset_y + 3 * cell_size)
                << QPoint(offset_x, offset_y + 3 * cell_size);
     painter.drawPolygon(red_region);
 
@@ -101,8 +115,12 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     QPolygon blue_region;
     blue_region << QPoint(offset_x + board_size, offset_y + board_size)
                 << QPoint(offset_x + board_size - 3 * cell_size, offset_y + board_size)
+                << QPoint(offset_x + board_size - 3 * cell_size, offset_y + board_size - cell_size)
                 << QPoint(offset_x + board_size - 2 * cell_size, offset_y + board_size - cell_size)
+                << QPoint(offset_x + board_size - 2 * cell_size,
+                          offset_y + board_size - 2 * cell_size)
                 << QPoint(offset_x + board_size - cell_size, offset_y + board_size - 2 * cell_size)
+                << QPoint(offset_x + board_size - cell_size, offset_y + board_size - 3 * cell_size)
                 << QPoint(offset_x + board_size, offset_y + board_size - 3 * cell_size);
     painter.drawPolygon(blue_region);
 
@@ -124,12 +142,9 @@ void BoardWidget::paintEvent(QPaintEvent*) {
             }
 
             // 最关键的换算：行号 x 决定屏幕纵坐标，列号 y 决定屏幕横坐标，即按矩阵习惯摆放。
-            int cx = offset_x + static_cast<int>(y) * cell_size;
-            int cy = offset_y + static_cast<int>(x) * cell_size;
-            // 四周各留 1/8 格宽的边距，相邻棋子之间才有间隙。
-            int margin = cell_size / 8;
-            QRect piece_rect(cx + margin, cy + margin, cell_size - margin * 2,
-                             cell_size - margin * 2);
+            // 棋子矩形由 piece_rect_at 统一给出，与下面高亮圈使用的是同一份边距。
+            const QRect piece_rect = piece_rect_at(offset_x, offset_y, cell_size,
+                                                    static_cast<int>(x), static_cast<int>(y));
 
             // 投影：向右下偏移 3 像素的半透明黑圆，先画，大部分随后被实体圆盖住。
             painter.setPen(Qt::NoPen);
@@ -167,13 +182,10 @@ void BoardWidget::paintEvent(QPaintEvent*) {
         }
     }
 
-    // 第五层：高亮圈。矩形算法与上面棋子完全一致，抽成 lambda 以免重复三遍。
-    // 注意: 这里与棋子循环里的 margin 计算是两份独立代码，改边距必须同时改两处。
-    auto get_piece_rect = [&](std::size_t rx, std::size_t ry) {
-        int cx = offset_x + static_cast<int>(ry) * cell_size;
-        int cy = offset_y + static_cast<int>(rx) * cell_size;
-        int margin = cell_size / 8;
-        return QRect(cx + margin, cy + margin, cell_size - margin * 2, cell_size - margin * 2);
+    // 第五层：高亮圈。矩形与棋子共用 piece_rect_at，只在这里按圈的类型做外扩。
+    auto rect_for = [&](core::Pos pos) {
+        return piece_rect_at(offset_x, offset_y, cell_size, static_cast<int>(pos.x),
+                             static_cast<int>(pos.y));
     };
 
     // 用无填充画刷，圈内保持透明，不遮住底下的棋子。
@@ -182,7 +194,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     painter.setPen(QPen(QColor("#2ecc71"), 3, Qt::DashLine));
     for (const auto& pos : selectable_pieces_) {
         // 外扩 4 像素，圈住棋子外缘而不压到棋子本体。
-        QRect rect = get_piece_rect(pos.x, pos.y).adjusted(-4, -4, 4, 4);
+        QRect rect = rect_for(pos).adjusted(-4, -4, 4, 4);
         painter.drawEllipse(rect);
     }
 
@@ -190,7 +202,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     // 注意: 若把上面的 setPen 连同 selectable_pieces_ 循环一起删掉，这里的圈会沿用画
     //       棋子编号时的白色实线画笔，不再与可动圈样式一致。
     for (const auto& target : reachable_targets_) {
-        QRect rect = get_piece_rect(target.x, target.y).adjusted(-4, -4, 4, 4);
+        QRect rect = rect_for(target).adjusted(-4, -4, 4, 4);
         painter.drawEllipse(rect);
     }
 
@@ -198,7 +210,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     // 同一格既是选中又是可落时，靠"实线 + 金色"与虚线圈区分开。画在最后，层级最高。
     if (selected_pos_) {
         painter.setPen(QPen(QColor("#f1c40f"), 4));
-        QRect rect = get_piece_rect(selected_pos_->x, selected_pos_->y).adjusted(-2, -2, 2, 2);
+        QRect rect = rect_for(*selected_pos_).adjusted(-2, -2, 2, 2);
         painter.drawEllipse(rect);
     }
 }

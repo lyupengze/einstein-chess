@@ -120,6 +120,28 @@ int main(int argc, char** argv) {
                "AI failure surfaces a visible message");
     }
 
+    {
+        // BUG-11：旧实现用 QTimer::singleShot 排 AI，开新局/读档取消不掉。
+        // 上一局排的 500ms 回调与新局的回调同时到点：第一个掷骰后阶段变成
+        // Player2Thinking，第二个看到后就直接走子，把 800ms 的思考停顿吞掉。
+        // 现在延迟动作换成成员 QTimer，start_new_game() 会先 cancel_pending_actions()。
+        ui::GameWidget widget;
+        widget.resize(900, 700);
+        widget.show();
+        app.processEvents();
+
+        auto* history = widget.findChild<QListWidget*>();
+        widget.load_game_state(thinking);  // 排一个 500ms 的 AI 回调
+        widget.start_new_game(core::Side::Blue, {1, 2, 3, 4, 5, 6});  // 人类执蓝，红方 AI 先手
+
+        spin(800);
+        expect(history != nullptr && history->count() == 0,
+               "new game cancels the AI action queued by the previous game");
+        spin(1500);
+        expect(history != nullptr && history->count() == 1,
+               "AI still takes exactly one turn in the new game");
+    }
+
     std::printf(failures == 0 ? "ALL PASS\n" : "%d FAILURE(S)\n", failures);
     return failures == 0 ? 0 : 1;
 }

@@ -19,11 +19,12 @@
 
 // 对局页实现：布局搭建、输入处理、界面刷新与 AI 回合时序都在这里。
 // 规则判定一律委托给 core::Game 与 core::rules，本文件不重复实现方向、吃子与胜负逻辑。
-// “掷骰 -> 思考 -> 走子”用 QTimer::singleShot 串成 400 / 500 / 800 ms 三段延迟，
+// “掷骰 -> 思考 -> 走子”用两个单发 QTimer 串成 400 / 500 / 800 ms 三段延迟，
 // 目的只是让状态文案在界面上停留可见，规则本身不需要等待。
+// 用成员定时器而不是 QTimer::singleShot：开新局/读档时能 stop() 掉尚未执行的回调。
 namespace ui {
 
-GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
+GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai_timer_(this) {
     // 主布局上下分层：顶层是状态文案与按钮排，下面是棋盘加右侧面板。
     auto* main_layout = new QVBoxLayout(this);
     auto* top_layout = new QHBoxLayout();
@@ -66,15 +67,23 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent) {
     connect(save_btn_, &QPushButton::clicked, this, &GameWidget::on_save_clicked);
     connect(board_widget_, &BoardWidget::cell_clicked, this, &GameWidget::on_cell_clicked);
 
+    // 两个延迟动作都设为单发：到点执行一次就停，不会周期性重入。
+    roll_timer_.setSingleShot(true);
+    ai_timer_.setSingleShot(true);
+    connect(&roll_timer_, &QTimer::timeout, this, &GameWidget::on_roll_dice_timeout);
+    connect(&ai_timer_, &QTimer::timeout, this, &GameWidget::handle_ai_turn);
+
     // 进页时先禁用掷骰；真正的可用性每次都由 update_ui() 按阶段重新判定。
     roll_btn_->setEnabled(false);
 
     // Toast 最后创建并先隐藏：它是脱离布局的浮层，只在 show_message 时露出。
     toast_ = new ToastWidget(this);
-    toast_->hide();
 }
 
 void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>& human_layout) {
+    // 先清掉上一局排队的延迟动作，否则旧的对局意图会落到新局上。
+    cancel_pending_actions();
+
     // prepare_new_game 会把 GameState 重置成空棋盘，所以同一个控件可以直接开下一局。
     game_.prepare_new_game(human_side);
 
@@ -96,6 +105,9 @@ void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>&
 }
 
 void GameWidget::load_game_state(const core::GameState& state) {
+    // 与开新局同理：先取消排队中的旧动作，再整体覆盖对局。
+    cancel_pending_actions();
+
     // load_game 是整体覆盖，不做增量合并；存档里的 player1_side 决定谁是“人类”。
     game_.load_game(state);
     selected_pos_ = std::nullopt;
@@ -119,19 +131,21 @@ void GameWidget::on_roll_dice_clicked() {
 
     // 延迟 400ms 才真正掷骰：让“正在掷骰子”这行文案先渲染出来，
     // 之后再跳到点数，玩家才能看出这是两步而不是瞬间完成。
-    // 定时器以 this 为 context，控件销毁时回调会自动取消。
-    QTimer::singleShot(400, this, [this]() {
-        try {
-            game_.roll_dice();
-            update_ui();
-        } catch (const std::exception& e) {
-            // 正常操作到不了这里（按钮已按阶段禁用）。出错时恢复界面而不是只记日志：
-            // update_ui 会按当前阶段重新决定文案与按钮可用性，否则按钮会永久停在禁用态。
-            qDebug() << "掷骰子失败:" << e.what();
-            show_message(QString("掷骰失败: ") + e.what());
-            update_ui();
-        }
-    });
+    // 用成员定时器，开新局/读档时可以取消这次尚未执行的掷骰。
+    roll_timer_.start(400);
+}
+
+void GameWidget::on_roll_dice_timeout() {
+    try {
+        game_.roll_dice();
+        update_ui();
+    } catch (const std::exception& e) {
+        // 正常操作到不了这里（按钮已按阶段禁用）。出错时恢复界面而不是只记日志：
+        // update_ui 会按当前阶段重新决定文案与按钮可用性，否则按钮会永久停在禁用态。
+        qDebug() << "掷骰子失败:" << e.what();
+        show_message(QString("掷骰失败: ") + e.what());
+        update_ui();
+    }
 }
 
 void GameWidget::on_save_clicked() {
@@ -282,7 +296,13 @@ void GameWidget::trigger_ai_if_needed() {
 
     // 延迟 500ms 而不是直接调用：让人类走子后的棋盘刷新与日志先画完，
     // 否则“你走完 -> 电脑立刻掷骰”会挤在同一帧里，看不出先后关系。
-    QTimer::singleShot(500, this, &GameWidget::handle_ai_turn);
+    ai_timer_.start(500);
+}
+
+void GameWidget::cancel_pending_actions() {
+    // 两个定时器都停掉：尚未执行的掷骰与 AI 步进都作废，由新局/新存档重新排。
+    roll_timer_.stop();
+    ai_timer_.stop();
 }
 
 void GameWidget::handle_ai_turn() {
@@ -311,7 +331,7 @@ void GameWidget::handle_ai_turn() {
             update_ui();
             // 掷骰后再等 800ms 才要着法：让“电脑掷出了 X，正在思考...”有可见的停留时间。
             // 重新进入 handle_ai_turn，这一次会落到 Player2Thinking 分支。
-            QTimer::singleShot(800, this, &GameWidget::handle_ai_turn);
+            ai_timer_.start(800);
             return;
         case core::Phase::Player2Thinking:
             break;  // 骰子已就绪，落到下面走子

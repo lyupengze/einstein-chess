@@ -1,71 +1,121 @@
 #include "toast_widget.h"
 
 #include <QGraphicsDropShadowEffect>
+#include <QGraphicsOpacityEffect>
+#include <QLabel>
 #include <QPropertyAnimation>
+#include <QVBoxLayout>
 
 namespace ui {
 
-// 提示条实现：构造时备好阴影、单发定时器并隐藏；show_message() 负责换文本、重新计时、
-// 定位到父控件 15% 高度处水平居中，最后从头淡入。
+namespace {
+
+// 阴影模糊半径 12、向下偏移 4，容器四周至少留 16 像素透明边距，阴影才不会被控件边界裁掉。
+constexpr int kShadowMargin = 16;
+constexpr int kFadeInMs = 180;
+constexpr int kFadeOutMs = 200;
+
+}  // namespace
+
+// 提示条实现：构造时备好阴影、透明度效果、动画与单发定时器并隐藏；
+// show_message() 负责换文本、按新尺寸重新居中、淡入并重新计时，超时后淡出再隐藏。
 // 由于它不进入父控件布局，位置只在每次 show_message() 时算一次，父控件之后缩放并不会跟随。
-// 淡入动画每次新建、以 DeleteWhenStopped 交给 Qt 回收，所以本类无需保存动画指针。
+// 淡入淡出由 QGraphicsOpacityEffect 的 opacity 属性驱动——子控件上 setWindowOpacity 是空操作。
 
-ToastWidget::ToastWidget(QWidget* parent) : QLabel(parent) {
-    // objectName 是样式表的命中锚点：style.qss 的 QLabel#toast 提供深色背景、圆角与内边距。
-    setObjectName("toast");
-    setAlignment(Qt::AlignCenter);
+ToastWidget::ToastWidget(QWidget* parent) : QWidget(parent) {
+    // 提示条只是反馈，不该拦住鼠标：真正需要点击的棋盘在它下面。
+    setAttribute(Qt::WA_TransparentForMouseEvents);
 
-    // 阴影挂在本控件上，让深色圆角块显得有厚度；effect 的父对象是 this，随控件一起析构。
+    // 外层容器只负责定位、尺寸与透明度，自身不画任何东西；
+    // 布局边距就是给内层标签的阴影预留的空间。
+    auto* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(kShadowMargin, kShadowMargin, kShadowMargin, kShadowMargin);
+
+    // 真正的外观（深色圆角背景、白字、内边距）由 style.qss 的 QLabel#toast 提供。
+    label_ = new QLabel(this);
+    label_->setObjectName("toast");
+    label_->setAlignment(Qt::AlignCenter);
+    label_->setAttribute(Qt::WA_TransparentForMouseEvents);
+    layout->addWidget(label_);
+
+    // 阴影挂在标签上：effect 的父对象是标签，随控件树一起析构。
     auto* shadow = new QGraphicsDropShadowEffect(this);
     shadow->setBlurRadius(12);
     shadow->setColor(QColor(0, 0, 0, 100));
     shadow->setOffset(0, 4);
-    setGraphicsEffect(shadow);
+    label_->setGraphicsEffect(shadow);
+
+    // 透明度挂在容器上：一个控件同时只能有一个 QGraphicsEffect，阴影已占用标签的名额，
+    // 所以必须分成两层，否则只能二选一。
+    opacity_effect_ = new QGraphicsOpacityEffect(this);
+    opacity_effect_->setOpacity(0.0);
+    setGraphicsEffect(opacity_effect_);
+
+    // 淡入与淡出共用一个动画：换方向时只改起止值与时长，避免同时有两个动画驱动同一个属性。
+    animation_ = new QPropertyAnimation(opacity_effect_, "opacity", this);
+    connect(animation_, &QPropertyAnimation::finished, this, [this]() {
+        // 动画结束时只有“淡出”需要真正隐藏；淡入结束要保持可见。
+        if (fading_out_) {
+            fading_out_ = false;
+            hide();
+        }
+    });
 
     // 构造即隐藏：子控件默认会随父控件一起显形，不先 hide() 就会在未定位时闪在左上角。
     hide();
 
-    // 单发定时器：每次 show_message 重新 start，只会超时一次就隐藏，无需周期性回调。
+    // 单发定时器：每次 show_message 重新 start，只负责“该开始淡出了”。
     timer_ = new QTimer(this);
     timer_->setSingleShot(true);
-    connect(timer_, &QTimer::timeout, this, &ToastWidget::hide);
+    connect(timer_, &QTimer::timeout, this, &ToastWidget::fade_out);
 }
 
 void ToastWidget::show_message(const QString& msg, int duration) {
-    // 先设文本再 adjustSize()，尺寸才按新文本重算；顺序颠倒会沿用上一条消息的宽度。
-    setText(msg);
+    // 先设文本再 adjustSize()，容器的尺寸由布局按标签的 sizeHint 重算；
+    // 顺序颠倒会沿用上一条消息的宽度。
+    label_->setText(msg);
     adjustSize();
 
-    // 重置计时，让新消息拿到完整的 duration，否则上一条的 timeout 会提前把它收掉。
-    // start() 对运行中的定时器本身就会重新计时，这里的 stop 只是把"重置"意图写明。
-    if (timer_->isActive()) {
-        timer_->stop();
-    }
-    timer_->start(duration);
-
-    // 定位：横向按父子宽度差居中，纵向取父控件高度的 15%，即"靠上但不贴顶"。
-    // 注意: 高度用的是父控件整体高度且与布局无关，父控件之后缩放时本控件不会跟随移动。
+    // 定位：横向按父子宽度差居中（阴影边距左右对称，视觉上仍是居中）；
+    // 纵向取父控件高度的 15%，再减掉容器顶部的阴影边距，让“看得见的条”落在 15% 处。
     if (parentWidget()) {
-        int x = (parentWidget()->width() - width()) / 2;
-        int y = parentWidget()->height() * 0.15;
+        const int x = (parentWidget()->width() - width()) / 2;
+        const int y = parentWidget()->height() * 3 / 20 - kShadowMargin;
         move(x, y);
     }
 
-    // 先置全透明再显示，避免"满不透明闪一帧"再淡入的跳变；raise() 保证压在棋盘之上。
-    // 注意: windowOpacity 只对顶层窗口生效，本控件是子控件，这段淡入实际很可能不起作用。
-    setWindowOpacity(0.0);
-    show();
+    // 已隐藏时把透明度归零，保证 show() 的第一帧是全透明，不会闪一下上一次的残留值。
+    if (!isVisible()) {
+        opacity_effect_->setOpacity(0.0);
+    }
     raise();
+    show();
 
-    // 动画每次新建：QPropertyAnimation 的父对象是 this，同时以 DeleteWhenStopped 让它在停止后
-    // 自删——父子关系与自删并不冲突，QObject 析构时会自动从父对象列表中摘除自己。
-    // 只有淡入没有淡出：到时由定时器直接 hide()，所以消失是硬切而不是渐变。
-    // 连续快速调用时旧动画不会被 stop，会与新动画同时驱动同一个属性（终点相同，影响有限）。
-    auto* animation = new QPropertyAnimation(this, "windowOpacity", this);
-    animation->setDuration(200);
-    animation->setStartValue(0.0);
-    animation->setEndValue(1.0);
-    animation->start(QAbstractAnimation::DeleteWhenStopped);
+    // 重置计时，让新消息拿到完整的 duration，否则上一条的 timeout 会提前把它收掉。
+    timer_->start(duration);
+    fade_in();
+}
+
+void ToastWidget::fade_in() {
+    // 停掉可能正在进行的淡出：连续快速调用时，旧动画不能继续和新动画抢同一个属性。
+    animation_->stop();
+    fading_out_ = false;
+    animation_->setDuration(kFadeInMs);
+    animation_->setStartValue(opacity_effect_->opacity());
+    animation_->setEndValue(1.0);
+    animation_->start();
+}
+
+void ToastWidget::fade_out() {
+    if (!isVisible()) {
+        return;
+    }
+    fading_out_ = true;
+    animation_->stop();
+    animation_->setDuration(kFadeOutMs);
+    animation_->setStartValue(opacity_effect_->opacity());
+    animation_->setEndValue(0.0);
+    animation_->start();
 }
 
 }  // namespace ui

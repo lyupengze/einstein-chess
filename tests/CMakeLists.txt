@@ -13,9 +13,14 @@ add_executable(test_gui_reconcile gui_reconcile_test.cpp)
 target_link_libraries(test_gui_reconcile PRIVATE einstein_gui_lib einstein_warnings)
 add_test(NAME gui_reconcile COMMAND test_gui_reconcile)
 
+add_executable(test_toast_fade toast_fade_test.cpp)
+target_link_libraries(test_toast_fade PRIVATE einstein_gui_lib einstein_warnings)
+add_test(NAME toast_fade COMMAND test_toast_fade)
+
 # Qt 的 offscreen 平台插件不需要显示器；用环境变量而不是命令行参数，
 # 这样测试程序本身保持与真实 GUI 相同的启动路径。
-set_tests_properties(board_geometry gui_reconcile PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+set_tests_properties(board_geometry gui_reconcile toast_fade
+                     PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # CLI 的 EOF 回归：用 cmake -P 脚本喂文件给二进制，
 # 避免依赖各平台不同的管道/重定向语法。
