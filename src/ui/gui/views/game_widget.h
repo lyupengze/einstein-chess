@@ -43,6 +43,12 @@ public:
     /// @param state 从 SaveManager 读出的完整状态
     /// @param ai_level 存档记录的电脑强度，读档后整局沿用，保证与存档时一致
     void load_game_state(const core::GameState& state, ai::Level ai_level);
+    /// @brief 测试专用：覆盖三段界面延迟，默认值保持产品节奏。
+    /// @param roll_ms 点击掷骰到真正掷骰的延迟（默认 400）
+    /// @param after_move_ms 人类走子后到 AI 掷骰的延迟（默认 500）
+    /// @param think_ms AI 掷骰后到落子的延迟（默认 800）
+    /// @note 只给回归测试压缩等待时间；产品代码不调用，因此默认体验不变。
+    void set_action_delays(int roll_ms, int after_move_ms, int think_ms);
 
 signals:
 
@@ -104,6 +110,13 @@ private:
     /// singleShot 没有句柄，开了新局或读了档也取消不掉，旧回调会落到新局上。
     QTimer roll_timer_;  ///< 人类掷骰的 400ms 延迟，单发
     QTimer ai_timer_;    ///< AI 回合的 500/800ms 延迟，单发；两次启动共用同一支定时器
+
+    /// 三段延迟允许测试通过 set_action_delays 覆盖；产品默认值即下面的初值，
+    /// 写成成员而不是散在 on_roll_dice_clicked / trigger_ai_if_needed / handle_ai_turn
+    /// 里的字面量，测试才能把整条链路压到毫秒级而不必 sleep 真实时长。
+    int roll_delay_ms_ = 400;        ///< on_roll_dice_clicked 里真正掷骰前的等待
+    int after_move_delay_ms_ = 500;  ///< 人类走子后到 AI 开始回合的等待
+    int think_delay_ms_ = 800;       ///< AI 掷骰后到落子的等待
 };
 
 }  // namespace ui

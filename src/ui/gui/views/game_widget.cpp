@@ -126,6 +126,14 @@ void GameWidget::load_game_state(const core::GameState& state, ai::Level ai_leve
     trigger_ai_if_needed();
 }
 
+void GameWidget::set_action_delays(int roll_ms, int after_move_ms, int think_ms) {
+    // 只改延迟，不碰任何对局状态；调用方应在 start_new_game / load_game_state
+    // 之前设置，这样它们排出的第一段定时器就已经用上新值。
+    roll_delay_ms_ = roll_ms;
+    after_move_delay_ms_ = after_move_ms;
+    think_delay_ms_ = think_ms;
+}
+
 void GameWidget::on_exit_clicked() {
     // 只发信号，切页由 MainWindow 做；对局对象原样保留，返回主页不会清空 game_。
     emit exit_to_menu();
@@ -139,7 +147,7 @@ void GameWidget::on_roll_dice_clicked() {
     // 延迟 400ms 才真正掷骰：让“正在掷骰子”这行文案先渲染出来，
     // 之后再跳到点数，玩家才能看出这是两步而不是瞬间完成。
     // 用成员定时器，开新局/读档时可以取消这次尚未执行的掷骰。
-    roll_timer_.start(400);
+    roll_timer_.start(roll_delay_ms_);
 }
 
 void GameWidget::on_roll_dice_timeout() {
@@ -303,7 +311,7 @@ void GameWidget::trigger_ai_if_needed() {
 
     // 延迟 500ms 而不是直接调用：让人类走子后的棋盘刷新与日志先画完，
     // 否则“你走完 -> 电脑立刻掷骰”会挤在同一帧里，看不出先后关系。
-    ai_timer_.start(500);
+    ai_timer_.start(after_move_delay_ms_);
 }
 
 void GameWidget::cancel_pending_actions() {
@@ -338,7 +346,7 @@ void GameWidget::handle_ai_turn() {
             update_ui();
             // 掷骰后再等 800ms 才要着法：让“电脑掷出了 X，正在思考...”有可见的停留时间。
             // 重新进入 handle_ai_turn，这一次会落到 Player2Thinking 分支。
-            ai_timer_.start(800);
+            ai_timer_.start(think_delay_ms_);
             return;
         case core::Phase::Player2Thinking:
             break;  // 骰子已就绪，落到下面走子

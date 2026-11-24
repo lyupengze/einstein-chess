@@ -202,7 +202,10 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
     // Windows 控制台切到 UTF-8 代码页，否则中文与棋盘符号会乱码。
-    system("chcp 65001 > nul");
+    // 末尾的 "< nul" 不能省：cmd.exe 在 stdin 被重定向（文件/管道）时会读走
+    // 调用方喂进来的第一行，导致 CLI 直接看到 EOF。把 chcp 自己的 stdin
+    // 接到 NUL，既保住 UTF-8 输出，又不碰真正的输入流。
+    system("chcp 65001 > nul < nul");
 #endif
     std::cout << "=== 爱因斯坦棋 (CLI) ===\n";
 
