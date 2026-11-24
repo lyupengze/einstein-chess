@@ -6,6 +6,7 @@
 // 3. 降级选子、吃己方棋子、抵达目标角、吃光对方等规则不回归。
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <iostream>
 #include <optional>
@@ -232,6 +233,198 @@ int main() {
         }
         expect(threw, "illegal move throws std::invalid_argument");
         expect(same_state(state, before), "illegal move leaves the original state unchanged");
+    }
+
+    // 9. 降级选子的完整表：同号优先、只有下界、只有上界、上下界并存、无子可动、骰子越界。
+    {
+        auto selectable = [](int dice, std::vector<int> alive) {
+            return core::rules::selectable_ids_for(dice, [&alive](int id) {
+                return std::find(alive.begin(), alive.end(), id) != alive.end();
+            });
+        };
+        expect(selectable(3, {2, 3, 4}) == std::array<int, 2>{3, -1},
+               "selectable ids prefer the exact dice id");
+        expect(selectable(3, {1, 2}) == std::array<int, 2>{2, -1},
+               "selectable ids fall back to the nearest id below the dice");
+        expect(selectable(3, {4, 5}) == std::array<int, 2>{-1, 4},
+               "selectable ids fall back to the nearest id above the dice");
+        expect(selectable(3, {1, 6}) == std::array<int, 2>{1, 6},
+               "selectable ids keep both fallback neighbours");
+        expect(selectable(3, std::vector<int>{}) == std::array<int, 2>{-1, -1},
+               "no alive piece yields no selectable id");
+        expect(selectable(0, {1, 2, 3}) == std::array<int, 2>{-1, -1} &&
+                   selectable(7, {1, 2, 3}) == std::array<int, 2>{-1, -1},
+               "out-of-range dice yields no selectable id");
+
+        core::GameState exact = base_state(core::Side::Red, 3);
+        put(exact, {0, 0}, core::Side::Red, 3);
+        put(exact, {0, 1}, core::Side::Red, 1);
+        expect(core::rules::get_selectable_ids(exact) == std::vector<int>{3},
+               "get_selectable_ids keeps only the exact dice piece");
+    }
+
+    // 10. check_move 的拒绝顺序与文案：越界 -> 起点归属 -> 是否可选 -> 方向。
+    {
+        core::GameState state = base_state(core::Side::Red, 1);
+        put(state, {2, 2}, core::Side::Red, 1);
+        put(state, {4, 4}, core::Side::Blue, 1);
+        expect(core::rules::check_move(state, {5, 0}, {4, 0}) == "坐标超出棋盘范围",
+               "check_move rejects an out-of-bounds start");
+        expect(core::rules::check_move(state, {2, 2}, {5, 0}) == "坐标超出棋盘范围",
+               "check_move rejects an out-of-bounds destination");
+        expect(core::rules::check_move(state, {4, 4}, {3, 3}) == "起点不是己方棋子",
+               "check_move reports the wrong starting side");
+        expect(core::rules::check_move(state, {2, 2}, {3, 2}).empty(),
+               "red forward step is legal");
+        expect(core::rules::check_move(state, {2, 2}, {1, 2}) ==
+                   "红方只能向下、向右、向右下移动",
+               "red cannot step backwards");
+        expect(core::rules::check_move(state, {2, 2}, {2, 2}) ==
+                   "红方只能向下、向右、向右下移动",
+               "red cannot stay in place");
+    }
+    {
+        core::GameState state = base_state(core::Side::Blue, 1);
+        put(state, {2, 2}, core::Side::Blue, 1);
+        put(state, {0, 0}, core::Side::Red, 1);
+        expect(core::rules::check_move(state, {2, 2}, {1, 2}).empty(),
+               "blue forward step is legal");
+        expect(core::rules::check_move(state, {2, 2}, {3, 2}) ==
+                   "蓝方只能向上、向左、向左上移动",
+               "blue cannot step backwards");
+    }
+    {
+        // 骰 3 时场上只有 1、2 号：下界 2 可选，1 号不可选。
+        core::GameState state = base_state(core::Side::Red, 3);
+        put(state, {0, 0}, core::Side::Red, 1);
+        put(state, {0, 1}, core::Side::Red, 2);
+        put(state, {4, 4}, core::Side::Blue, 1);
+        expect(core::rules::check_move(state, {0, 0}, {1, 0}) == "该棋子不可被移动",
+               "check_move rejects a piece outside the fallback selection");
+        expect(core::rules::check_move(state, {0, 1}, {1, 1}).empty(),
+               "check_move accepts the fallback-selected piece");
+    }
+
+    // 11. 胜负只看目标角：红方在左上角、蓝方在右下角都不算赢。
+    {
+        core::GameState state = base_state(core::Side::Red, 1);
+        put(state, {0, 0}, core::Side::Red, 1);
+        put(state, {4, 4}, core::Side::Blue, 1);
+        expect(core::rules::check_winner(state) == core::Side::None,
+               "pieces on the wrong corners do not win");
+        put(state, {4, 4}, core::Side::Red, 1);
+        put(state, {0, 4}, core::Side::Blue, 2);
+        expect(core::rules::check_winner(state) == core::Side::Red,
+               "red wins by occupying (4,4)");
+    }
+    {
+        core::GameState state = base_state(core::Side::Blue, 1);
+        put(state, {0, 0}, core::Side::Blue, 1);
+        put(state, {0, 4}, core::Side::Red, 1);
+        expect(core::rules::check_winner(state) == core::Side::Blue,
+               "blue wins by occupying (0,0)");
+    }
+
+    // 12. 未分胜负的结算：换手、回到掷骰、清空本回合骰子。
+    {
+        core::GameState state = base_state(core::Side::Red, 1);
+        put(state, {0, 0}, core::Side::Red, 1);
+        put(state, {4, 4}, core::Side::Blue, 1);
+        const core::GameState next = core::apply_move_and_settle(state, {0, 0}, {0, 1});
+        expect(next.current_side == core::Side::Blue &&
+                   next.phase == core::Phase::ThrowingDice && !next.current_dice &&
+                   next.winner == core::Side::None,
+               "non-winning move switches side, returns to dice, clears dice");
+    }
+
+    // 13. 布阵落位顺序：红方行优先展开，蓝方从右下角镜像展开。
+    {
+        core::Board red;
+        red.setup_custom(core::Side::Red, {1, 2, 3, 4, 5, 6});
+        expect(red.at({0, 0}).id == 1 && red.at({0, 1}).id == 2 && red.at({0, 2}).id == 3 &&
+                   red.at({1, 0}).id == 4 && red.at({1, 1}).id == 5 && red.at({2, 0}).id == 6,
+               "red layout follows the row-major region order");
+        expect(red.count_pieces(core::Side::Red) == 6, "red layout places six pieces");
+
+        core::Board blue;
+        blue.setup_custom(core::Side::Blue, {1, 2, 3, 4, 5, 6});
+        expect(blue.at({4, 4}).id == 1 && blue.at({4, 3}).id == 2 &&
+                   blue.at({4, 2}).id == 3 && blue.at({3, 4}).id == 4 &&
+                   blue.at({3, 3}).id == 5 && blue.at({2, 4}).id == 6,
+               "blue layout mirrors the red region order");
+
+        core::Board untouched;
+        untouched.setup_custom(core::Side::Red, {1, 2, 3, 4, 5, 6});
+        const auto before = untouched.to_string();
+        bool duplicate_threw = false;
+        try {
+            untouched.setup_custom(core::Side::Red, {1, 1, 2, 3, 4, 5});
+        } catch (const std::invalid_argument&) {
+            duplicate_threw = true;
+        }
+        expect(duplicate_threw, "duplicate layout id is rejected");
+        expect(untouched.to_string() == before, "invalid layout leaves the board unchanged");
+
+        bool none_threw = false;
+        try {
+            untouched.setup_custom(core::Side::None, {1, 2, 3, 4, 5, 6});
+        } catch (const std::invalid_argument&) {
+            none_threw = true;
+        }
+        expect(none_threw, "Side::None cannot submit a layout");
+        expect(untouched.to_string() == before, "rejected side leaves the board unchanged");
+    }
+
+    // 14. Game 的布阵生命周期与掷骰入口。
+    {
+        core::Game game;
+        game.prepare_new_game(core::Side::Blue);
+        core::GameState state = game.get_state();
+        expect(state.phase == core::Phase::LayOut &&
+                   state.player1_side == core::Side::Blue &&
+                   state.board.count_pieces(core::Side::Red) == 0,
+               "prepare_new_game resets to an empty LayOut state");
+
+        game.submit_layout(core::Side::Blue, {1, 2, 3, 4, 5, 6});
+        state = game.get_state();
+        expect(state.player1_ready && !state.player2_ready &&
+                   state.phase == core::Phase::LayOut,
+               "one submitted layout keeps the game in LayOut");
+
+        game.submit_layout(core::Side::Red, {6, 5, 4, 3, 2, 1});
+        state = game.get_state();
+        expect(state.player1_ready && state.player2_ready &&
+                   state.phase == core::Phase::ThrowingDice &&
+                   state.current_side == core::Side::Red,
+               "both layouts start the game with Red to throw");
+
+        game.roll_dice();
+        state = game.get_state();
+        expect(state.current_dice && *state.current_dice >= 1 && *state.current_dice <= 6,
+               "roll_dice produces a value in 1..6");
+        expect(state.phase == core::Phase::Player2Thinking,
+               "player1 is Blue, so Red's throw is Player2Thinking");
+    }
+    {
+        core::Game game;
+        game.prepare_new_game(core::Side::Red);
+        bool roll_threw = false;
+        try {
+            game.roll_dice();
+        } catch (const std::invalid_argument&) {
+            roll_threw = true;
+        }
+        expect(roll_threw, "roll_dice rejects the LayOut phase");
+
+        bool layout_threw = false;
+        try {
+            game.submit_layout(core::Side::Red, {1, 1, 2, 3, 4, 5});
+        } catch (const std::invalid_argument&) {
+            layout_threw = true;
+        }
+        expect(layout_threw && !game.get_state().player1_ready &&
+                   game.get_state().phase == core::Phase::LayOut,
+               "invalid layout does not mark the side ready");
     }
 
     return test_support::finish();
