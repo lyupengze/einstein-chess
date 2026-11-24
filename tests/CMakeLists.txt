@@ -65,6 +65,11 @@ add_executable(test_ai_level ai_level_test.cpp)
 target_link_libraries(test_ai_level PRIVATE einstein_ai einstein_warnings)
 einstein_add_test(ai_level test_ai_level TIMEOUT 30 LABEL ai)
 
+add_executable(test_botzone_protocol botzone_protocol_test.cpp)
+# 协议库已 PUBLIC 暴露 core/ai 与 third_party 的 include，测试只需链接它。
+target_link_libraries(test_botzone_protocol PRIVATE einstein_botzone_protocol einstein_warnings)
+einstein_add_test(botzone_protocol test_botzone_protocol TIMEOUT 60 LABEL botzone)
+
 add_executable(test_save_level save_level_test.cpp)
 # 测试要直接改 SQLite 里的 data 列来伪造旧档，因此显式链接 sqlite3；
 # storage 自身只 PRIVATE 依赖它，不会自动传递过来。
