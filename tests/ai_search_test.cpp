@@ -4,10 +4,11 @@
 // 降级选子、Botzone 式 current_side/player1_side 不一致、固定种子复现、
 // 以及一整局双方都由 AI 走子时不产非法着法。
 
-#include <cstdio>
 #include <exception>
+#include <iostream>
 #include <optional>
 #include <stdexcept>
+#include <string_view>
 
 #include "ai/ai.h"
 #include "core/board.h"
@@ -20,8 +21,8 @@ namespace {
 
 int failures = 0;
 
-void expect(bool cond, const char* what) {
-    std::printf("%s %s\n", cond ? "PASS" : "FAIL", what);
+void expect(bool cond, std::string_view what) {
+    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
     if (!cond) {
         ++failures;
     }
@@ -220,6 +221,10 @@ int main() {
         expect(made_moves > 0, "AI actually made moves in the full game");
     }
 
-    std::printf(failures == 0 ? "ALL PASS\n" : "%d FAILURE(S)\n", failures);
+    if (failures == 0) {
+        std::cout << "ALL PASS\n";
+    } else {
+        std::cout << failures << " FAILURE(S)\n";
+    }
     return failures == 0 ? 0 : 1;
 }

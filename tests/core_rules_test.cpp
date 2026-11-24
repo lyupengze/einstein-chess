@@ -7,9 +7,10 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdio>
+#include <iostream>
 #include <optional>
 #include <stdexcept>
+#include <string_view>
 #include <vector>
 
 #include "core/board.h"
@@ -22,8 +23,8 @@ namespace {
 
 int failures = 0;
 
-void expect(bool cond, const char* what) {
-    std::printf("%s %s\n", cond ? "PASS" : "FAIL", what);
+void expect(bool cond, std::string_view what) {
+    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
     if (!cond) {
         ++failures;
     }
@@ -87,7 +88,7 @@ void put(core::GameState& state, core::Pos pos, core::Side side, int id) {
     state.board.at(pos) = {side, id};
 }
 
-void expect_movegen_matches(const core::GameState& state, const char* what) {
+void expect_movegen_matches(const core::GameState& state, std::string_view what) {
     std::vector<core::Move> generated = core::rules::generate_legal_moves(state);
     std::vector<core::Move> brute = brute_force_moves(state);
     sort_moves(generated);
@@ -238,6 +239,10 @@ int main() {
         expect(same_state(state, before), "illegal move leaves the original state unchanged");
     }
 
-    std::printf(failures == 0 ? "ALL PASS\n" : "%d FAILURE(S)\n", failures);
+    if (failures == 0) {
+        std::cout << "ALL PASS\n";
+    } else {
+        std::cout << failures << " FAILURE(S)\n";
+    }
     return failures == 0 ? 0 : 1;
 }

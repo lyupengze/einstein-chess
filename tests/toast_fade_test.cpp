@@ -9,7 +9,8 @@
 #include <QEventLoop>
 #include <QGraphicsOpacityEffect>
 #include <QTimer>
-#include <cstdio>
+#include <iostream>
+#include <string_view>
 
 #include "components/toast_widget.h"
 
@@ -17,8 +18,8 @@ namespace {
 
 int failures = 0;
 
-void expect(bool cond, const char* what) {
-    std::printf("%s %s\n", cond ? "PASS" : "FAIL", what);
+void expect(bool cond, std::string_view what) {
+    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
     if (!cond) {
         ++failures;
     }
@@ -67,6 +68,10 @@ int main(int argc, char** argv) {
     expect(toast.isVisible(), "re-show during fade-out keeps the toast visible");
     expect(opacity->opacity() > 0.99, "re-show fades back to full opacity");
 
-    std::printf(failures == 0 ? "ALL PASS\n" : "%d FAILURE(S)\n", failures);
+    if (failures == 0) {
+        std::cout << "ALL PASS\n";
+    } else {
+        std::cout << failures << " FAILURE(S)\n";
+    }
     return failures == 0 ? 0 : 1;
 }
