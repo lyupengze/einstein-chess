@@ -104,6 +104,19 @@ einstein_add_test(toast_fade test_toast_fade
                   ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
                   RESOURCE_LOCK qt_gui)
 
+# 对话框用例：直接构造并操作控件，不进入模态循环。
+# 存档对话框按相对路径打开 einstein_save.db，因此必须有独立工作目录；
+# 显式链接 sqlite3，原因与 save_level 相同（storage 只 PRIVATE 依赖它）。
+add_executable(test_gui_dialogs gui_dialogs_test.cpp)
+target_link_libraries(test_gui_dialogs PRIVATE einstein_gui_lib sqlite3 einstein_warnings)
+set(GUI_DIALOGS_WORK_DIR ${CMAKE_CURRENT_BINARY_DIR}/gui_dialogs)
+file(MAKE_DIRECTORY ${GUI_DIALOGS_WORK_DIR})
+einstein_add_test(gui_dialogs test_gui_dialogs
+                  TIMEOUT 60 LABEL gui
+                  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                  RESOURCE_LOCK qt_gui
+                  WORKING_DIRECTORY ${GUI_DIALOGS_WORK_DIR})
+
 # CLI 用例统一在独立目录里跑：CLI 的默认存档库是相对路径 einstein_save.db，
 # 固定工作目录可以避免读到开发者本机遗留的存档，也能防止用例间互相影响。
 set(CLI_WORK_DIR ${CMAKE_CURRENT_BINARY_DIR}/cli)
