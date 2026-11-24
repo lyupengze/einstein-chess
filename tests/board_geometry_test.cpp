@@ -12,16 +12,11 @@
 
 #include "components/board_widget.h"
 
+#include "test_support.h"
+
+using test_support::expect;
+
 namespace {
-
-int failures = 0;
-
-void expect(bool cond, std::string_view what) {
-    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
-    if (!cond) {
-        ++failures;
-    }
-}
 
 // 发一次左键按下，返回是否产生了 cell_clicked，以及坐标。
 bool click(ui::BoardWidget& widget, int x, int y, core::Pos& out) {
@@ -77,10 +72,5 @@ int main(int argc, char** argv) {
     expect(click(widget, 200, 449, pos) && pos.x == 4 && pos.y == 2,
            "last in-board row still maps to 4 in tall window");
 
-    if (failures == 0) {
-        std::cout << "ALL PASS\n";
-    } else {
-        std::cout << failures << " FAILURE(S)\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return test_support::finish();
 }

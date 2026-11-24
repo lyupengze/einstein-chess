@@ -19,16 +19,11 @@
 #include "core/rules.h"
 #include "core/types.h"
 
+#include "test_support.h"
+
+using test_support::expect;
+
 namespace {
-
-int failures = 0;
-
-void expect(bool cond, std::string_view what) {
-    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
-    if (!cond) {
-        ++failures;
-    }
-}
 
 core::GameState base_state(core::Side current, int dice) {
     core::GameState state;
@@ -260,10 +255,5 @@ int main() {
         expect(made_moves > 0, "AI actually made moves in the full game");
     }
 
-    if (failures == 0) {
-        std::cout << "ALL PASS\n";
-    } else {
-        std::cout << failures << " FAILURE(S)\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return test_support::finish();
 }

@@ -19,16 +19,11 @@
 #include "core/rules.h"
 #include "core/types.h"
 
+#include "test_support.h"
+
+using test_support::expect;
+
 namespace {
-
-int failures = 0;
-
-void expect(bool cond, std::string_view what) {
-    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
-    if (!cond) {
-        ++failures;
-    }
-}
 
 bool move_less(const core::Move& a, const core::Move& b) {
     if (a.from.x != b.from.x) {
@@ -239,10 +234,5 @@ int main() {
         expect(same_state(state, before), "illegal move leaves the original state unchanged");
     }
 
-    if (failures == 0) {
-        std::cout << "ALL PASS\n";
-    } else {
-        std::cout << failures << " FAILURE(S)\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return test_support::finish();
 }

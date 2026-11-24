@@ -13,17 +13,11 @@
 
 #include "components/toast_widget.h"
 #include "qt_wait.h"
+#include "test_support.h"
+
+using test_support::expect;
 
 namespace {
-
-int failures = 0;
-
-void expect(bool cond, std::string_view what) {
-    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
-    if (!cond) {
-        ++failures;
-    }
-}
 
 }  // namespace
 
@@ -69,10 +63,5 @@ int main(int argc, char** argv) {
            "re-show during fade-out keeps the toast visible");
     expect(opacity->opacity() > 0.99, "re-show fades back to full opacity");
 
-    if (failures == 0) {
-        std::cout << "ALL PASS\n";
-    } else {
-        std::cout << failures << " FAILURE(S)\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return test_support::finish();
 }

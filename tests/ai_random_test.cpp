@@ -9,19 +9,9 @@
 #include <string_view>
 
 #include "ai/ai.h"
+#include "test_support.h"
 
-namespace {
-
-int failures = 0;
-
-void expect(bool cond, std::string_view what) {
-    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
-    if (!cond) {
-        ++failures;
-    }
-}
-
-}  // namespace
+using test_support::expect;
 
 int main() {
     ai::set_random_seed(12345);
@@ -40,10 +30,5 @@ int main() {
     const std::array<int, 6> expected{1, 2, 3, 4, 5, 6};
     expect(sorted == expected, "layout is a permutation of 1..6");
 
-    if (failures == 0) {
-        std::cout << "ALL PASS\n";
-    } else {
-        std::cout << failures << " FAILURE(S)\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return test_support::finish();
 }

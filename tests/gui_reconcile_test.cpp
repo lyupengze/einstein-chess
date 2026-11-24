@@ -20,16 +20,11 @@
 #include "qt_wait.h"
 #include "views/game_widget.h"
 
+#include "test_support.h"
+
+using test_support::expect;
+
 namespace {
-
-int failures = 0;
-
-void expect(bool cond, std::string_view what) {
-    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
-    if (!cond) {
-        ++failures;
-    }
-}
 
 std::vector<QString> label_texts(ui::GameWidget& widget) {
     std::vector<QString> texts;
@@ -163,10 +158,5 @@ int main(int argc, char** argv) {
                "the new game does not queue an extra AI turn");
     }
 
-    if (failures == 0) {
-        std::cout << "ALL PASS\n";
-    } else {
-        std::cout << failures << " FAILURE(S)\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return test_support::finish();
 }

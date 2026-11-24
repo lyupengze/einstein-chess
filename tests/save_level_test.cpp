@@ -19,19 +19,14 @@
 #include "storage/save_manager.h"
 #include "storage/sqlite_wrapper.h"
 
+#include "test_support.h"
+
+using test_support::expect;
+
 namespace {
 
 /// 测试专用临时数据库；放在测试的当前工作目录（构建目录）下。
 constexpr const char* kDbPath = "test_save_level.db";
-
-int failures = 0;
-
-void expect(bool cond, std::string_view what) {
-    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
-    if (!cond) {
-        ++failures;
-    }
-}
 
 // 一个能通过反序列化语义校验的简单局面：轮到红方思考且骰子为 1。
 core::GameState make_state() {
@@ -159,10 +154,5 @@ int main() {
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。
     std::remove(kDbPath);
 
-    if (failures == 0) {
-        std::cout << "ALL PASS\n";
-    } else {
-        std::cout << failures << " FAILURE(S)\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return test_support::finish();
 }

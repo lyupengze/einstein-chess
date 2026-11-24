@@ -16,16 +16,11 @@
 #include "core/rules.h"
 #include "core/types.h"
 
+#include "test_support.h"
+
+using test_support::expect;
+
 namespace {
-
-int failures = 0;
-
-void expect(bool cond, std::string_view what) {
-    std::cout << (cond ? "PASS" : "FAIL") << ' ' << what << '\n';
-    if (!cond) {
-        ++failures;
-    }
-}
 
 // 红方 1 号在 (3,3)，可以斜进 (4,4) 一步获胜；随机版在该局面也有多个候选。
 core::GameState make_state() {
@@ -110,10 +105,5 @@ int main() {
     expect(rejects_bad_phase(ai::Level::kRandom), "random AI rejects non-thinking phase");
     expect(rejects_bad_phase(ai::Level::kSearch), "search AI rejects non-thinking phase");
 
-    if (failures == 0) {
-        std::cout << "ALL PASS\n";
-    } else {
-        std::cout << failures << " FAILURE(S)\n";
-    }
-    return failures == 0 ? 0 : 1;
+    return test_support::finish();
 }
