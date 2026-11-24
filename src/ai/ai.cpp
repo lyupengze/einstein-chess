@@ -271,9 +271,28 @@ core::Move choose_move(const core::GameState& state, const SearchConfig& config)
         }
     }
 
-    // 完全相同的评分下随机打破平局，避免每局走成同一条固定路线。
-    std::uniform_int_distribution<std::size_t> dist(0, best_moves.size() - 1);
-    return best_moves[dist(engine())];
+    // 竞速评估只返回胜率，必胜/必败时大量着法会同分。同分时先选“走完后离终点
+    // 更近”的着法，再优先斜向，避免随机走进无进展的轴向着法。
+    int best_distance = std::numeric_limits<int>::max();
+    for (const core::Move& move : best_moves) {
+        best_distance = std::min(best_distance, distance_to_goal(move.to, root));
+    }
+    std::vector<core::Move> closest;
+    for (const core::Move& move : best_moves) {
+        if (distance_to_goal(move.to, root) == best_distance) {
+            closest.push_back(move);
+        }
+    }
+    std::vector<core::Move> diagonal;
+    for (const core::Move& move : closest) {
+        if (move.from.x != move.to.x && move.from.y != move.to.y) {
+            diagonal.push_back(move);
+        }
+    }
+    const std::vector<core::Move>& candidates = diagonal.empty() ? closest : diagonal;
+
+    std::uniform_int_distribution<std::size_t> dist(0, candidates.size() - 1);
+    return candidates[dist(engine())];
 }
 
 }  // namespace

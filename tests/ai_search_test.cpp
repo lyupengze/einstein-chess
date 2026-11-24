@@ -1,8 +1,9 @@
 // AI 搜索回归：竞速评估 + 最简 Expectiminimax 的合法性、战术与确定性。
 //
 // 覆盖：立即获胜、吃光对方、阻止对方下一步获胜、竞速胜率与先手、
-// 吃己方棋子改善竞速、降级选子、Botzone 式 current_side/player1_side 不一致、
-// 固定种子复现，以及一整局双方都由 AI 走子时不产非法着法。
+// 吃己方棋子改善竞速、同分时推进/斜向优先、降级选子、
+// Botzone 式 current_side/player1_side 不一致、固定种子复现，
+// 以及一整局双方都由 AI 走子时不产非法着法。
 
 #include <cmath>
 #include <exception>
@@ -122,6 +123,18 @@ int main() {
         const core::Move move = choose(state, 2);
         const core::Move expected{{2, 2}, {3, 3}};
         expect(move == expected, "AI may capture its own piece to improve the race");
+    }
+
+    // 5b. 同分时优先推进：蓝 (3,3) d3、红 (4,0) d4，dice1；depth4 三个根着法
+    //     都同分，但 (2,3)/(3,2) 不推进。先按走完距离过滤，再优先斜向。
+    {
+        core::GameState state = base_state(core::Side::Blue, 1);
+        put(state, {3, 3}, core::Side::Blue, 1);
+        put(state, {4, 0}, core::Side::Red, 1);
+        ai::set_random_seed(123);
+        const core::Move move = choose(state, 4);
+        expect(move.to.x == 2 && move.to.y == 2,
+               "equal scores prefer progress then diagonal");
     }
 
     // 6. 降级选子：掷 3 且只有 1、6 号，只能从这两个编号出发。
