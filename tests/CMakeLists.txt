@@ -124,3 +124,16 @@ add_test(NAME cli_exit
 )
 set_tests_properties(cli_exit PROPERTIES
                      TIMEOUT 30 LABELS cli WORKING_DIRECTORY ${CLI_WORK_DIR})
+
+# 交互会话用例：从主菜单一路走到开局，覆盖错误输入重试与中途 EOF。
+# 使用独立工作目录，避免与其它 CLI 用例共享 einstein_save.db 而产生跨用例干扰。
+set(CLI_SESSION_WORK_DIR ${CMAKE_CURRENT_BINARY_DIR}/cli_session)
+file(MAKE_DIRECTORY ${CLI_SESSION_WORK_DIR})
+add_test(NAME cli_session
+         COMMAND ${CMAKE_COMMAND}
+                 -DEXE=$<TARGET_FILE:einstein_cli>
+                 -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/data/cli_session_input.txt
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_session_test.cmake
+)
+set_tests_properties(cli_session PROPERTIES
+                     TIMEOUT 30 LABELS cli WORKING_DIRECTORY ${CLI_SESSION_WORK_DIR})
