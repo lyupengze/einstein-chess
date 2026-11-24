@@ -4,6 +4,11 @@ cmake_minimum_required(VERSION 3.20)
 
 project(einstein_chess LANGUAGES C CXX)
 
+# 可选图形界面：默认开启，保留现有“一次构建得到全部产物”的习惯。
+# -DEINSTEIN_BUILD_GUI=OFF 时完全不查找 Qt6，只构建 core/ai/storage 与 CLI/Botzone，
+# 方便在没有 Qt 的服务器或只跑无界面回归的环境里使用。
+option(EINSTEIN_BUILD_GUI "Build the Qt6 GUI" ON)
+
 # 全项目统一 C++17，禁止编译器私有扩展，保证不同平台行为一致。
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,13 +30,16 @@ else()
 endif()
 
 # 依赖顺序：core 无外部依赖；ai 依赖 core；storage 依赖 core + ai（存档要记录 AI 档位）；
-# 三个可执行目标最后加入。
+# 可执行目标最后加入，其中 GUI 由 EINSTEIN_BUILD_GUI 控制。
 add_subdirectory(src/core)
 add_subdirectory(src/ai)
 add_subdirectory(src/storage)
 
 add_subdirectory(src/ui/cli)
-add_subdirectory(src/ui/gui)
+# GUI 是唯一依赖 Qt6 的目录；关掉选项后 find_package(Qt6) 也不会被执行。
+if(EINSTEIN_BUILD_GUI)
+    add_subdirectory(src/ui/gui)
+endif()
 add_subdirectory(src/ui/botzone)
 
 # 回归测试：默认随构建一起编译，用 ctest 运行（见 tests/CMakeLists.txt）。

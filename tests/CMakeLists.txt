@@ -40,14 +40,18 @@ function(einstein_add_test name target)
     endif()
 endfunction()
 
-add_executable(test_board_geometry board_geometry_test.cpp)
-target_link_libraries(test_board_geometry PRIVATE einstein_gui_lib einstein_warnings)
-# Qt 的 offscreen 平台插件不需要显示器；RESOURCE_LOCK 让三个 GUI 用例串行，
-# 避免并行时互相抢 CPU 把动画/定时器断言拖到超时。
-einstein_add_test(board_geometry test_board_geometry
-                  TIMEOUT 60 LABEL gui
-                  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
-                  RESOURCE_LOCK qt_gui)
+# GUI 用例依赖 einstein_gui_lib；-DEINSTEIN_BUILD_GUI=OFF 时整个目录不会被加入，
+# 这里必须跳过，否则测试配置阶段会引用不存在的 target。
+if(EINSTEIN_BUILD_GUI)
+    add_executable(test_board_geometry board_geometry_test.cpp)
+    target_link_libraries(test_board_geometry PRIVATE einstein_gui_lib einstein_warnings)
+    # Qt 的 offscreen 平台插件不需要显示器；RESOURCE_LOCK 让 GUI 用例串行，
+    # 避免并行时互相抢 CPU 把动画/定时器断言拖到超时。
+    einstein_add_test(board_geometry test_board_geometry
+                      TIMEOUT 60 LABEL gui
+                      ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                      RESOURCE_LOCK qt_gui)
+endif()
 
 add_executable(test_ai_random ai_random_test.cpp)
 target_link_libraries(test_ai_random PRIVATE einstein_ai einstein_warnings)
@@ -90,32 +94,34 @@ einstein_add_test(storage_roundtrip test_storage_roundtrip
                   TIMEOUT 60 LABEL storage
                   WORKING_DIRECTORY ${STORAGE_ROUNDTRIP_WORK_DIR})
 
-add_executable(test_gui_reconcile gui_reconcile_test.cpp)
-target_link_libraries(test_gui_reconcile PRIVATE einstein_gui_lib einstein_warnings)
-einstein_add_test(gui_reconcile test_gui_reconcile
-                  TIMEOUT 60 LABEL gui
-                  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
-                  RESOURCE_LOCK qt_gui)
+if(EINSTEIN_BUILD_GUI)
+    add_executable(test_gui_reconcile gui_reconcile_test.cpp)
+    target_link_libraries(test_gui_reconcile PRIVATE einstein_gui_lib einstein_warnings)
+    einstein_add_test(gui_reconcile test_gui_reconcile
+                      TIMEOUT 60 LABEL gui
+                      ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                      RESOURCE_LOCK qt_gui)
 
-add_executable(test_toast_fade toast_fade_test.cpp)
-target_link_libraries(test_toast_fade PRIVATE einstein_gui_lib einstein_warnings)
-einstein_add_test(toast_fade test_toast_fade
-                  TIMEOUT 60 LABEL gui
-                  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
-                  RESOURCE_LOCK qt_gui)
+    add_executable(test_toast_fade toast_fade_test.cpp)
+    target_link_libraries(test_toast_fade PRIVATE einstein_gui_lib einstein_warnings)
+    einstein_add_test(toast_fade test_toast_fade
+                      TIMEOUT 60 LABEL gui
+                      ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                      RESOURCE_LOCK qt_gui)
 
-# 对话框用例：直接构造并操作控件，不进入模态循环。
-# 存档对话框按相对路径打开 einstein_save.db，因此必须有独立工作目录；
-# 显式链接 sqlite3，原因与 save_level 相同（storage 只 PRIVATE 依赖它）。
-add_executable(test_gui_dialogs gui_dialogs_test.cpp)
-target_link_libraries(test_gui_dialogs PRIVATE einstein_gui_lib sqlite3 einstein_warnings)
-set(GUI_DIALOGS_WORK_DIR ${CMAKE_CURRENT_BINARY_DIR}/gui_dialogs)
-file(MAKE_DIRECTORY ${GUI_DIALOGS_WORK_DIR})
-einstein_add_test(gui_dialogs test_gui_dialogs
-                  TIMEOUT 60 LABEL gui
-                  ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
-                  RESOURCE_LOCK qt_gui
-                  WORKING_DIRECTORY ${GUI_DIALOGS_WORK_DIR})
+    # 对话框用例：直接构造并操作控件，不进入模态循环。
+    # 存档对话框按相对路径打开 einstein_save.db，因此必须有独立工作目录；
+    # 显式链接 sqlite3，原因与 save_level 相同（storage 只 PRIVATE 依赖它）。
+    add_executable(test_gui_dialogs gui_dialogs_test.cpp)
+    target_link_libraries(test_gui_dialogs PRIVATE einstein_gui_lib sqlite3 einstein_warnings)
+    set(GUI_DIALOGS_WORK_DIR ${CMAKE_CURRENT_BINARY_DIR}/gui_dialogs)
+    file(MAKE_DIRECTORY ${GUI_DIALOGS_WORK_DIR})
+    einstein_add_test(gui_dialogs test_gui_dialogs
+                      TIMEOUT 60 LABEL gui
+                      ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                      RESOURCE_LOCK qt_gui
+                      WORKING_DIRECTORY ${GUI_DIALOGS_WORK_DIR})
+endif()
 
 # CLI 用例统一在独立目录里跑：CLI 的默认存档库是相对路径 einstein_save.db，
 # 固定工作目录可以避免读到开发者本机遗留的存档，也能防止用例间互相影响。
