@@ -81,6 +81,67 @@ QLineEdit {
     font-size: 14px;
 }
 
+/* 下拉框（电脑强度）：与输入框同一套深色底 + 蓝色描边 */
+QComboBox {
+    background-color: #1a252f;
+    color: #ecf0f1;
+    border: 1px solid #3498db;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 14px;
+    min-width: 160px;
+}
+
+/* 鼠标移上去时边框提亮，和按钮的悬浮反馈保持一致的交互感 */
+QComboBox:hover {
+    border-color: #5dade2;
+}
+
+/* 右侧展开区域：与文字区用一条细分割线隔开 */
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 26px;
+    border-left: 1px solid #34495e;
+}
+
+/* 展开箭头用自绘的白色 chevron，避免系统默认深色箭头埋在深色背景里看不见 */
+QComboBox::down-arrow {
+    image: url(:/chevron_down.png);
+    width: 12px;
+    height: 12px;
+}
+
+/* 展开后的候选列表：去掉系统默认的白底，选中项沿用主题蓝 */
+QComboBox QAbstractItemView {
+    background-color: #1a252f;
+    color: #ecf0f1;
+    border: 1px solid #3498db;
+    border-radius: 5px;
+    outline: none;
+    padding: 2px;
+    selection-background-color: #3498db;
+    selection-color: white;
+}
+
+/* 候选列表每一项的内边距，避免文字贴边 */
+QComboBox QAbstractItemView::item {
+    padding: 6px 10px;
+    min-height: 20px;
+}
+
+/* 鼠标悬停项：只做轻微提亮，避免和选中项抢视觉焦点 */
+QComboBox QAbstractItemView::item:hover {
+    background-color: #34495e;
+    color: #ecf0f1;
+}
+
+/* 当前选中项：整行铺主题蓝，明确告诉玩家本局用的是哪一档 */
+QComboBox QAbstractItemView::item:selected {
+    background-color: #3498db;
+    color: white;
+}
+
 /* 通用列表控件（如存档列表）：去掉了系统默认的虚线选中框(outline: none) */
 QListWidget {
     background-color: #1a252f;
