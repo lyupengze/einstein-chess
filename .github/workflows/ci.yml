@@ -1,0 +1,106 @@
+name: CI
+
+# dev 上每次提交都验证；main 作为发布兜底；PR 在合并前验证。
+# 功能分支的普通 push 不触发，有 PR 时自然会跑。
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同一分支/PR 只保留最新一次运行，避免旧提交堆积。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-ucrt64:
+    name: Windows UCRT64 (Qt GUI)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-base
+
+      - name: Configure
+        run: |
+          # 从 gcc 的位置推导 MSYS2 前缀，避免写死 C:/msys64。
+          MINGW_PREFIX="$(dirname "$(dirname "$(command -v gcc)")")"
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$(cygpath -m "$MINGW_PREFIX")" \
+            -DEINSTEIN_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --parallel 2
+
+      - name: Upload CTest log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-log-full
+          path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+
+  windows-ucrt64-nogui:
+    name: Windows UCRT64 (no GUI)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEINSTEIN_BUILD_TESTS=ON \
+            -DEINSTEIN_BUILD_GUI=OFF
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --parallel 2
+
+      - name: Upload CTest log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-log-nogui
+          path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
