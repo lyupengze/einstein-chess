@@ -87,12 +87,12 @@ echo '{"requests":[{"phase":"layout","color":1,"region":[[4,4],[4,3],[4,2],[3,4]
 # 走子：蓝方（color=1）掷出 4 点，初始局面下 4 号棋子在 (3,4)
 echo '{"requests":[{"phase":"move","color":1,"dice":4,"board":[[1,2,3,0,0],[4,5,0,0,0],[6,0,0,0,-6],[0,0,0,-5,-4],[0,0,-3,-2,-1]]}],"responses":[]}' \
   | ./build/bin/einstein_botzone
-# {"response":{"x0":3,"y0":4,"x1":2,"y1":3}}        ← 由 Expectiminimax 搜索选择，合法落点之一
+# {"response":{"x0":3,"x1":3,"y0":4,"y1":3}}        ← 由 Expectiminimax 搜索选择，合法落点之一
 
 # 骰点降级：红方掷出 3 点但 3 号不在场，按规则降级为可选 1 号
 echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,-1]]}],"responses":[]}' \
   | ./build/bin/einstein_botzone
-# {"response":{"x0":0,"y0":0,"x1":1,"y1":1}}        ← 由 Expectiminimax 搜索选择，合法落点之一
+# {"response":{"x0":0,"x1":1,"y0":0,"y1":1}}        ← 由 Expectiminimax 搜索选择，合法落点之一
 ```
 
 - 输入：`requests` 为完整历史，适配层只取最后一条。平台不会给 Bot 下发顶层 `initdata`；本方阵营来自该条 request 的 `color` 字段（0 = 红方先手，1 = 蓝方）。`requests` 缺失或为空、以及 `phase` 为 `layout` 时返回布阵（布阵与颜色无关，按裁判 `region` 顺序落位，与 core 的初始区逐格一致）；`phase` 为 `move` 时，依据 `dice` 与 5×5 `board`（外层行 x、内层列 y，正数红方 1~6、负数蓝方 1~6、0 空格）返回走法；`board` 不足 5×5 时，缺失格按空位处理；其他 `phase` 返回空 `response`。
@@ -109,7 +109,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 │   │   ├── game_state.h     # GameState 与 Phase 状态机
 │   │   ├── rules.h|.cpp     # 可选棋子、走法校验、胜负判定
 │   │   └── game.h|.cpp      # 对局门面：提交布阵、掷骰、走子、换手
-│   ├── ai/              # 布阵 + Expectiminimax 走子搜索，仅依赖 core
+│   ├── ai/              # 布阵 + 竞速胜率 Expectiminimax，仅依赖 core
 │   ├── storage/         # save_manager 存档序列化 + sqlite_wrapper RAII 封装
 │   └── ui/              # 三个并列入口，各自独立可执行目标
 │       ├── gui/             # Qt6：main_window + views/ + components/ + dialogs/ + style.qss
@@ -123,21 +123,21 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 ### 构建目标与依赖
 
-| 目标               | 类型   | 依赖                                              |
-| ------------------ | ------ | ------------------------------------------------- |
-| `einstein_core`    | 静态库 | 无                                                |
-| `einstein_ai`      | 静态库 | core                                              |
-| `einstein_storage` | 静态库 | core、`sqlite3`（内部封装，不外泄 `<sqlite3.h>`） |
-| `einstein_cli`     | 可执行 | core、ai、storage                                 |
+| 目标               | 类型   | 依赖                                                         |
+| ------------------ | ------ | ------------------------------------------------------------ |
+| `einstein_core`    | 静态库 | 无                                                           |
+| `einstein_ai`      | 静态库 | core                                                         |
+| `einstein_storage` | 静态库 | core、`sqlite3`（内部封装，不外泄 `<sqlite3.h>`）            |
+| `einstein_cli`     | 可执行 | core、ai、storage                                            |
 | `einstein_gui_lib` | 静态库 | core、ai、storage、`Qt6::Widgets`；GUI 逻辑供 exe 与测试共享 |
-| `einstein_gui`     | 可执行 | `einstein_gui_lib`、`Qt6::Widgets`、`resources.qrc` |
-| `einstein_botzone` | 可执行 | core、ai + `nlohmann/json`（不接存档，保持无状态）|
+| `einstein_gui`     | 可执行 | `einstein_gui_lib`、`Qt6::Widgets`、`resources.qrc`          |
+| `einstein_botzone` | 可执行 | core、ai + `nlohmann/json`（不接存档，保持无状态）           |
 
 各库通过 `target_include_directories(... PUBLIC ..)` 将 `src/` 暴露为公共头文件目录，因此跨模块 include 统一写作 `core/game.h`、`ai/ai.h` 这类限定路径。顶层另定义 INTERFACE 目标 `einstein_warnings`（`-Wall -Wextra -Wpedantic -Wshadow -Werror`），`src/` 下的每个目标都必须链接它。
 
 ## ⚠️ 当前限制
 
-- **AI 为最简搜索版本**：`decide_move()` 使用固定深度的 Expectiminimax（默认 4 回合），评估含材料、到目标角的进度、双方最快棋子距离差与先手；不含 alpha-beta、置换表与时间预算，`decide_layout()` 仍为随机打乱。更深的搜索或布局优化留待后续。
+- **AI 为最简搜索版本**：`decide_move()` 使用固定深度的 Expectiminimax（默认 4 回合）。叶节点用 46656 个单方竞速状态预计算出的到达时间分布合成胜率，**不设材料价值项**——吃对方子、送己方子都只通过竞速分布影响胜率；不含 alpha-beta、置换表与时间预算，`decide_layout()` 仍为随机打乱。更深的搜索或布局优化留待后续。
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证，也没有 CI，`-Werror` 下其他编译器的告警差异可能带来额外修改。
 - **测试覆盖有限**：CTest 目前有 7 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（合法着法枚举与走子结算）、`ai_search`（搜索合法性、战术与确定性）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`cli_eof`（CLI 的 EOF 处理）；存档与 GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。

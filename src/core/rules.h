@@ -1,6 +1,7 @@
 #ifndef RULES_H_
 #define RULES_H_
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,37 @@ namespace core::rules {
 ///    蓝方完全对称：向上、向左、向左上；
 /// 3. 落点只要求仍在棋盘内，不要求为空——吃对方棋子与吃己方棋子都合法（规则如此，不是缺漏）；
 /// 4. 胜负：一方棋子被吃光，或红方占据右下角 (4,4) / 蓝方占据左上角 (0,0)。
+
+/// @brief 按降级选择规则，从"编号是否存活"中选出本回合可动的编号。
+/// @param dice 骰子点数 1~6；越界时返回 {-1, -1}
+/// @param is_alive 接收编号 1~6，返回该编号是否还在场
+/// @return 最多两个编号，-1 表示空位；同号在场时只返回该编号。
+///         顺序与 get_selectable_ids 一致：先"小于点数的最大编号"，再"大于点数的最小编号"。
+/// @note 这是选子规则的单一口径：get_selectable_ids 与 AI 的竞速分布表都调用它。
+template <typename IsAlive>
+[[nodiscard]] std::array<int, 2> selectable_ids_for(int dice, IsAlive&& is_alive) noexcept {
+    std::array<int, 2> result{-1, -1};
+    if (dice < 1 || dice > 6) {
+        return result;
+    }
+    if (is_alive(dice)) {
+        result[0] = dice;
+        return result;
+    }
+    for (int i = dice - 1; i >= 1; --i) {
+        if (is_alive(i)) {
+            result[0] = i;
+            break;
+        }
+    }
+    for (int i = dice + 1; i <= 6; ++i) {
+        if (is_alive(i)) {
+            result[1] = i;
+            break;
+        }
+    }
+    return result;
+}
 
 /// @brief 算出本回合"可以被选中移动"的棋子编号集合（降级选择规则见上）。
 /// @param state 只读取 current_dice 与 current_side，不修改

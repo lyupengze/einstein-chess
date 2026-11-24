@@ -18,14 +18,20 @@ namespace ai {
 
 namespace {
 
-// 评估权重集中在这里，后续调参只改这一处。
-constexpr double kWinScore = 1.0e9;
-constexpr double kPieceValue = 100.0;
-constexpr double kProgressWeight = 8.0;
-constexpr double kClosestWeight = 60.0;
-constexpr double kTempoWeight = 10.0;
+// 竞速模型：单方 6 个编号，0=被吃，1..5=到目标角的距离+1。
+// 46656 = 6^6 个状态；表里存"按最小化期望到达时间走，第 t 回合获胜"的概率。
+constexpr int kPieceCount = core::Board::kChessCount;
+constexpr int kRaceMaxStep = 19;
+constexpr int kRaceStateCount = 46656;
+constexpr std::array<int, 6> kPower6{1, 6, 36, 216, 1296, 7776};
 constexpr int kMaxDistance = static_cast<int>(core::Board::kSize) - 1;
+
+// 终局值略高于/低于任何 [0,1] 的胜率，并让"更早获胜/更晚失败"更优。
+constexpr double kTerminalEpsilon = 1.0e-6;
 constexpr double kTieEpsilon = 1.0e-9;
+
+using RaceDistribution = std::array<float, kRaceMaxStep + 1>;
+using RaceTable = std::vector<RaceDistribution>;
 
 // 线程局部的随机引擎。原来的写法是函数内 static：只在首次初始化，这一点是对的，
 // 但它是所有线程共享的同一份状态——并发决策会产生数据竞争（std::mt19937 不保证
@@ -52,49 +58,128 @@ double terminal_value(core::Side winner, core::Side root, int depth) {
     if (winner == core::Side::None) {
         return 0.0;
     }
-    // 加/减 depth 让“更早获胜”优于“更晚获胜”，“更晚失败”优于“更早失败”。
+    // 加/减 depth 让"更早获胜"优于"更晚获胜"，"更晚失败"优于"更早失败"。
     if (winner == root) {
-        return kWinScore + static_cast<double>(depth);
+        return 1.0 + kTerminalEpsilon * static_cast<double>(depth);
     }
-    return -kWinScore - static_cast<double>(depth);
+    return -kTerminalEpsilon * static_cast<double>(depth);
 }
 
-double evaluate(const core::GameState& state, core::Side root) {
-    if (state.winner != core::Side::None) {
-        return terminal_value(state.winner, root, 0);
-    }
-
-    double score = 0.0;
-    int my_closest = kMaxDistance + 1;
-    int opp_closest = kMaxDistance + 1;
-
+// 把局面按"某一方"编码成竞速表下标；只使用几何距离，不看占位。
+int race_state(const core::GameState& state, core::Side side) {
+    std::array<int, kPieceCount> digits{};
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
             const core::Piece& piece = state.board.at({x, y});
-            if (piece.side == core::Side::None) {
+            if (piece.side != side || piece.id < 1 || piece.id > kPieceCount) {
                 continue;
             }
-            const core::Pos pos{x, y};
-            const int dist = distance_to_goal(pos, piece.side);
-            const double value =
-                kPieceValue + kProgressWeight * static_cast<double>(kMaxDistance - dist);
-            if (piece.side == root) {
-                score += value;
-                my_closest = std::min(my_closest, dist);
-            } else {
-                score -= value;
-                opp_closest = std::min(opp_closest, dist);
-            }
+            digits[static_cast<std::size_t>(piece.id - 1)] = distance_to_goal({x, y}, side) + 1;
         }
     }
 
-    // 双方“最快棋子”的距离差是比赛跑的核心；只有一方能算出最近距离时跳过。
-    if (my_closest <= kMaxDistance && opp_closest <= kMaxDistance) {
-        score += kClosestWeight * static_cast<double>(opp_closest - my_closest);
+    int code = 0;
+    for (int i = 0; i < kPieceCount; ++i) {
+        code += digits[static_cast<std::size_t>(i)] * kPower6[static_cast<std::size_t>(i)];
     }
-    // 当前行棋方有微弱先手优势。
-    score += kTempoWeight * (state.current_side == root ? 1.0 : -1.0);
-    return score;
+    return code;
+}
+
+// 打表：对每个单方状态，枚举骰子 1~6，选出"期望到达时间最短"的棋子，
+// 把它的时间分布整体后移一回合，再对 6 个点数取平均。
+RaceTable build_race_table() {
+    RaceTable table(kRaceStateCount);
+    std::vector<double> expected_time(kRaceStateCount, 0.0);
+    std::array<int, kPieceCount> digits{};
+    std::array<double, kRaceMaxStep + 1> tmp{};
+
+    for (int code = 1; code < kRaceStateCount; ++code) {
+        for (int i = 0; i < kPieceCount; ++i) {
+            digits[static_cast<std::size_t>(i)] = (code / kPower6[static_cast<std::size_t>(i)]) % 6;
+        }
+
+        // 任意一枚棋子已经在目标角，这一方已经赢了。
+        if (std::find(digits.begin(), digits.end(), 1) != digits.end()) {
+            table[static_cast<std::size_t>(code)][0] = 1.0F;
+            continue;
+        }
+
+        tmp.fill(0.0);
+        double total_expected = 0.0;
+        for (int dice = 1; dice <= kPieceCount; ++dice) {
+            const auto ids = core::rules::selectable_ids_for(
+                dice, [&](int id) { return digits[static_cast<std::size_t>(id - 1)] != 0; });
+
+            double best_expected = std::numeric_limits<double>::infinity();
+            int best_next = -1;
+            for (int id : ids) {
+                if (id == -1) {
+                    continue;
+                }
+                const int next = code - kPower6[static_cast<std::size_t>(id - 1)];
+                if (expected_time[static_cast<std::size_t>(next)] < best_expected) {
+                    best_expected = expected_time[static_cast<std::size_t>(next)];
+                    best_next = next;
+                }
+            }
+
+            // 非零状态至少有一枚棋子，降级选子必然能选到；这里只做防御。
+            if (best_next == -1) {
+                continue;
+            }
+            for (int step = 1; step <= kRaceMaxStep; ++step) {
+                tmp[static_cast<std::size_t>(step)] +=
+                    table[static_cast<std::size_t>(best_next)][static_cast<std::size_t>(step - 1)];
+            }
+            total_expected += best_expected + 1.0;
+        }
+
+        for (int step = 1; step <= kRaceMaxStep; ++step) {
+            table[static_cast<std::size_t>(code)][static_cast<std::size_t>(step)] =
+                static_cast<float>(tmp[static_cast<std::size_t>(step)] /
+                                   static_cast<double>(kPieceCount));
+        }
+        expected_time[static_cast<std::size_t>(code)] =
+            total_expected / static_cast<double>(kPieceCount);
+    }
+    return table;
+}
+
+const RaceTable& race_table() {
+    static const RaceTable table = build_race_table();
+    return table;
+}
+
+// 双方都按竞速表独立推进时的胜率：P(我方 T <= 对方 T)。
+// 当前行棋方先手，所以 t 相同时算我方赢。
+double win_rate(const core::GameState& state, core::Side root) {
+    if (state.winner != core::Side::None) {
+        return state.winner == root ? 1.0 : 0.0;
+    }
+
+    const core::Side mover = state.current_side;
+    if (mover == core::Side::None) {
+        return 0.0;
+    }
+    const core::Side opponent = (mover == core::Side::Red) ? core::Side::Blue : core::Side::Red;
+
+    const int mover_state = race_state(state, mover);
+    const int opponent_state = race_state(state, opponent);
+    const RaceTable& table = race_table();
+
+    double cumulative = 0.0;
+    double mover_win = 0.0;
+    for (int step = 0; step <= kRaceMaxStep; ++step) {
+        cumulative += table[static_cast<std::size_t>(mover_state)][static_cast<std::size_t>(step)];
+        mover_win +=
+            cumulative *
+            table[static_cast<std::size_t>(opponent_state)][static_cast<std::size_t>(step)];
+    }
+    return mover == root ? mover_win : 1.0 - mover_win;
+}
+
+double evaluate(const core::GameState& state, core::Side root) {
+    return win_rate(state, root);
 }
 
 double search_move_node(const core::GameState& state, int depth, core::Side root);
@@ -192,6 +277,14 @@ core::Move choose_move(const core::GameState& state, const SearchConfig& config)
 }
 
 }  // namespace
+
+double estimate_win_rate(const core::GameState& state) {
+    // 对外接口固定按"当前行棋方"解释；search 内部则显式传根方。
+    if (state.current_side == core::Side::None) {
+        return 0.0;
+    }
+    return win_rate(state, state.current_side);
+}
 
 void set_random_seed(unsigned int seed) {
     engine() = std::mt19937(seed);

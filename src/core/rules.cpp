@@ -48,28 +48,17 @@ std::vector<int> get_selectable_ids(const GameState& state) {
     if (!state.current_dice) {
         return {};
     }
-    int dice = *state.current_dice;
-    Side side = state.current_side;
+    const int dice = *state.current_dice;
+    const Side side = state.current_side;
 
-    // 同号棋子在场时只能动它，没有降级空间。
-    if (state.board.has_piece(side, dice)) {
-        return {dice};
-    }
-
-    // 降级选择：先向下找"比点数小的最大编号"，再向上找"比点数大的最小编号"，
-    // 两者可以同时存在（例如掷 3 点且场上只剩 1 号和 5 号）。
+    // 选子口径收敛到 selectable_ids_for：同号在场时只动它，否则取
+    // 小于点数的最大编号和大于点数的最小编号，两者可以同时存在。
+    const auto ids = selectable_ids_for(
+        dice, [&](int id) { return state.board.has_piece(side, id); });
     std::vector<int> result;
-    for (int i = dice - 1; i >= 1; --i) {
-        if (state.board.has_piece(side, i)) {
-            result.push_back(i);
-            break;
-        }
-    }
-
-    for (int i = dice + 1; i <= 6; ++i) {
-        if (state.board.has_piece(side, i)) {
-            result.push_back(i);
-            break;
+    for (int id : ids) {
+        if (id != -1) {
+            result.push_back(id);
         }
     }
     return result;

@@ -1,9 +1,10 @@
-// AI 搜索回归：最简 Expectiminimax 的合法性、战术与确定性。
+// AI 搜索回归：竞速评估 + 最简 Expectiminimax 的合法性、战术与确定性。
 //
-// 覆盖：立即获胜、吃光对方、阻止对方下一步获胜、避免吃己方棋子、
-// 降级选子、Botzone 式 current_side/player1_side 不一致、固定种子复现、
-// 以及一整局双方都由 AI 走子时不产非法着法。
+// 覆盖：立即获胜、吃光对方、阻止对方下一步获胜、竞速胜率与先手、
+// 吃己方棋子改善竞速、降级选子、Botzone 式 current_side/player1_side 不一致、
+// 固定种子复现，以及一整局双方都由 AI 走子时不产非法着法。
 
+#include <cmath>
 #include <exception>
 #include <iostream>
 #include <optional>
@@ -84,21 +85,46 @@ int main() {
         expect(move == expected, "AI blocks the opponent's winning move");
     }
 
-    // 4. 避免吃己方棋子：存在安全着法时不应主动减少己方材料。
+    // 4. 竞速评估：单子时 T 就是到目标角的距离，先手在等距时获胜。
     {
-        core::GameState state = base_state(core::Side::Red, 1);
-        put(state, {0, 0}, core::Side::Red, 1);
-        put(state, {1, 1}, core::Side::Red, 2);
-        put(state, {4, 0}, core::Side::Blue, 1);
-        put(state, {0, 4}, core::Side::Blue, 2);
-        const core::Move move = choose(state, 2);
-        const core::Pos own_target{1, 1};
-        expect(!(move.to == own_target), "AI avoids capturing its own piece");
-        expect(core::rules::check_move(state, move.from, move.to).empty(),
-               "chosen non-capturing move is legal");
+        core::GameState red_fast = base_state(core::Side::Red, 1);
+        put(red_fast, {3, 4}, core::Side::Red, 1);   // 红 d1
+        put(red_fast, {4, 0}, core::Side::Blue, 1);  // 蓝 d4
+        expect(std::abs(ai::estimate_win_rate(red_fast) - 1.0) < 1e-6,
+               "race: closer side wins");
+
+        core::GameState red_slow = base_state(core::Side::Red, 1);
+        put(red_slow, {1, 4}, core::Side::Red, 1);   // 红 d3
+        put(red_slow, {2, 0}, core::Side::Blue, 1);  // 蓝 d2
+        expect(std::abs(ai::estimate_win_rate(red_slow) - 0.0) < 1e-6,
+               "race: farther side loses");
+
+        core::GameState equal = base_state(core::Side::Red, 1);
+        put(equal, {2, 4}, core::Side::Red, 1);   // 红 d2
+        put(equal, {2, 0}, core::Side::Blue, 1);  // 蓝 d2
+        expect(std::abs(ai::estimate_win_rate(equal) - 1.0) < 1e-6,
+               "race: first mover wins ties");
+
+        core::GameState blue_to_move = base_state(core::Side::Blue, 1);
+        put(blue_to_move, {3, 4}, core::Side::Red, 1);   // 红 d1
+        put(blue_to_move, {4, 0}, core::Side::Blue, 1);  // 蓝 d4
+        expect(std::abs(ai::estimate_win_rate(blue_to_move) - 0.0) < 1e-6,
+               "race: win rate follows the current side");
     }
 
-    // 5. 降级选子：掷 3 且只有 1、6 号，只能从这两个编号出发。
+    // 5. 送子：吃掉己方更靠前的 2 号，让 1 号直接进入 d1；竞速模型不扣"材料分"。
+    {
+        core::GameState state = base_state(core::Side::Red, 1);
+        put(state, {2, 2}, core::Side::Red, 1);   // 红 1 号 d2
+        put(state, {3, 3}, core::Side::Red, 2);   // 红 2 号 d1
+        put(state, {2, 0}, core::Side::Blue, 1);  // 蓝 d2
+        put(state, {0, 2}, core::Side::Blue, 2);  // 蓝 d2
+        const core::Move move = choose(state, 2);
+        const core::Move expected{{2, 2}, {3, 3}};
+        expect(move == expected, "AI may capture its own piece to improve the race");
+    }
+
+    // 6. 降级选子：掷 3 且只有 1、6 号，只能从这两个编号出发。
     {
         core::GameState state = base_state(core::Side::Red, 3);
         put(state, {0, 0}, core::Side::Red, 1);
@@ -112,7 +138,7 @@ int main() {
                "fallback move is legal");
     }
 
-    // 6. Botzone 会把 player1_side 固定为红方；AI 必须按 current_side 行棋。
+    // 7. Botzone 会把 player1_side 固定为红方；AI 必须按 current_side 行棋。
     {
         core::GameState state = base_state(core::Side::Blue, 1);
         state.player1_side = core::Side::Red;
@@ -126,7 +152,7 @@ int main() {
                "blue move is legal under current_side");
     }
 
-    // 7. 固定种子 + 固定深度可复现。
+    // 8. 固定种子 + 固定深度可复现。
     {
         core::GameState state = base_state(core::Side::Red, 1);
         put(state, {0, 0}, core::Side::Red, 1);
@@ -142,7 +168,7 @@ int main() {
         expect(first == second, "fixed seed and depth reproduce the same move");
     }
 
-    // 8. 只有一个合法着法时直接返回（红方在 (4,3) 只能进 (4,4)）。
+    // 9. 只有一个合法着法时直接返回（红方在 (4,3) 只能进 (4,4)）。
     {
         core::GameState state = base_state(core::Side::Red, 1);
         put(state, {4, 3}, core::Side::Red, 1);
@@ -152,7 +178,7 @@ int main() {
         expect(move == expected, "single legal move is returned directly");
     }
 
-    // 9. 非思考阶段拒绝；思考阶段但没有骰子则报告无路可走。
+    // 10. 非思考阶段拒绝；思考阶段但没有骰子则报告无路可走。
     {
         core::GameState idle;
         bool phase_threw = false;
@@ -176,7 +202,7 @@ int main() {
         expect(no_move_threw, "AI reports no legal move without dice");
     }
 
-    // 10. 整局对弈：双方都由搜索 AI 走子，所有决策必须通过 core 规则校验。
+    // 11. 整局对弈：双方都由搜索 AI 走子，所有决策必须通过 core 规则校验。
     {
         core::Game game;
         game.prepare_new_game(core::Side::Red);
