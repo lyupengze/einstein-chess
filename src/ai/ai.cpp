@@ -6,6 +6,7 @@
 #include <limits>
 #include <random>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "core/board.h"
@@ -295,7 +296,40 @@ core::Move choose_move(const core::GameState& state, const SearchConfig& config)
     return candidates[dist(engine())];
 }
 
+// 所有版本共用的前置检查：走子只在“某一方思考中”的阶段有语义。
+// 放在版本分发之前，保证切换版本不会改变调用方看到的错误行为。
+void require_thinking_phase(const core::GameState& state) {
+    if (state.phase != core::Phase::Player1Thinking &&
+        state.phase != core::Phase::Player2Thinking) {
+        throw std::invalid_argument("现在还不能移动");
+    }
+}
+
+// 第一版（随机基线）的走子策略，行为与 backup/ai_random_baseline 一致：
+// 在全部合法着法中均匀随机挑一步，不考虑吃子、位置或胜负。
+// 合法着法枚举交给 core::rules，AI 不复制规则，换实现也不会产生非法着法。
+core::Move choose_random_move(const core::GameState& state) {
+    const std::vector<core::Move> moves = core::rules::generate_legal_moves(state);
+    if (moves.empty()) {
+        throw std::runtime_error("AI 无路可走！");
+    }
+    std::uniform_int_distribution<std::size_t> dist(0, moves.size() - 1);
+    return moves[dist(engine())];
+}
+
 }  // namespace
+
+std::string level_name(Level level) {
+    switch (level) {
+        case Level::kRandom:
+            return "随机（第一版）";
+        case Level::kSearch:
+            return "搜索（第二版）";
+        default:
+            // 兜住通过 static_cast 传入的越界值，避免界面显示空串。
+            return "未知";
+    }
+}
 
 double estimate_win_rate(const core::GameState& state) {
     // 对外接口固定按"当前行棋方"解释；search 内部则显式传根方。
@@ -316,16 +350,23 @@ std::array<int, 6> decide_layout() {
     return layout;
 }
 
-core::Move decide_move(const core::GameState& state) {
-    return decide_move(state, SearchConfig{});
+core::Move decide_move(const core::GameState& state, Level level) {
+    // 先统一校验阶段：两个版本对“现在能不能走”的判定必须完全一致。
+    require_thinking_phase(state);
+
+    switch (level) {
+        case Level::kRandom:
+            return choose_random_move(state);
+        case Level::kSearch:
+            return choose_move(state, SearchConfig{});
+        default:
+            // 枚举值由调用方 static_cast 伪造时显式报错，而不是静默降级到某个版本。
+            throw std::invalid_argument("未知的 AI 版本");
+    }
 }
 
 core::Move decide_move(const core::GameState& state, const SearchConfig& config) {
-    // 走子只在“某一方思考中”的阶段有语义；布局、掷骰子、对局结束阶段一律拒绝。
-    if (state.phase != core::Phase::Player1Thinking &&
-        state.phase != core::Phase::Player2Thinking) {
-        throw std::invalid_argument("现在还不能移动");
-    }
+    require_thinking_phase(state);
     return choose_move(state, config);
 }
 

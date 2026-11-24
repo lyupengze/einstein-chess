@@ -17,6 +17,10 @@ add_executable(test_ai_search ai_search_test.cpp)
 target_link_libraries(test_ai_search PRIVATE einstein_ai einstein_warnings)
 add_test(NAME ai_search COMMAND test_ai_search)
 
+add_executable(test_ai_level ai_level_test.cpp)
+target_link_libraries(test_ai_level PRIVATE einstein_ai einstein_warnings)
+add_test(NAME ai_level COMMAND test_ai_level)
+
 add_executable(test_gui_reconcile gui_reconcile_test.cpp)
 target_link_libraries(test_gui_reconcile PRIVATE einstein_gui_lib einstein_warnings)
 add_test(NAME gui_reconcile COMMAND test_gui_reconcile)
