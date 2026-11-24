@@ -305,7 +305,7 @@ void require_thinking_phase(const core::GameState& state) {
     }
 }
 
-// 第一版（随机基线）的走子策略，行为与 backup/ai_random_baseline 一致：
+// 第一版（随机基线）的走子策略：
 // 在全部合法着法中均匀随机挑一步，不考虑吃子、位置或胜负。
 // 合法着法枚举交给 core::rules，AI 不复制规则，换实现也不会产生非法着法。
 core::Move choose_random_move(const core::GameState& state) {
