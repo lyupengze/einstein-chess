@@ -82,17 +82,17 @@ ctest --test-dir build --output-on-failure
 # 布阵：每条 request 由裁判给出 color 与 region（这里以蓝方为例）
 echo '{"requests":[{"phase":"layout","color":1,"region":[[4,4],[4,3],[4,2],[3,4],[3,3],[2,4]]}],"responses":[]}' \
   | ./build/bin/einstein_botzone
-# {"response":{"layout":[2,5,1,6,3,4]}}            ← 布阵为随机排列，每次不同
+# {"response":{"layout":[2,5,1,6,3,4]}}            ← 布阵仍为随机排列，每次不同
 
 # 走子：蓝方（color=1）掷出 4 点，初始局面下 4 号棋子在 (3,4)
 echo '{"requests":[{"phase":"move","color":1,"dice":4,"board":[[1,2,3,0,0],[4,5,0,0,0],[6,0,0,0,-6],[0,0,0,-5,-4],[0,0,-3,-2,-1]]}],"responses":[]}' \
   | ./build/bin/einstein_botzone
-# {"response":{"x0":3,"y0":4,"x1":2,"y1":3}}        ← 三个合法落点中随机，每次不同
+# {"response":{"x0":3,"y0":4,"x1":2,"y1":3}}        ← 由 Expectiminimax 搜索选择，合法落点之一
 
 # 骰点降级：红方掷出 3 点但 3 号不在场，按规则降级为可选 1 号
 echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,-1]]}],"responses":[]}' \
   | ./build/bin/einstein_botzone
-# {"response":{"x0":0,"y0":0,"x1":1,"y1":1}}        ← 三个合法落点中随机，每次不同
+# {"response":{"x0":0,"y0":0,"x1":1,"y1":1}}        ← 由 Expectiminimax 搜索选择，合法落点之一
 ```
 
 - 输入：`requests` 为完整历史，适配层只取最后一条。平台不会给 Bot 下发顶层 `initdata`；本方阵营来自该条 request 的 `color` 字段（0 = 红方先手，1 = 蓝方）。`requests` 缺失或为空、以及 `phase` 为 `layout` 时返回布阵（布阵与颜色无关，按裁判 `region` 顺序落位，与 core 的初始区逐格一致）；`phase` 为 `move` 时，依据 `dice` 与 5×5 `board`（外层行 x、内层列 y，正数红方 1~6、负数蓝方 1~6、0 空格）返回走法；`board` 不足 5×5 时，缺失格按空位处理；其他 `phase` 返回空 `response`。
@@ -109,7 +109,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 │   │   ├── game_state.h     # GameState 与 Phase 状态机
 │   │   ├── rules.h|.cpp     # 可选棋子、走法校验、胜负判定
 │   │   └── game.h|.cpp      # 对局门面：提交布阵、掷骰、走子、换手
-│   ├── ai/              # decide_layout() / decide_move()，仅依赖 core
+│   ├── ai/              # 布阵 + Expectiminimax 走子搜索，仅依赖 core
 │   ├── storage/         # save_manager 存档序列化 + sqlite_wrapper RAII 封装
 │   └── ui/              # 三个并列入口，各自独立可执行目标
 │       ├── gui/             # Qt6：main_window + views/ + components/ + dialogs/ + style.qss
@@ -137,9 +137,9 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 ## ⚠️ 当前限制
 
-- **AI 为占位实现**：`decide_move()` 仅在合法走法中均匀随机挑选，`decide_layout()` 随机打乱；既没有搜索，也没有局面评估，留待后续优化。
+- **AI 为最简搜索版本**：`decide_move()` 使用固定深度的 Expectiminimax（默认 4 回合），评估含材料、到目标角的进度、双方最快棋子距离差与先手；不含 alpha-beta、置换表与时间预算，`decide_layout()` 仍为随机打乱。更深的搜索或布局优化留待后续。
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证，也没有 CI，`-Werror` 下其他编译器的告警差异可能带来额外修改。
-- **测试覆盖有限**：CTest 目前只有 5 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`cli_eof`（CLI 的 EOF 处理），规则与存档的完整分支尚无覆盖。
+- **测试覆盖有限**：CTest 目前有 7 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（合法着法枚举与走子结算）、`ai_search`（搜索合法性、战术与确定性）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`cli_eof`（CLI 的 EOF 处理）；存档与 GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
 - **Windows 下 GUI 附带控制台窗口**：`einstein_gui` 未标记 `WIN32` 子系统，启动时会多出一个控制台窗口，不影响功能。
 

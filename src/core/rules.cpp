@@ -1,10 +1,47 @@
 #include "rules.h"
 
+#include <array>
+#include <cstddef>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace core::rules {
+
+namespace {
+
+// 红蓝双方的三个合法方向。check_move 与 generate_legal_moves 共用这张表，
+// 避免"哪些方向能走"的知识在 core 与 AI 各存一份。
+constexpr std::array<std::pair<int, int>, 3> kRedSteps{{{1, 0}, {0, 1}, {1, 1}}};
+constexpr std::array<std::pair<int, int>, 3> kBlueSteps{{{-1, 0}, {0, -1}, {-1, -1}}};
+
+const std::array<std::pair<int, int>, 3>* steps_for(Side side) noexcept {
+    if (side == Side::Red) {
+        return &kRedSteps;
+    }
+    if (side == Side::Blue) {
+        return &kBlueSteps;
+    }
+    return nullptr;
+}
+
+// Side::None 时返回 true，与旧实现"不触发方向拦截"的行为保持一致；
+// 正常调用不会走到这里，因为 get_selectable_ids 对 None 返回空集。
+bool is_forward_step(Side side, int dx, int dy) noexcept {
+    const auto* steps = steps_for(side);
+    if (steps == nullptr) {
+        return true;
+    }
+    for (const auto& step : *steps) {
+        if (dx == step.first && dy == step.second) {
+            return true;
+        }
+    }
+    return false;
+}
+
+}  // namespace
 
 std::vector<int> get_selectable_ids(const GameState& state) {
     // 还没掷骰就没有可动棋子；返回空集合即可，调用方无需特判。
@@ -66,18 +103,44 @@ std::string check_move(const GameState& state, Pos from, Pos to) {
     int dy = static_cast<int>(to.y) - static_cast<int>(from.y);
 
     // 每步只能走一格，且方向必须朝向对方半场；dx/dy 同时为 0 也会被这里拒绝。
-    if (state.current_side == Side::Red) {
-        if (!((dx == 1 && dy == 0) || (dx == 0 && dy == 1) || (dx == 1 && dy == 1))) {
+    if (!is_forward_step(state.current_side, dx, dy)) {
+        if (state.current_side == Side::Red) {
             return "红方只能向下、向右、向右下移动";
         }
-    } else if (state.current_side == Side::Blue) {
-        if (!((dx == -1 && dy == 0) || (dx == 0 && dy == -1) || (dx == -1 && dy == -1))) {
-            return "蓝方只能向上、向左、向左上移动";
-        }
+        return "蓝方只能向上、向左、向左上移动";
     }
 
     // 到此为止没有检查 to 上有没有棋子：落点被占据是合法的，吃己方棋子同样合法。
     return "";
+}
+
+std::vector<Move> generate_legal_moves(const GameState& state) {
+    std::vector<Move> moves;
+    const auto* steps = steps_for(state.current_side);
+    if (steps == nullptr || !state.current_dice) {
+        return moves;
+    }
+
+    // 只枚举本回合可被选中的棋子，每个棋子最多尝试三个方向；
+    // 每个候选仍交给 check_move 做最终裁决，AI 不复制任何规则。
+    for (int id : get_selectable_ids(state)) {
+        const auto from = state.board.find_piece(state.current_side, id);
+        if (!from) {
+            continue;
+        }
+        for (const auto& step : *steps) {
+            const int nx = static_cast<int>(from->x) + step.first;
+            const int ny = static_cast<int>(from->y) + step.second;
+            const Pos to{static_cast<std::size_t>(nx), static_cast<std::size_t>(ny)};
+            if (!state.board.is_in_bounds(to)) {
+                continue;
+            }
+            if (check_move(state, *from, to).empty()) {
+                moves.push_back({*from, to});
+            }
+        }
+    }
+    return moves;
 }
 
 void apply_move(GameState& state, Pos from, Pos to) {

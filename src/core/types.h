@@ -26,6 +26,21 @@ inline bool operator!=(const Pos& a, const Pos& b) {
     return !(a == b);
 }
 
+/// @brief 一步走子：从 from 走到 to。
+/// @note 只描述"从哪到哪"，不保证合法；合法性由 rules::check_move 判定。
+struct Move {
+    Pos from;
+    Pos to;
+};
+
+inline bool operator==(const Move& a, const Move& b) {
+    return a.from == b.from && a.to == b.to;
+}
+
+inline bool operator!=(const Move& a, const Move& b) {
+    return !(a == b);
+}
+
 /// @brief 棋子阵营。
 /// @note None 同时承担"空格"与"未指定"两种含义：棋盘上用 {Side::None, 0} 表示空格，
 ///       GameState 尚未开始时也用它表示"还没定"。代码里不区分这两者。

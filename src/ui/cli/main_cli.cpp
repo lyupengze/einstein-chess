@@ -17,6 +17,7 @@
 #include "core/game.h"
 #include "core/game_state.h"
 #include "core/rules.h"
+#include "core/types.h"
 #include "storage/save_manager.h"
 
 namespace {
@@ -137,7 +138,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
             // （Release 下只是恰好能从残留存储里读到旧点数，看起来“正常”）。
             const int ai_dice = game.get_state().current_dice.value_or(0);
 
-            ai::Move move = ai::decide_move(game.get_state());
+            core::Move move = ai::decide_move(game.get_state());
             game.make_move(move.from, move.to);
 
             std::cout << "电脑掷出了: " << ai_dice << "，从 (" << move.from.x << ","

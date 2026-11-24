@@ -58,6 +58,12 @@ private:
     std::mt19937 gen_;      ///< 骰子随机源；每局一个实例，避免跨局共享状态
 };
 
+/// @brief 在 state 的副本上走子并完成结算，返回新状态。
+/// @throws std::invalid_argument 走法非法（原因来自 rules::check_move）
+/// @note 这是"走子 → 判胜 → 未分胜负则换手并回到 ThrowingDice → 清骰"的唯一实现；
+///       Game::make_move 与 AI 搜索共用，避免两边结算顺序漂移。
+[[nodiscard]] GameState apply_move_and_settle(const GameState& state, Pos from, Pos to);
+
 }  // namespace core
 
 #endif

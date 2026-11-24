@@ -31,9 +31,16 @@ namespace core::rules {
 /// @note 本函数不校验 phase：调用前应确保处于 Thinking 阶段（current_dice 已掷出）
 [[nodiscard]] std::string check_move(const GameState& state, Pos from, Pos to);
 
+/// @brief 枚举当前回合方的全部合法着法。
+/// @param state 只读；读取 current_side、current_dice 与棋盘
+/// @return 合法着法列表；未掷骰或当前方没有棋子时返回空
+/// @note 不校验 phase；最终合法性仍由 check_move 裁决，不在这里复制规则。
+[[nodiscard]] std::vector<Move> generate_legal_moves(const GameState& state);
+
 /// @brief 执行一步已经校验过的走子：落点被覆盖（即吃子），起点清空。
 /// @throws std::invalid_argument check_move 判定非法时抛出，what() 为中文原因
-/// @note 只改棋盘，不处理换手、判胜、清骰——那些由 Game::make_move 负责
+/// @note 只改棋盘；换手、判胜、清骰由 core::apply_move_and_settle 负责
+///       （Game::make_move 只是委托它）。
 void apply_move(GameState& state, Pos from, Pos to);
 
 /// @brief 判定当前局面是否已分出胜负。

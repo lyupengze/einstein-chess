@@ -1,7 +1,8 @@
 // AI 模块：为对局提供布阵与走子决策。
-// 当前是"随机基线"占位实现：只保证产出的决策合法，不评估局面优劣，
-// 目的是先让 CLI / GUI / Botzone 三端跑通完整对局，后续再替换为搜索算法。
-// 接口统一按"输入局面 → 输出决策"设计，替换实现时调用方无需改动。
+// 走子使用固定深度的 Expectiminimax：己方/对方为 MAX/MIN 节点，
+// 掷骰为 CHANCE 节点（1~6 等概率），评估函数只读取 core::GameState。
+// 规则、合法着法枚举与走子结算全部复用 core，AI 不维护第二套规则。
+// 接口统一按"输入局面 → 输出决策"设计，调用方无需关心搜索细节。
 
 #ifndef AI_H_
 #define AI_H_
@@ -13,10 +14,10 @@
 
 namespace ai {
 
-/// 一步走子：从 from 走到 to。
-struct Move {
-    core::Pos from;
-    core::Pos to;
+/// @brief 走子搜索配置。
+struct SearchConfig {
+    /// 搜索深度，按"走子回合数"计：1 表示只看当前这一步，默认 4。
+    int max_depth = 4;
 };
 
 /// 随机生成 1~6 的一个排列，作为某一方的布阵方案。
@@ -28,10 +29,16 @@ struct Move {
 /// 随机源本身是线程局部的，因此该种子只影响调用线程。
 void set_random_seed(unsigned int seed);
 
-/// 为当前回合方（state.current_side）随机选择一步合法走法。
+/// @brief 使用默认 SearchConfig（深度 4）为当前回合方选择一步走法。
 /// @throws std::invalid_argument phase 不是 Player1Thinking / Player2Thinking
 /// @throws std::runtime_error 枚举不到任何合法着法
-[[nodiscard]] Move decide_move(const core::GameState& state);
+[[nodiscard]] core::Move decide_move(const core::GameState& state);
+
+/// @brief 使用指定配置为当前回合方选择一步走法。
+/// @param config 搜索深度等参数；max_depth <= 0 时按 1 处理
+/// @throws std::invalid_argument phase 不是 Player1Thinking / Player2Thinking
+/// @throws std::runtime_error 枚举不到任何合法着法
+[[nodiscard]] core::Move decide_move(const core::GameState& state, const SearchConfig& config);
 
 }  // namespace ai
 

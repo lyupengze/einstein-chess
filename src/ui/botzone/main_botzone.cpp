@@ -163,7 +163,7 @@ int main() {
                 }
 
                 // 输出四个坐标：x 为行、y 为列，与 core::Pos 的约定一致。
-                ai::Move move = ai::decide_move(state);
+                core::Move move = ai::decide_move(state);
                 output["response"]["x0"] = static_cast<int>(move.from.x);
                 output["response"]["y0"] = static_cast<int>(move.from.y);
                 output["response"]["x1"] = static_cast<int>(move.to.x);

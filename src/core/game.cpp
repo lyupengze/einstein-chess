@@ -55,25 +55,32 @@ void Game::roll_dice() {
     }
 }
 
-void Game::make_move(Pos from, Pos to) {
-    // 非法走法在这里抛出，状态保持不变（apply_move 先校验后修改）。
-    rules::apply_move(game_state_, from, to);
+GameState apply_move_and_settle(const GameState& state, Pos from, Pos to) {
+    // 非法走法在这里抛出，state 不受影响（apply_move 先校验后修改）。
+    GameState next = state;
+    rules::apply_move(next, from, to);
 
     // 先判胜：胜负已分就不应再换手，否则 UI 会闪一下"轮到对方"。
-    game_state_.winner = rules::check_winner(game_state_);
-    if (game_state_.winner == Side::None) {
+    next.winner = rules::check_winner(next);
+    if (next.winner == Side::None) {
         // 换手后回到掷骰阶段，由下一次 roll_dice 生成新的点数。
-        if (game_state_.current_side == Side::Red) {
-            game_state_.current_side = Side::Blue;
+        if (next.current_side == Side::Red) {
+            next.current_side = Side::Blue;
         } else {
-            game_state_.current_side = Side::Red;
+            next.current_side = Side::Red;
         }
-        game_state_.phase = Phase::ThrowingDice;
+        next.phase = Phase::ThrowingDice;
     } else {
-        game_state_.phase = Phase::GameOver;
+        next.phase = Phase::GameOver;
     }
     // 本回合骰子作废；读取 current_dice 前必须先确认 optional 有值。
-    game_state_.current_dice = std::nullopt;
+    next.current_dice = std::nullopt;
+    return next;
+}
+
+void Game::make_move(Pos from, Pos to) {
+    // 结算顺序只在 apply_move_and_settle 中维护一份，AI 搜索复用同一函数。
+    game_state_ = apply_move_and_settle(game_state_, from, to);
 }
 
 const GameState& Game::get_state() const {
