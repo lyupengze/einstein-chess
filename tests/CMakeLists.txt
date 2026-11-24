@@ -76,6 +76,15 @@ einstein_add_test(save_level test_save_level
                   TIMEOUT 60 LABEL storage
                   WORKING_DIRECTORY ${SAVE_LEVEL_WORK_DIR})
 
+add_executable(test_storage_roundtrip storage_roundtrip_test.cpp)
+# 与 save_level 一样：伪造损坏数据要直接写 SQLite，因此显式链接 sqlite3。
+target_link_libraries(test_storage_roundtrip PRIVATE einstein_storage sqlite3 einstein_warnings)
+set(STORAGE_ROUNDTRIP_WORK_DIR ${CMAKE_CURRENT_BINARY_DIR}/storage_roundtrip)
+file(MAKE_DIRECTORY ${STORAGE_ROUNDTRIP_WORK_DIR})
+einstein_add_test(storage_roundtrip test_storage_roundtrip
+                  TIMEOUT 60 LABEL storage
+                  WORKING_DIRECTORY ${STORAGE_ROUNDTRIP_WORK_DIR})
+
 add_executable(test_gui_reconcile gui_reconcile_test.cpp)
 target_link_libraries(test_gui_reconcile PRIVATE einstein_gui_lib einstein_warnings)
 einstein_add_test(gui_reconcile test_gui_reconcile
