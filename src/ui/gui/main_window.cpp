@@ -43,7 +43,8 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
             core::Side human_side = (side_int == 1) ? core::Side::Red : core::Side::Blue;
             auto player_layout = dialog.get_layout();
             // start_new_game 内部会同时提交人类与 AI 的布阵，返回时阶段已在 ThrowingDice。
-            game_widget_->start_new_game(human_side, player_layout);
+            // 强度与布阵一起传入：对话框默认选 kDefaultLevel（最新版），整局沿用。
+            game_widget_->start_new_game(human_side, player_layout, dialog.get_selected_level());
             stacked_widget_->setCurrentWidget(game_widget_);
         }
     });
@@ -60,10 +61,12 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
             std::string name = dialog.get_selected_name();
             // 每次新建：数据库连接的生命周期就锁在这个 lambda 里。
             storage::SaveManager save_manager(storage::kDefaultDbPath);
-            auto state_opt = save_manager.load_game(name);
+            auto saved = save_manager.load_game(name);
 
-            if (state_opt) {
-                game_widget_->load_game_state(*state_opt);
+            if (saved) {
+                // 强度取自存档本身，而不是当前菜单/上一次新局的选择：
+                // 同一个存档无论读多少次、中间开过什么强度的新局，电脑强度都不变。
+                game_widget_->load_game_state(saved->state, saved->ai_level);
                 stacked_widget_->setCurrentWidget(game_widget_);
             } else {
                 // 记录可能在对话框打开后已被删除，所以查不到不算异常。

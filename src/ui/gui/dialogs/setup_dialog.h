@@ -1,24 +1,27 @@
 #ifndef SETUP_DIALOG_H_
 #define SETUP_DIALOG_H_
 
+#include <QComboBox>
 #include <QDialog>
 #include <QPushButton>
 #include <QRadioButton>
 #include <array>
 
+#include "ai/ai.h"
+
 // 布阵对话框（SetupDialog）的接口声明。
-// 玩家在这里选阵营，并把 1~6 六个编号摆进己方三角区；确定后由 MainWindow 取出
-// (阵营, layout) 交给 GameWidget::start_new_game，本类不接触 core::Game。
+// 玩家在这里选阵营与电脑强度，并把 1~6 六个编号摆进己方三角区；确定后由 MainWindow
+// 取出 (阵营, layout, AI 档位) 交给 GameWidget::start_new_game，本类不接触 core::Game。
 namespace ui {
 
-/// @brief 布阵阶段对话框：选阵营 + 点击己方三角区循环切换棋子编号。
+/// @brief 布阵阶段对话框：选阵营 + 选电脑强度 + 点击己方三角区循环切换棋子编号。
 ///
 /// 5x5 按钮网格与棋盘同构：行下标 x 即 Pos.x（向下增大），列下标 y 即 Pos.y（向右增大）。
 /// 只有红/蓝三角区内的格子可点，其余格子禁用且显示为空。
 class SetupDialog : public QDialog {
     Q_OBJECT
 public:
-    /// @brief 搭 5x5 网格、阵营单选与确认按钮，并把阵营重置成红方。
+    /// @brief 搭 5x5 网格、阵营单选、强度下拉框与确认按钮，并把阵营重置成红方。
     /// @param parent 父控件，模态执行时以它为父窗口
     explicit SetupDialog(QWidget* parent = nullptr);
 
@@ -31,6 +34,9 @@ public:
     /// @return 下标 0~5 与 Board::setup_custom 的落位顺序一一对应
     /// @note 只有 accept() 之后取才有意义；对话框已保证六个编号互不重复且在 1~6。
     std::array<int, 6> get_layout() const;
+    /// @brief 玩家选择的电脑强度。
+    /// @return 下拉框当前项对应的 ai::Level；初值为 ai::kDefaultLevel（最新版）
+    ai::Level get_selected_level() const;
 
 private slots:
     /// @brief 确认按钮：先查重复编号，全部通过才 accept()。
@@ -45,6 +51,7 @@ private slots:
 private:
     QRadioButton* red_radio_;   ///< 红方（先手 / 左上），默认选中
     QRadioButton* blue_radio_;  ///< 蓝方（后手 / 右下）
+    QComboBox* level_combo_;    ///< 电脑强度，条目由 ai::kAllLevels 生成
 
     QPushButton* grid_btns_[5][5];  ///< 网格按钮，下标即 x、y，与 Pos 同序
     std::array<int, 6> layout_;     ///< 布阵结果；0 表示“该格尚未分配编号”

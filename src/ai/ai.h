@@ -36,6 +36,11 @@ enum class Level {
 /// @note 这是"默认用最新版"的唯一开关，升级默认 AI 时只改这一行。
 inline constexpr Level kDefaultLevel = Level::kSearch;
 
+/// @brief 全部可选档位，按从弱到强排列，供 UI 生成下拉框与命令行菜单。
+/// @note 新增档位时除了追加 Level 枚举值，也要把新值补进本数组，
+///       否则界面上会少一个选项（decide_move 本身仍能接受它）。
+inline constexpr std::array<Level, 2> kAllLevels = {Level::kRandom, Level::kSearch};
+
 /// @brief AI 版本的展示名，供 CLI / GUI 输出或日志使用。
 /// @param level 版本档位
 /// @return 中文名称；传入越界的枚举值时返回"未知"

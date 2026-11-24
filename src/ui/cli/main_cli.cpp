@@ -1,4 +1,4 @@
-// 命令行版爱因斯坦棋：在单进程内完成"选色 → 布阵 → 掷骰 / 走子"的完整对局，
+// 命令行版爱因斯坦棋：在单进程内完成"选强度 → 选色 → 布阵 → 掷骰 / 走子"的完整对局，
 // 对手由 ai 模块扮演，存档通过 storage::SaveManager 写入 SQLite。
 // 交互约定：人类回合内输入 save 可存档、输入 exit 返回主菜单。
 // 启动参数 --seed <n> 固定 AI 随机种子，便于复现同一局。
@@ -10,6 +10,7 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -27,8 +28,9 @@ namespace {
 bool read_line(std::string& line) { return static_cast<bool>(std::getline(std::cin, line)); }
 
 // 询问存档名并立即保存；直接回车则使用默认名 autosave。
+// level 是本局电脑强度，一并写进存档，读档时原样恢复。
 // 返回 false 表示输入已结束，调用方应结束本局。
-bool save(storage::SaveManager& save_manager, const core::GameState& state) {
+bool save(storage::SaveManager& save_manager, const core::GameState& state, ai::Level level) {
     std::cout << "请输入存档名 (直接回车默认名为 autosave) : ";
     std::string save_name;
     if (!read_line(save_name)) {
@@ -40,7 +42,7 @@ bool save(storage::SaveManager& save_manager, const core::GameState& state) {
     // 同名槽位会被覆盖（见 SaveManager::save_game）。写库失败不应该终止进程，
     // 打印原因后继续对局，由玩家决定是否重试。
     try {
-        save_manager.save_game(save_name, state);
+        save_manager.save_game(save_name, state, level);
         std::cout << "存档成功！\n";
     } catch (const std::exception& e) {
         std::cout << "存档失败: " << e.what() << "\n";
@@ -48,10 +50,41 @@ bool save(storage::SaveManager& save_manager, const core::GameState& state) {
     return true;
 }
 
+// 让玩家选择电脑强度，选项由 ai::kAllLevels 生成，不在此写死档位。
+// 直接回车取 kDefaultLevel（最新版），与接口“不指定版本就用最新版”的默认一致。
+// 返回 std::nullopt 表示输入已结束，调用方应立即退出。
+std::optional<ai::Level> choose_ai_level() {
+    std::cout << "【难度选择】\n";
+    while (true) {
+        std::cout << "请选择电脑强度:\n";
+        for (std::size_t i = 0; i < ai::kAllLevels.size(); ++i) {
+            std::cout << i + 1 << ". " << ai::level_name(ai::kAllLevels[i]) << "\n";
+        }
+        std::cout << "请输入编号 (直接回车默认 " << ai::level_name(ai::kDefaultLevel) << "): ";
+
+        std::string level_input;
+        if (!read_line(level_input)) {
+            return std::nullopt;
+        }
+        if (level_input.empty()) {
+            return ai::kDefaultLevel;
+        }
+
+        std::istringstream iss_level(level_input);
+        int index = 0;
+        if (iss_level >> index && index >= 1 &&
+            index <= static_cast<int>(ai::kAllLevels.size())) {
+            return ai::kAllLevels[static_cast<std::size_t>(index - 1)];
+        }
+        std::cout << "命令不合法\n\n";
+    }
+}
+
 // 单局主循环，直到 phase 进入 GameOver 才返回。
 // 人类回合：先掷骰子，再输入"起点行 起点列 终点行 终点列"；输错不消耗回合。
-// AI 回合：自动掷骰并随机走一步，等待玩家按回车继续。
-void game_loop(core::Game& game, storage::SaveManager& save_manager) {
+// AI 回合：自动掷骰并走一步，等待玩家按回车继续。
+// ai_level 是本局电脑强度，整局不变；存档时也会写进档案。
+void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level ai_level) {
     while (game.get_state().phase != core::Phase::GameOver) {
         // 每轮开头重绘棋盘：玩家能直接看到上一手（或读档）后的局面。
         std::cout << "【当前棋盘】\n";
@@ -71,7 +104,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
                 }
 
                 if (pause == "save") {
-                    if (!save(save_manager, game.get_state())) {
+                    if (!save(save_manager, game.get_state(), ai_level)) {
                         return;
                     }
                     continue;  // 回到循环开头重新提示掷骰
@@ -101,7 +134,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
 
                 // save / exit 在等待走子时同样可用。
                 if (move_input == "save") {
-                    if (!save(save_manager, game.get_state())) {
+                    if (!save(save_manager, game.get_state(), ai_level)) {
                         return;
                     }
                     continue;
@@ -138,7 +171,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager) {
             // （Release 下只是恰好能从残留存储里读到旧点数，看起来“正常”）。
             const int ai_dice = game.get_state().current_dice.value_or(0);
 
-            core::Move move = ai::decide_move(game.get_state());
+            core::Move move = ai::decide_move(game.get_state(), ai_level);
             game.make_move(move.from, move.to);
 
             std::cout << "电脑掷出了: " << ai_dice << "，从 (" << move.from.x << ","
@@ -249,12 +282,14 @@ int main(int argc, char* argv[]) {
                     // 读档失败（存档被改坏、字段不自洽等）只影响这一次读取：
                     // 打印具体原因后回主菜单，不能把异常吞成一句"无效的选择"。
                     try {
-                        auto state = save_manager->load_game(saves[choice - 1]);
-                        if (state) {
-                            game.load_game(*state);
-                            std::cout
-                                << "已开始游戏 (在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
-                            game_loop(game, *save_manager);
+                        auto saved = save_manager->load_game(saves[choice - 1]);
+                        if (saved) {
+                            game.load_game(saved->state);
+                            // 强度来自存档本身：同一份档案每次读都恢复成同一个档位，
+                            // 不会受主菜单流程里临时选过的强度影响。
+                            std::cout << "已开始游戏 (电脑强度: " << ai::level_name(saved->ai_level)
+                                      << "; 在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
+                            game_loop(game, *save_manager, saved->ai_level);
                         } else {
                             std::cout << "该存档槽位没有数据。\n";
                         }
@@ -276,6 +311,16 @@ int main(int argc, char* argv[]) {
         }
 
         std::cout << "已开始游戏 (在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
+
+        // 强度在选色前确定，之后整局（含存档）都使用它。
+        const auto selected_level = choose_ai_level();
+        if (!selected_level) {
+            std::cout << "\n输入已结束，退出。\n";
+            return 0;
+        }
+        const ai::Level ai_level = *selected_level;
+        std::cout << "电脑强度: " << ai::level_name(ai_level) << "\n\n";
+
         std::cout << "【选色阶段】\n";
 
         // player1 = 人类，player2 = AI；这一角色由 prepare_new_game 的参数
@@ -351,7 +396,7 @@ int main(int argc, char* argv[]) {
         }
 
         std::cout << "【开始游戏】\n";
-        game_loop(game, *save_manager);
+        game_loop(game, *save_manager, ai_level);
     }
 
     return 0;

@@ -10,6 +10,7 @@
 #include <optional>
 #include <vector>
 
+#include "ai/ai.h"
 #include "components/board_widget.h"
 #include "components/dice_widget.h"
 #include "components/toast_widget.h"
@@ -35,10 +36,13 @@ public:
     /// @brief 开新局：重置对局状态，提交双方布阵后刷新界面。
     /// @param human_side 人类的阵营，另一阵营自动交给 AI
     /// @param human_layout 人类布阵，下标 0~5 对应 Board::setup_custom 的落位顺序
-    void start_new_game(core::Side human_side, const std::array<int, 6>& human_layout);
+    /// @param ai_level 本局电脑强度，来自布阵对话框；整局保持不变
+    void start_new_game(core::Side human_side, const std::array<int, 6>& human_layout,
+                        ai::Level ai_level);
     /// @brief 用存档快照覆盖当前对局；若快照停在 AI 回合会立刻把回合交给 AI。
     /// @param state 从 SaveManager 读出的完整状态
-    void load_game_state(const core::GameState& state);
+    /// @param ai_level 存档记录的电脑强度，读档后整局沿用，保证与存档时一致
+    void load_game_state(const core::GameState& state, ai::Level ai_level);
 
 signals:
 
@@ -85,6 +89,7 @@ private:
     std::vector<core::Pos> get_reachable_positions(core::Pos from) const;
 
     core::Game game_;                        ///< 唯一的对局对象，所有规则进出的门
+    ai::Level ai_level_ = ai::kDefaultLevel;  ///< 本局电脑强度；开新局/读档时写入，之后不再变
     BoardWidget* board_widget_;              ///< 棋盘绘制者，也是 cell_clicked 的来源
     DiceWidget* dice_widget_;                ///< 骰子点数展示，nullopt 表示未掷
     QLabel* status_label_;                   ///< 顶部状态文案

@@ -16,7 +16,8 @@ namespace ui {
 SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle("布阵阶段");
     // 固定尺寸：网格是 5 列各 60px 的按钮，窗口可缩放会把按钮压变形。
-    setFixedSize(400, 520);
+    // 相比只有阵营行时加高 40px，给“电脑强度”下拉框留出一行。
+    setFixedSize(400, 560);
 
     // 0 是“尚未分配编号”的哨兵值，update_grid_ui 据此填初值。
     layout_.fill(0);
@@ -33,6 +34,22 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     side_layout->addWidget(blue_radio_);
     side_layout->addStretch();
     main_layout->addLayout(side_layout);
+    main_layout->addSpacing(10);
+
+    // 电脑强度：条目全部由 ai::kAllLevels 生成，界面不写死档位数量与名称；
+    // 用整数值存进 itemData，避免为枚举注册 Qt 元类型。
+    auto* level_layout = new QHBoxLayout();
+    level_layout->addWidget(new QLabel("电脑强度："));
+    level_combo_ = new QComboBox(this);
+    for (const ai::Level level : ai::kAllLevels) {
+        level_combo_->addItem(QString::fromStdString(ai::level_name(level)),
+                              static_cast<int>(level));
+    }
+    // 默认选中 kDefaultLevel（当前最新版），与“不指定版本就用最新版”的约定一致。
+    level_combo_->setCurrentIndex(level_combo_->findData(static_cast<int>(ai::kDefaultLevel)));
+    level_layout->addWidget(level_combo_);
+    level_layout->addStretch();
+    main_layout->addLayout(level_layout);
     main_layout->addSpacing(10);
 
     main_layout->addWidget(new QLabel("点击亮起的格子循环切换数字 1~6："));
@@ -205,6 +222,11 @@ int SetupDialog::get_selected_side() const {
 
 std::array<int, 6> SetupDialog::get_layout() const {
     return layout_;
+}
+
+ai::Level SetupDialog::get_selected_level() const {
+    // currentData 一定是构造时写入的 ai::Level 整数值，因此可直接转回枚举。
+    return static_cast<ai::Level>(level_combo_->currentData().toInt());
 }
 
 }  // namespace ui

@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
         app.processEvents();
 
         auto* history = widget.findChild<QListWidget*>();
-        widget.load_game_state(thinking);
+        widget.load_game_state(thinking, ai::kDefaultLevel);
         spin(2000);
 
         expect(history != nullptr && history->count() == 1,
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
         app.processEvents();
 
         auto* history = widget.findChild<QListWidget*>();
-        widget.load_game_state(broken);
+        widget.load_game_state(broken, ai::kDefaultLevel);
         spin(2000);
 
         expect(history != nullptr && history->count() == 0,
@@ -132,8 +132,8 @@ int main(int argc, char** argv) {
         app.processEvents();
 
         auto* history = widget.findChild<QListWidget*>();
-        widget.load_game_state(thinking);  // 排一个 500ms 的 AI 回调
-        widget.start_new_game(core::Side::Blue, {1, 2, 3, 4, 5, 6});  // 人类执蓝，红方 AI 先手
+        widget.load_game_state(thinking, ai::kDefaultLevel);  // 排一个 500ms 的 AI 回调
+        widget.start_new_game(core::Side::Blue, {1, 2, 3, 4, 5, 6}, ai::Level::kSearch);
 
         spin(800);
         expect(history != nullptr && history->count() == 0,

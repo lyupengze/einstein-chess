@@ -21,11 +21,14 @@ namespace {
 constexpr int kNoDice = -1;
 
 // 序列化格式（单行文本）：
-//   7 个元数据：player1_side current_side phase dice winner player1_ready player2_ready
+//   7 个局面元数据：player1_side current_side phase dice winner player1_ready player2_ready
 //   25 个棋盘格：x（行）为外层、y（列）为内层逐格输出
+//   1 个可选元数据：AI 档位（ai::Level 的底层整数值），追加在最后
 // 枚举一律按底层整数值写出；dice 无值时写 kNoDice。
 // 棋盘格编码：正数 = 红方棋子编号，负数 = 蓝方棋子编号，0 = 空格。
-[[nodiscard]] std::string serialize(const core::GameState& state) {
+// AI 档位放在末尾而不是开头：旧存档（没有这一项）仍能按“读到 25 格就结束”解析，
+// 新存档多出一个尾部整数也不会与任何棋盘格混淆。
+[[nodiscard]] std::string serialize(const core::GameState& state, ai::Level level) {
     std::ostringstream oss;
 
     // 空格分隔；末尾换行只是可读习惯，反序列化按流读取并不依赖它。
@@ -47,6 +50,8 @@ constexpr int kNoDice = -1;
             oss << val << ' ';
         }
     }
+    // 末尾追加 AI 档位。棋盘最后一格后面已经有一个空格，这里直接写数字即可分隔。
+    oss << static_cast<int>(level) << '\n';
     return oss.str();
 }
 
@@ -54,7 +59,8 @@ constexpr int kNoDice = -1;
 // 保证返回的 GameState 各字段至少落在合法取值范围内。
 // 读满全部字段后还会做一次“语义自洽”校验（阶段与骰子是否匹配），
 // 因为单看字段都合法、组合起来却不可能出现的状态一样会让 UI 解引用空 optional。
-core::GameState deserialize(const std::string& data) {
+// AI 档位是可选的尾部字段：旧存档没有它，按默认档位恢复。
+SavedGame deserialize(const std::string& data) {
     std::istringstream iss(data);
     core::GameState state;
 
@@ -137,7 +143,23 @@ core::GameState deserialize(const std::string& data) {
         }
     }
 
-    // 读满 25 格后流必须恰好结束；有多余内容说明数据被拼接或字段错位。
+    // 第八个字段（AI 档位）是后加的：旧存档读到 25 格后已经是 EOF，
+    // 这时保持 kDefaultLevel；只有“字段存在但解析失败”才视为数据损坏。
+    ai::Level level = ai::kDefaultLevel;
+    int level_int = 0;
+    if (iss >> level_int) {
+        constexpr int kLevelMin = static_cast<int>(ai::Level::kRandom);
+        constexpr int kLevelMax = static_cast<int>(ai::Level::kSearch);
+        if (level_int < kLevelMin || level_int > kLevelMax) {
+            throw std::runtime_error("反序列化失败: 非法 AI 档位");
+        }
+        level = static_cast<ai::Level>(level_int);
+    } else if (!iss.eof()) {
+        // 非数字的尾部内容（例如存档被手工拼接）同样按损坏处理。
+        throw std::runtime_error("反序列化失败: 非法 AI 档位");
+    }
+
+    // 读完 AI 档位后流必须恰好结束；有多余内容说明数据被拼接或字段错位。
     std::string extra;
     if (iss >> extra) {
         throw std::runtime_error("反序列化失败: 数据格式中存在冗余内容");
@@ -156,7 +178,7 @@ core::GameState deserialize(const std::string& data) {
         throw std::runtime_error("反序列化失败: 非思考阶段却带有骰子点数");
     }
 
-    return state;
+    return SavedGame{state, level};
 }
 
 }  // namespace
@@ -171,15 +193,16 @@ SaveManager::SaveManager(const std::string& db_path) : db_(db_path) {
     stmt.step();
 }
 
-void SaveManager::save_game(const std::string& slot_name, const core::GameState& state) {
+void SaveManager::save_game(const std::string& slot_name, const core::GameState& state,
+                            ai::Level level) {
     // INSERT OR REPLACE：主键冲突时先删旧行再插入新行，timestamp 也随之刷新。
     Statement stmt(db_, "INSERT OR REPLACE INTO saves (name, data) VALUES (?, ?);");
     stmt.bind(1, slot_name);
-    stmt.bind(2, serialize(state));
+    stmt.bind(2, serialize(state, level));
     stmt.step();
 }
 
-std::optional<core::GameState> SaveManager::load_game(const std::string& slot_name) {
+std::optional<SavedGame> SaveManager::load_game(const std::string& slot_name) {
     // name 是主键，最多命中一行，step() 一次即可判断槽位是否存在。
     Statement stmt(db_, "SELECT data FROM saves WHERE name = ?;");
     stmt.bind(1, slot_name);

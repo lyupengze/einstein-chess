@@ -21,6 +21,12 @@ add_executable(test_ai_level ai_level_test.cpp)
 target_link_libraries(test_ai_level PRIVATE einstein_ai einstein_warnings)
 add_test(NAME ai_level COMMAND test_ai_level)
 
+add_executable(test_save_level save_level_test.cpp)
+# 测试要直接改 SQLite 里的 data 列来伪造旧档，因此显式链接 sqlite3；
+# storage 自身只 PRIVATE 依赖它，不会自动传递过来。
+target_link_libraries(test_save_level PRIVATE einstein_storage sqlite3 einstein_warnings)
+add_test(NAME save_level COMMAND test_save_level)
+
 add_executable(test_gui_reconcile gui_reconcile_test.cpp)
 target_link_libraries(test_gui_reconcile PRIVATE einstein_gui_lib einstein_warnings)
 add_test(NAME gui_reconcile COMMAND test_gui_reconcile)

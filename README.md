@@ -63,14 +63,14 @@ ctest --test-dir build --output-on-failure
 ### GUI 版本 (推荐)
 
 1. 启动 `./build/bin/einstein_gui`（Windows 下为 `einstein_gui.exe`）。
-2. 点击“开始新游戏”，在弹窗中选择阵营（红方先手），再点击格子循环切换 1~6 号棋子完成布阵。
+2. 点击“开始新游戏”，在弹窗中选择阵营（红方先手）与电脑强度（默认最新版），再点击格子循环切换 1~6 号棋子完成布阵。
 3. 掷骰后，可选棋子会以绿色虚线框标出；点击选中后边框变为金色实线，同时显示所有可达落点。
 4. 对局中可随时点击“保存”，输入存档名后存档；保存成功等提示会以淡入淡出的浮层短暂显示。
 
 ### CLI 版本 (备用)
 
 1. 在终端运行 `./build/bin/einstein_cli`（Windows 下为 `einstein_cli.exe`）。
-2. 按菜单提示输入指令（1 开始游戏 / 2 读档 / 3 退出），走法格式如 `0 2 1 2`。
+2. 按菜单提示输入指令（1 开始游戏 / 2 读档 / 3 退出）；开新局时会先选择电脑强度（直接回车取默认的最新版），走法格式如 `0 2 1 2`。
 
 ### Botzone 版本 (对战平台)
 
@@ -110,7 +110,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 │   │   ├── rules.h|.cpp     # 可选棋子、走法校验、胜负判定
 │   │   └── game.h|.cpp      # 对局门面：提交布阵、掷骰、走子、换手
 │   ├── ai/              # 两代 AI（随机基线 / 竞速胜率 Expectiminimax），仅依赖 core
-│   ├── storage/         # save_manager 存档序列化 + sqlite_wrapper RAII 封装
+│   ├── storage/         # save_manager 存档序列化（含 AI 档位）+ sqlite_wrapper RAII 封装
 │   └── ui/              # 三个并列入口，各自独立可执行目标
 │       ├── gui/             # Qt6：main_window + views/ + components/ + dialogs/ + style.qss
 │       ├── cli/             # 终端菜单与对局循环
@@ -127,7 +127,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 | ------------------ | ------ | ------------------------------------------------------------ |
 | `einstein_core`    | 静态库 | 无                                                           |
 | `einstein_ai`      | 静态库 | core                                                         |
-| `einstein_storage` | 静态库 | core、`sqlite3`（内部封装，不外泄 `<sqlite3.h>`）            |
+| `einstein_storage` | 静态库 | core、ai、`sqlite3`（内部封装，不外泄 `<sqlite3.h>`）  |
 | `einstein_cli`     | 可执行 | core、ai、storage                                            |
 | `einstein_gui_lib` | 静态库 | core、ai、storage、`Qt6::Widgets`；GUI 逻辑供 exe 与测试共享 |
 | `einstein_gui`     | 可执行 | `einstein_gui_lib`、`Qt6::Widgets`、`resources.qrc`          |
@@ -137,9 +137,9 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 ## ⚠️ 当前限制
 
-- **AI 提供两档强度**：公共接口用 `ai::Level` 选择版本，`ai::kDefaultLevel` 当前指向最新版 `Level::kSearch`，因此 `ai::decide_move(state)` 就是搜索版。`Level::kRandom` 复用第一版随机基线（在合法着法中均匀随机），用于最低难度或对照；显式指定时写作 `ai::decide_move(state, ai::Level::kRandom)`。搜索版使用固定深度的 Expectiminimax（默认 4 回合），叶节点用 46656 个单方竞速状态预计算出的到达时间分布合成胜率，**不设材料价值项**——吃对方子、送己方子都只通过竞速分布影响胜率；不含 alpha-beta、置换表与时间预算。同分时先按“走完后离终点更近”过滤，再优先斜向，最后才随机，避免无进展的轴向着法。`decide_layout()` 两版共用同一套随机打乱，因此不接受 Level。更深的搜索或布局优化留待后续，UI 暂未暴露强度选择。
+- **AI 提供两档强度**：公共接口用 `ai::Level` 选择版本，`ai::kDefaultLevel` 当前指向最新版 `Level::kSearch`，因此 `ai::decide_move(state)` 就是搜索版。`Level::kRandom` 复用第一版随机基线（在合法着法中均匀随机），用于最低难度或对照；显式指定时写作 `ai::decide_move(state, ai::Level::kRandom)`。搜索版使用固定深度的 Expectiminimax（默认 4 回合），叶节点用 46656 个单方竞速状态预计算出的到达时间分布合成胜率，**不设材料价值项**——吃对方子、送己方子都只通过竞速分布影响胜率；不含 alpha-beta、置换表与时间预算。同分时先按“走完后离终点更近”过滤，再优先斜向，最后才随机，避免无进展的轴向着法。`decide_layout()` 两版共用同一套随机打乱，因此不接受 Level。GUI 的布阵对话框与 CLI 的开新局流程都会让玩家选择档位（默认最新版）；选中的档位随存档写入 SQLite，读档时原样恢复，因此同一局无论读多少次、中途开过什么强度的新局，电脑强度都保持一致；旧存档没有档位字段，按 `kDefaultLevel`（最新版）恢复。Botzone 不接 UI，始终调用无版本参数的接口，即固定使用最新版。
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证，也没有 CI，`-Werror` 下其他编译器的告警差异可能带来额外修改。
-- **测试覆盖有限**：CTest 目前有 8 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（合法着法枚举与走子结算）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`cli_eof`（CLI 的 EOF 处理）；存档与 GUI 的完整分支仍未全部覆盖。
+- **测试覆盖有限**：CTest 目前有 9 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（合法着法枚举与走子结算）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`save_level`（存档档位往返、旧档兼容与损坏拒绝）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`cli_eof`（CLI 的 EOF 处理）；GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
 - **Windows 下 GUI 附带控制台窗口**：`einstein_gui` 未标记 `WIN32` 子系统，启动时会多出一个控制台窗口，不影响功能。
 

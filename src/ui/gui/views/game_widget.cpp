@@ -80,9 +80,13 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai
     toast_ = new ToastWidget(this);
 }
 
-void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>& human_layout) {
+void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>& human_layout,
+                                ai::Level ai_level) {
     // 先清掉上一局排队的延迟动作，否则旧的对局意图会落到新局上。
     cancel_pending_actions();
+
+    // 强度属于整局配置：开新局时写入一次，之后所有 AI 回合都读同一个值。
+    ai_level_ = ai_level;
 
     // prepare_new_game 会把 GameState 重置成空棋盘，所以同一个控件可以直接开下一局。
     game_.prepare_new_game(human_side);
@@ -104,9 +108,12 @@ void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>&
     trigger_ai_if_needed();
 }
 
-void GameWidget::load_game_state(const core::GameState& state) {
+void GameWidget::load_game_state(const core::GameState& state, ai::Level ai_level) {
     // 与开新局同理：先取消排队中的旧动作，再整体覆盖对局。
     cancel_pending_actions();
+
+    // 强度紧跟局面一起恢复，后续 AI 回合才会与存档时保持一致。
+    ai_level_ = ai_level;
 
     // load_game 是整体覆盖，不做增量合并；存档里的 player1_side 决定谁是“人类”。
     game_.load_game(state);
@@ -161,7 +168,7 @@ void GameWidget::on_save_clicked() {
         std::string name = dialog.get_save_name();
         // 每次新建而不是做成成员：SQLite 连接的生命周期就被限制在这个块里。
         storage::SaveManager save_manager(storage::kDefaultDbPath);
-        save_manager.save_game(name, game_.get_state());
+        save_manager.save_game(name, game_.get_state(), ai_level_);
         show_message("游戏已保存！");
     } catch (const std::exception& e) {
         QMessageBox::critical(this, "保存失败", e.what());
@@ -342,7 +349,7 @@ void GameWidget::handle_ai_turn() {
     // Player2Thinking：选点走子。失败时不能只记日志——阶段会停在 Player2Thinking，
     // 界面永久卡住；这里让电脑放弃本回合，把局面推回可继续的状态。
     try {
-        auto move = ai::decide_move(game_.get_state());
+        auto move = ai::decide_move(game_.get_state(), ai_level_);
 
         // 先记日志再落子：落子后终点已是己方棋子，就读不到被吃掉的是谁了。
         auto target_piece = game_.get_state().board.at(move.to);

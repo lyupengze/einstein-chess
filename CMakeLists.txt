@@ -24,10 +24,11 @@ else()
     target_compile_options(einstein_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Werror $<$<CONFIG:Debug>:-Og -g> $<$<NOT:$<CONFIG:Debug>>:-O2>)
 endif()
 
-# 依赖顺序：core 无外部依赖；storage / ai 依赖 core；三个可执行目标最后加入。
+# 依赖顺序：core 无外部依赖；ai 依赖 core；storage 依赖 core + ai（存档要记录 AI 档位）；
+# 三个可执行目标最后加入。
 add_subdirectory(src/core)
-add_subdirectory(src/storage)
 add_subdirectory(src/ai)
+add_subdirectory(src/storage)
 
 add_subdirectory(src/ui/cli)
 add_subdirectory(src/ui/gui)
