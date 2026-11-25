@@ -86,7 +86,7 @@ ctest --test-dir build --output-on-failure
 - 配置前把 Qt 的 `bin` 目录加入 `PATH`。Windows 上还需注意 `moc`/`rcc` 能加载 Qt 运行时 DLL，否则 `AUTORCC` 的测试执行会以 `0xc0000139` 中断，生成阶段随之中断；
 - 或显式指定前缀：`cmake -S . -B build -DCMAKE_PREFIX_PATH=<Qt6 安装前缀>`。
 
-> **构建类型**：Ninja、MinGW Makefiles、Unix Makefiles 都是单配置生成器，`--config Release` 不会生效，构建类型只能在配置阶段用 `-DCMAKE_BUILD_TYPE` 指定；Visual Studio、Xcode 则是多配置生成器，用 `--config <Config>`。留空时走 `einstein_warnings` 中的 `-O2` 分支。
+> **构建类型**：Ninja、MinGW Makefiles、Unix Makefiles 都是单配置生成器，`--config Release` 不会生效，构建类型只能在配置阶段用 `-DCMAKE_BUILD_TYPE` 指定；Visual Studio、Xcode 则是多配置生成器，用 `--config <Config>`。留空时走 `einstein_warnings` 中的 `-O2` 分支。Windows 下 `einstein_gui` 的子系统随配置变化：Release 使用 Windows GUI 子系统（双击不附带控制台窗口），Debug 保留 Console 子系统（便于查看日志）。这由 `src/ui/gui/CMakeLists.txt` 中的 `WIN32_EXECUTABLE "$<CONFIG:Release>"` 控制。
 
 > **生成器**：不写 `-G` 时 CMake 会挑默认生成器，可能与手上的 Qt6 不匹配（例如 Windows 上装了 Visual Studio，却要用 MSYS2 的 GCC 配 UCRT64 版 Qt6）——此时用 `-G "MinGW Makefiles"` 显式指定。只想产出可执行文件、不编译测试时，配置时加 `-DEINSTEIN_BUILD_TESTS=OFF`；想在没有 Qt6 的环境里只构建 CLI/Botzone，加 `-DEINSTEIN_BUILD_GUI=OFF`。
 
@@ -206,7 +206,6 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证；CI 目前也只覆盖 Windows + MSYS2 UCRT64，`-Werror` 下其他编译器的告警差异可能带来额外修改。
 - **测试覆盖仍有限**：默认构建注册 19 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（选子、走法、胜负、布阵与对局生命周期）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`botzone_protocol`（协议库的布阵/走子/严格输入校验）、`save_level`（存档档位往返、旧档兼容与损坏拒绝）、`storage_roundtrip`（局面完整往返与语义校验）、`state_validation`（局面状态校验）、`game_state_guard`（core 状态机守卫）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`dice_widget`（骰子点数绘制与非法值错误标记）、`gui_dialogs`（布阵与存档对话框、同名覆盖确认）、`cli_input`（CLI 参数与整行数字解析边界）、`cli_eof`（EOF 处理）、`cli_exit`（退出菜单）、`cli_session`（菜单交互与中途 EOF）、`cli_broken_db`（坏存档库错误边界）。`-DEINSTEIN_BUILD_GUI=OFF` 时五个 GUI 用例不注册，其余 14 个仍可运行；GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
-- **Windows 下 GUI 附带控制台窗口**：`einstein_gui` 未标记 `WIN32` 子系统，启动时会多出一个控制台窗口，不影响功能。
 
 ## 📄 许可证
 
