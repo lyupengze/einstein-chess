@@ -3,8 +3,10 @@
 #include <QDebug>
 #include <QHBoxLayout>
 #include <QMessageBox>
+#include <QScopeGuard>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <exception>
@@ -73,8 +75,9 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai
     connect(&roll_timer_, &QTimer::timeout, this, &GameWidget::on_roll_dice_timeout);
     connect(&ai_timer_, &QTimer::timeout, this, &GameWidget::handle_ai_turn);
 
-    // 进页时先禁用掷骰；真正的可用性每次都由 update_ui() 按阶段重新判定。
+    // 进页时先禁用掷骰与保存；真正的可用性每次都由 update_ui() 按阶段重新判定。
     roll_btn_->setEnabled(false);
+    save_btn_->setEnabled(false);
 
     // Toast 最后创建并先隐藏：它是脱离布局的浮层，只在 show_message 时露出。
     toast_ = new ToastWidget(this);
@@ -178,6 +181,20 @@ void GameWidget::on_roll_dice_timeout() {
 }
 
 void GameWidget::on_save_clicked() {
+    if (game_aborted_) {
+        show_message("对局已中止，无法保存");
+        return;
+    }
+
+    // 保存对话框会进入嵌套事件循环；先冻结尚未执行的掷骰/AI 动作，
+    // 否则 400/500/800ms 的定时器会在对话框背后改变局面，最后存下的
+    // 就不是玩家点击“保存”时看到的局面。
+    const PendingActions paused = pause_action_timers();
+    // 函数作用域 RAII：确认、取消、异常、错误弹窗结束后都按原剩余时间恢复。
+    // 放在 try 外面，保证 catch 里的 QMessageBox::critical 期间也保持暂停。
+    [[maybe_unused]] const auto resume_guard =
+        qScopeGuard([this, paused]() { resume_action_timers(paused); });
+
     // 对话框只收集名字，写库放在调用方；路径是相对名 kDefaultDbPath，
     // 因为 main_gui.cpp 已把工作目录切到 exe 所在目录，存档就落在 exe 旁边。
     // 注意: SaveLoadDialog 构造时就会打开数据库，所以连对话框构造一起放进 try，
@@ -335,6 +352,32 @@ void GameWidget::trigger_ai_if_needed() {
     ai_timer_.start(after_move_delay_ms_);
 }
 
+GameWidget::PendingActions GameWidget::pause_action_timers() {
+    PendingActions paused;
+    // 必须先读 remainingTime() 再 stop()：停掉之后计时信息就没了。
+    // 活跃定时器的剩余时间理论上不会为负；这里仍夹到 0，避免 Qt 在
+    // “已经到期但事件尚未派发”的瞬间返回异常值。
+    if (roll_timer_.isActive()) {
+        paused.roll_remaining_ms = std::max(0, roll_timer_.remainingTime());
+        roll_timer_.stop();
+    }
+    if (ai_timer_.isActive()) {
+        paused.ai_remaining_ms = std::max(0, ai_timer_.remainingTime());
+        ai_timer_.stop();
+    }
+    return paused;
+}
+
+void GameWidget::resume_action_timers(const PendingActions& paused) {
+    // 只有暂停时确实在运行的定时器才恢复；nullopt 代表本来就没排动作。
+    if (paused.roll_remaining_ms) {
+        roll_timer_.start(*paused.roll_remaining_ms);
+    }
+    if (paused.ai_remaining_ms) {
+        ai_timer_.start(*paused.ai_remaining_ms);
+    }
+}
+
 void GameWidget::cancel_pending_actions() {
     // 两个定时器都停掉：尚未执行的掷骰与 AI 步进都作废，由新局/新存档重新排。
     roll_timer_.stop();
@@ -425,7 +468,9 @@ void GameWidget::update_ui() {
     auto state = game_.get_state();
 
     // 中止态下棋盘只负责显示最后的局面，不能再接收点击；新局/读档会重新启用。
+    // 保存按钮同样禁用：一局无法继续的异常局面不应该再写进存档。
     board_widget_->setEnabled(!game_aborted_);
+    save_btn_->setEnabled(!game_aborted_);
 
     // 高亮数据只在“人类可操作”时才计算：AI 回合喂空数组，棋盘上就不会闪出可动圈。
     std::vector<core::Pos> selectable_pos;

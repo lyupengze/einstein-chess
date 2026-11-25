@@ -67,10 +67,25 @@ private slots:
     /// @brief 返回主页：先停掉尚未执行的延迟动作，再发 exit_to_menu。
     /// @note 不清空 game_，也不把异常中止态复位；下次开新局/读档统一覆盖。
     void on_exit_clicked();
-    /// @brief 保存按钮：弹保存对话框，确认后写库到 storage::kDefaultDbPath。
+    /// @brief 保存按钮：暂停尚未执行的延迟动作，弹保存对话框，确认后写库。
+    /// @note 对话框关闭后按原剩余时间恢复定时器，保证“点击保存时看到的就是存下的局面”。
     void on_save_clicked();
 
 private:
+    /// @brief 暂停两个延迟定时器时需要记住的剩余时间。
+    /// @note nullopt 表示该定时器当时没有运行；有值表示恢复时应等待的毫秒数。
+    struct PendingActions {
+        std::optional<int> roll_remaining_ms;
+        std::optional<int> ai_remaining_ms;
+    };
+
+    /// @brief 读取并暂停 roll_timer_ / ai_timer_，返回各自剩余时间。
+    /// @return 可直接传给 resume_action_timers 的快照
+    PendingActions pause_action_timers();
+    /// @brief 按暂停时记录的剩余时间重新启动对应定时器。
+    /// @param paused pause_action_timers() 的返回值
+    void resume_action_timers(const PendingActions& paused);
+
     /// @brief 中止当前对局：停表、记录原因、禁用棋盘与掷骰，等待玩家返回主页。
     /// @param reason 展示给玩家的失败原因
     /// @note 只改界面状态，不改 core::Game 的局面；异常不能被翻译成一次合法走子。
@@ -110,7 +125,7 @@ private:
     ToastWidget* toast_;                     ///< 悬浮提示，构造末尾创建并先隐藏
     QPushButton* roll_btn_;                  ///< 掷骰子，可用性完全由 update_ui() 决定
     QPushButton* exit_btn_;                  ///< 返回主页，任何时候都可用
-    QPushButton* save_btn_;                  ///< 保存，任何时候都可用
+    QPushButton* save_btn_;                  ///< 保存；未开局/中止时禁用，其余时刻可点
     QListWidget* history_list_;              ///< 走子历史，按发生顺序追加
     std::optional<core::Pos> selected_pos_;  ///< 人类已选起点；nullopt 表示未选
 

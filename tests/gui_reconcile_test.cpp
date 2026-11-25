@@ -112,9 +112,11 @@ int main(int argc, char** argv) {
         auto* history = widget.findChild<QListWidget*>();
         auto* board = widget.findChild<ui::BoardWidget*>();
         auto* roll = find_button(widget, "掷骰子");
+        auto* save = find_button(widget, "保存");
         expect(history != nullptr, "game widget exposes its history list");
         expect(board != nullptr, "game widget exposes its board");
         expect(roll != nullptr, "game widget exposes its roll button");
+        expect(save != nullptr, "game widget exposes its save button");
         widget.load_game_state(thinking, static_cast<ai::Level>(99));
 
         expect(test_support::wait_until(
@@ -129,6 +131,7 @@ int main(int argc, char** argv) {
                "aborted game does not hand the turn to the human");
         expect(board != nullptr && !board->isEnabled(), "aborted game disables the board");
         expect(roll != nullptr && !roll->isEnabled(), "aborted game disables the dice button");
+        expect(save != nullptr && !save->isEnabled(), "aborted game disables the save button");
 
         // 中止态必须能被下一次读档清除，否则玩家只能重启程序。
         widget.load_game_state(thinking, ai::kDefaultLevel);
@@ -142,6 +145,7 @@ int main(int argc, char** argv) {
                "recovered game returns to the human turn");
         expect(board != nullptr && board->isEnabled(), "recovered game re-enables the board");
         expect(roll != nullptr && roll->isEnabled(), "recovered game enables the dice button");
+        expect(save != nullptr && save->isEnabled(), "recovered game re-enables the save button");
     }
 
     {

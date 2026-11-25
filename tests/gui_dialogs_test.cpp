@@ -1,13 +1,14 @@
 // GUI 对话框回归：直接构造对话框、操作控件并调用私有槽，
-// 不进入模态事件循环，因此可以在 offscreen 平台上稳定运行。
+// 大部分路径不进入模态事件循环，因此可以在 offscreen 平台上稳定运行。
 //
-// 覆盖三件事：
+// 覆盖四件事：
 // 1. 布阵对话框的默认编号、点击循环、换边清空与合法确认；
 // 2. 存档对话框的列表读取、默认选中、名称 trim 与确认路径；
-// 3. 同名覆盖确认（No 保持对话框、Yes 才接受）。
+// 3. 同名覆盖确认（No 保持对话框、Yes 才接受）；
+// 4. 保存期间暂停 AI 定时器，确认/取消后都按剩余时间恢复。
 //
 // 注意：重复编号 / 空名称会弹出模态 QMessageBox，本用例刻意不触发这些分支，
-// 避免测试进程卡在无人关闭的对话框上；同名覆盖确认则用 QTimer 自动点击按钮来覆盖。
+// 避免测试进程卡在无人关闭的对话框上；同名覆盖确认与保存暂停则用 QTimer 自动操作。
 
 #include <QAbstractButton>
 #include <QApplication>
@@ -30,11 +31,14 @@
 #include <string>
 
 #include "ai/ai.h"
+#include "core/game.h"
 #include "core/game_state.h"
 #include "core/types.h"
 #include "dialogs/save_load_dialog.h"
 #include "dialogs/setup_dialog.h"
+#include "qt_wait.h"
 #include "storage/save_manager.h"
+#include "views/game_widget.h"
 
 #include "test_support.h"
 
@@ -85,6 +89,74 @@ void click_next_message_box(QMessageBox::StandardButton button) {
         if (target != nullptr) {
             target->click();
         }
+    });
+}
+
+/// @brief 按文本查找按钮，避免依赖控件创建顺序。
+QPushButton* find_button(QWidget& root, const QString& text) {
+    for (QPushButton* button : root.findChildren<QPushButton*>()) {
+        if (button->text() == text) {
+            return button;
+        }
+    }
+    return nullptr;
+}
+
+/// @brief 造出“轮到蓝方(AI)思考”的真实局面，供保存暂停测试使用。
+core::GameState make_ai_thinking_state() {
+    core::Game game;
+    game.prepare_new_game(core::Side::Red);
+    game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6});
+    game.submit_layout(core::Side::Blue, ai::decide_layout());
+    game.roll_dice();
+    const auto red_move = ai::decide_move(game.get_state());
+    game.make_move(red_move.from, red_move.to);
+    game.roll_dice();
+    return game.get_state();
+}
+
+/// @brief 在保存对话框打开 delay_ms 后检查局面未推进，并确认或取消。
+void drive_save_dialog(int delay_ms, QListWidget* history, const QString& name, bool accept) {
+    QTimer::singleShot(delay_ms, [history, name, accept]() {
+        auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+        if (dialog == nullptr) {
+            for (QWidget* widget : QApplication::topLevelWidgets()) {
+                auto* candidate = qobject_cast<QDialog*>(widget);
+                if (candidate != nullptr && candidate->isVisible()) {
+                    dialog = candidate;
+                    break;
+                }
+            }
+        }
+        expect(dialog != nullptr, "opening save pauses the game in a modal dialog");
+        if (dialog == nullptr) {
+            return;
+        }
+
+        // 若保存没有暂停定时器，AI 会在对话框背后走完一步，这里能直接抓到。
+        expect(history == nullptr || history->count() == 0,
+               "pending AI action does not run while the save dialog is open");
+
+        if (!accept) {
+            dialog->reject();
+            return;
+        }
+
+        auto* input = dialog->findChild<QLineEdit*>();
+        expect(input != nullptr, "save pause dialog has a name input");
+        if (input == nullptr) {
+            dialog->reject();
+            return;
+        }
+        input->setText(name);
+        for (QPushButton* button : dialog->findChildren<QPushButton*>()) {
+            if (button->text() == QString::fromUtf8("确认")) {
+                button->click();
+                return;
+            }
+        }
+        expect(false, "save pause dialog has a confirm button");
+        dialog->reject();
     });
 }
 
@@ -260,6 +332,54 @@ int main(int argc, char* argv[]) {
                "overwrite accept slot is invokable");
         expect(dialog.result() == QDialog::Accepted,
                "confirming overwrite accepts the save dialog");
+    }
+
+    // 9. 保存期间暂停 AI 定时器：确认保存后按剩余时间恢复，AI 继续走完。
+    {
+        ui::GameWidget widget;
+        widget.set_action_delays(1, 300, 300);
+        widget.resize(900, 700);
+        widget.show();
+        app.processEvents();
+
+        auto* history = widget.findChild<QListWidget*>();
+        auto* save = find_button(widget, QString::fromUtf8("保存"));
+        expect(history != nullptr, "save pause test exposes the history list");
+        expect(save != nullptr, "save pause test exposes the save button");
+        widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel);
+
+        drive_save_dialog(900, history, "paused", true);
+        if (save != nullptr) {
+            save->click();  // 进入保存对话框；定时器应被暂停到对话框关闭
+        }
+        expect(test_support::wait_until(
+                   [history] { return history != nullptr && history->count() == 1; }, 3000,
+                   "AI resumes after the save dialog is accepted"),
+               "accepting save restores the pending AI action");
+    }
+
+    // 10. 取消保存同样恢复，不能把这一手 AI 动作永久丢掉。
+    {
+        ui::GameWidget widget;
+        widget.set_action_delays(1, 300, 300);
+        widget.resize(900, 700);
+        widget.show();
+        app.processEvents();
+
+        auto* history = widget.findChild<QListWidget*>();
+        auto* save = find_button(widget, QString::fromUtf8("保存"));
+        expect(history != nullptr, "cancel pause test exposes the history list");
+        expect(save != nullptr, "cancel pause test exposes the save button");
+        widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel);
+
+        drive_save_dialog(900, history, QString(), false);
+        if (save != nullptr) {
+            save->click();
+        }
+        expect(test_support::wait_until(
+                   [history] { return history != nullptr && history->count() == 1; }, 3000,
+                   "AI resumes after the save dialog is cancelled"),
+               "cancelling save restores the pending AI action");
     }
 
     std::remove(storage::kDefaultDbPath);
