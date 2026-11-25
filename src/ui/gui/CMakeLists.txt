@@ -23,6 +23,9 @@ add_library(einstein_gui_lib STATIC
 # PUBLIC：链接本库的测试同样需要这些头文件。
 target_include_directories(einstein_gui_lib PUBLIC .)
 
+# 版本号只在 CMake 里维护，菜单页通过编译定义读取，避免源码里再硬编码一份。
+target_compile_definitions(einstein_gui_lib PRIVATE EINSTEIN_VERSION="${PROJECT_VERSION}")
+
 target_link_libraries(einstein_gui_lib
     PUBLIC einstein_core einstein_ai einstein_storage Qt6::Widgets
     PRIVATE einstein_warnings

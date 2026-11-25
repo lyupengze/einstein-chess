@@ -50,7 +50,9 @@ MenuWidget::MenuWidget(QWidget* parent) : QWidget(parent) {
     layout->addWidget(load_btn_, 0, Qt::AlignCenter);
 
     // 页脚版本号：更小的字号、更暗的颜色，避免抢走按钮的注意力。
-    auto* version = new QLabel("v1.0.0 | Made for C++ Course", this);
+    // 版本来自 CMake 的 PROJECT_VERSION，避免升级时源码里的数字过期。
+    auto* version = new QLabel(
+        QStringLiteral("v%1 | Made for C++ Course").arg(QStringLiteral(EINSTEIN_VERSION)), this);
     version->setAlignment(Qt::AlignCenter);
     version->setStyleSheet("color: #7f8c8d; font-size: 12px; margin-top: 50px;");
     layout->addWidget(version);

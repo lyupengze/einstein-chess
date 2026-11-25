@@ -2,7 +2,7 @@
 # 所有可执行文件统一输出到构建目录下的 bin/（如 build/bin）。
 cmake_minimum_required(VERSION 3.20)
 
-project(einstein_chess LANGUAGES C CXX)
+project(einstein_chess VERSION 1.0.0 LANGUAGES C CXX)
 
 # 可选图形界面：默认开启，保留现有“一次构建得到全部产物”的习惯。
 # -DEINSTEIN_BUILD_GUI=OFF 时完全不查找 Qt6，只构建 core/ai/storage 与 CLI/Botzone，
