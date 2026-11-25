@@ -109,7 +109,14 @@ std::vector<StateIssue> validate_state(const GameState& state) {
 
     switch (state.phase) {
         case Phase::LayOut:
-            // 布阵阶段 current_side 通常为 None；允许空棋盘与未就绪。
+            // 布阵阶段还没有行棋方，也绝不能已经双方就绪：后者会让对局永远
+            // 停在布阵界面，因为没有任何代码会再触发一次 check_both_ready。
+            if (state.current_side != Side::None) {
+                add_issue(issues, "current_side", "布阵阶段 current_side 必须为 None");
+            }
+            if (state.player1_ready && state.player2_ready) {
+                add_issue(issues, "ready", "布阵阶段不能双方都已就绪");
+            }
             break;
         case Phase::ThrowingDice:
             if (!is_playable_side(state.current_side)) {

@@ -258,5 +258,19 @@ int main() {
         expect(threw, "require_valid_state throws for an invalid state");
     }
 
+    // 13. 布阵阶段不能有当前行棋方，也不能双方都已就绪；后者会让 GUI
+    // 永远停在布阵界面，因为没有任何代码会再次触发 check_both_ready。
+    {
+        core::GameState state = make_layout_state();
+        state.current_side = core::Side::Red;
+        expect_issue(state, "current_side", "LayOut with a current side is rejected");
+    }
+    {
+        core::GameState state = make_layout_state();
+        state.player1_ready = true;  // make_layout_state 的 player2_ready 已是 true
+        expect_issue(state, "ready", "LayOut with both sides ready is rejected");
+        expect(load_throws(state), "Game::load_game rejects LayOut with both sides ready");
+    }
+
     return test_support::finish();
 }

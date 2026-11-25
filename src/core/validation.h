@@ -21,7 +21,8 @@ struct StateIssue {
 ///
 /// 主要约束：
 /// - player1_side 必须是红/蓝，不能是 None；
-/// - LayOut 允许空棋盘和未就绪，winner 必须为 None；
+/// - LayOut 允许空棋盘和未就绪，但没有当前行棋方，且不能双方都已就绪；
+///   winner 必须为 None；
 /// - ThrowingDice 的 current_side 必须是红/蓝，且不能带骰子；
 /// - Player1Thinking 要求 current_side == player1_side，Player2Thinking 要求相反；
 /// - 只有 Thinking 阶段允许 current_dice，且必须在 1~6；
