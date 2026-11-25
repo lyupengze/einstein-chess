@@ -1,6 +1,8 @@
 #include "dice_widget.h"
 
+#include <QFont>
 #include <QPainter>
+#include <QString>
 #include <algorithm>
 #include <optional>
 
@@ -65,7 +67,8 @@ void DiceWidget::paintEvent(QPaintEvent*) {
     // 以骰面中心为原点画点，dx/dy 的正负号直接表示"右下 / 左上"。
     auto draw_dot = [&](int dx, int dy) { painter.drawEllipse(QPoint(cx + dx, cy + dy), r, r); };
 
-    // 注意: switch 没有 default 分支，dice_val 越界时只留下白色空骰面，既不报错也不崩溃。
+    // 注意: 合法点数只会是 1~6；default 不是“没有骰子”，而是数据异常。
+    // 这里画一个红色问号，避免非法值看起来和“本回合还没掷骰”完全一样。
     switch (dice_val) {
         case 1:
             draw_dot(0, 0);
@@ -99,6 +102,15 @@ void DiceWidget::paintEvent(QPaintEvent*) {
             draw_dot(offset, 0);
             draw_dot(-offset, offset);
             draw_dot(offset, offset);
+            break;
+        default:
+            // 问号用与骰点相同的深红色，视觉上仍属于“骰子”而不是独立浮层。
+            painter.setPen(QColor("#c0392b"));
+            QFont font = painter.font();
+            font.setBold(true);
+            font.setPixelSize(size / 2);
+            painter.setFont(font);
+            painter.drawText(dice_rect, Qt::AlignCenter, QStringLiteral("?"));
             break;
     }
 }

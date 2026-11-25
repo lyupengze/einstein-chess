@@ -117,6 +117,14 @@ if(EINSTEIN_BUILD_GUI)
                       ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
                       RESOURCE_LOCK qt_gui)
 
+    # 骰子绘制：非法点数必须画出错误标记，不能留下白色空骰面。
+    add_executable(test_dice_widget dice_widget_test.cpp)
+    target_link_libraries(test_dice_widget PRIVATE einstein_gui_lib einstein_warnings)
+    einstein_add_test(dice_widget test_dice_widget
+                      TIMEOUT 60 LABEL gui
+                      ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                      RESOURCE_LOCK qt_gui)
+
     # 对话框用例：直接构造并操作控件，不进入模态循环。
     # 存档对话框按相对路径打开 einstein_save.db，因此必须有独立工作目录；
     # 显式链接 sqlite3，原因与 save_level 相同（storage 只 PRIVATE 依赖它）。
