@@ -37,8 +37,6 @@
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 # 构建（8 为示例，按 CPU 核数和内存调整）
 cmake --build build --parallel 8
-# 运行 19 个回归测试
-ctest --test-dir build --output-on-failure
 # 启动 GUI
 ./build/bin/einstein_gui
 # 或者只启动终端版
@@ -46,6 +44,8 @@ ctest --test-dir build --output-on-failure
 ```
 
 `--parallel 8` 的 `8` 只是示例，按机器核数与内存改成 4、2 或更高都可以；不要写成裸 `-j`，GNU Make 会把无参数的 `-j` 解释为不限制并发。
+
+构建完成后可直接启动；想确认测试环境是否完整，见下方“编译方法”的第 3 步。
 
 没有 Qt6、只需要 CLI 或 Botzone，或者需要指定 Qt6 路径时，见下方“环境依赖与编译说明”中的完整配置方式。
 
