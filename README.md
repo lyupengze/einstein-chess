@@ -2,19 +2,53 @@
 
 <div align="center">
 
-![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=flat-square&logo=c%2B%2B)
-![Qt](https://img.shields.io/badge/Qt-6.11.2-green.svg?style=flat-square&logo=qt)
-![SQLite](https://img.shields.io/badge/SQLite-3.54.1-blue.svg?style=flat-square&logo=sqlite)
-![nlohmann/json](https://img.shields.io/badge/nlohmann%2Fjson-3.12.0-ff69b4.svg?style=flat-square)
-![CMake](https://img.shields.io/badge/CMake-3.20+-red.svg?style=flat-square&logo=cmake)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg?style=flat-square)
+[![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=flat-square&logo=c%2B%2B)](https://isocpp.org/)
+[![Qt 6](https://img.shields.io/badge/Qt-6.11.2-green.svg?style=flat-square&logo=qt)](https://www.qt.io/)
+[![SQLite](https://img.shields.io/badge/SQLite-3.54.1-blue.svg?style=flat-square&logo=sqlite)](https://sqlite.org/)
+[![nlohmann/json](https://img.shields.io/badge/nlohmann%2Fjson-3.12.0-ff69b4.svg?style=flat-square)](https://github.com/nlohmann/json)
+[![CMake](https://img.shields.io/badge/CMake-3.20+-red.svg?style=flat-square&logo=cmake)](https://cmake.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![CI](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml)
+[![Platform: Windows tested](https://img.shields.io/badge/Platform-Windows%20tested-lightgrey.svg?style=flat-square)](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml)
 
 **基于 C++17 与 Qt6 的 5×5 爱因斯坦棋人机对弈程序**
 
 提供 GUI、CLI 与 Botzone 对战平台三个入口，支持图形化布阵、走法高亮提示，以及基于 SQLite 的本地多存档。
 
 </div>
+
+## 📖 规则速览
+
+> **规则基准**：本项目以 Botzone 爱因斯坦棋裁判代码为准，不是自行设计的变体。下面只列容易与常见棋类直觉冲突、或读代码前容易误解的规则；完整分支由 `tests/core_rules_test.cpp` 等回归测试固化。
+
+- **棋盘与目标**：5×5 棋盘，每方 6 枚棋子，编号 1–6 各一枚。红方从左上初始区出发，目标是右下角 `(4,4)`；蓝方从右下镜像区出发，目标是左上角 `(0,0)`。
+- **回合流程**：当前行棋方先掷骰，再移动一枚可选棋子；一次只走一格。布阵阶段双方先在各自初始区放好 1–6，双方确认后红方先手。
+- **掷骰选子**：优先选编号恰好等于骰点的棋子。若场上没有该编号，则编号小于骰点的最大棋子、编号大于骰点的最小棋子都可选；只有一侧存在时，只有那一枚可选。
+- **走子方向**：每枚棋子每步只能沿本方的三个前进方向走一格——红方向下、向右、向右下；蓝方向向上、向左、向左上。落点不能越出棋盘。
+- **可以吃己方棋子**：落点上的棋子无论是对方还是己方都会被覆盖移除。**吃己方棋子是规则允许的合法着法，不是 bug，也不是本项目添加的变体。**
+- **胜负**：一方棋子被全部吃光，或任一枚棋子到达对方目标角，即判该方获胜。
+
+## 🚀 3 分钟快速开始
+
+需要 CMake ≥ 3.20、C++17 编译器；GUI 还需要 Qt6。下面的命令以 Linux/macOS 或 MSYS2 终端为例，Windows 下把可执行文件名换成 `.exe`：
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure   # 19 个回归测试
+./build/bin/einstein_gui                     # GUI
+# 或者只跑终端版
+./build/bin/einstein_cli
+```
+
+没有 Qt6、只需要 CLI 或 Botzone 时，配置阶段加 `-DEINSTEIN_BUILD_GUI=OFF`：
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DEINSTEIN_BUILD_GUI=OFF
+cmake --build build -j
+```
+
+Qt6 不在默认搜索路径时，用 `-DCMAKE_PREFIX_PATH=<Qt6 安装前缀>` 指定；更细的生成器、Qt 路径与排错说明见下方“环境依赖与编译说明”。
 
 ## 🛠️ 环境依赖与编译说明
 
@@ -25,7 +59,7 @@
   - `SQLite3`：已集成 amalgamation 源码（3.54.1），无需外部安装
   - `nlohmann/json`：单头文件（3.12.0），已内置，仅 Botzone 适配层使用
 
-**平台支持**：源码不含任何平台特定 API，唯一的平台分支是 CLI 启动时把 Windows 控制台切到 UTF-8 代码页（`src/ui/cli/main_cli.cpp` 中的 `#ifdef _WIN32`）；SQLite 与 JSON 均为可移植的 amalgamation/单头文件源码。因此工程在源码层面不排斥 Linux、macOS 或 MSVC，任何满足 C++17 的编译器与 Qt6 环境都可尝试构建。需要说明的是，当前仓库只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，其他平台尚未验证；GitHub Actions 也只在同一环境上跑完整与无 GUI 两套构建。
+**平台支持**：core、AI、storage、CLI 与 Botzone 都是可移植的 C++17 代码；唯一的平台分支在 CLI 启动时把 Windows 控制台切到 UTF-8 代码页（`src/ui/cli/main_cli.cpp` 中的 `#ifdef _WIN32`，使用 `SetConsoleOutputCP` / `SetConsoleCP`）。GUI 依赖 Qt6。SQLite 与 JSON 均为可移植的 amalgamation/单头文件源码，因此工程在源码层面不排斥 Linux、macOS 或 MSVC，任何满足 C++17 的编译器与 Qt6 环境都可尝试构建。需要说明的是，当前仓库只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，其他平台尚未验证；GitHub Actions 也只在同一环境上跑完整与无 GUI 两套构建。
 
 ### 编译方法
 
@@ -69,6 +103,12 @@ ctest --test-dir build --output-on-failure
   `./build/bin/einstein_cli --db ./build/bin/einstein_save.db`。
 - 这是为“课程作业/便携运行”设计的自包含布局：请从**可写目录**运行，不要把程序安装到 `Program Files` 等只读位置；否则 SQLite 无法创建 `einstein_save.db`，保存会失败。
 - **同一时间只允许一个窗口/进程操作存档库**。代码没有加 `busy_timeout` 去等待并发写锁：同时打开多个 GUI/CLI 属于异常操作，应当立即报错而不是静默等待。
+
+### 常见问题
+
+- **GUI 和 CLI 的存档为什么不是同一份？** GUI 会把工作目录切到可执行文件目录，CLI 不切。想共用时，在 GUI 的 exe 目录运行 CLI，或用 `--db` 显式指向同一个文件。
+- **双击 GUI 后保存失败？** 多半是把程序放到了 `Program Files` 等只读目录，或当前目录不可写。把整个 `build/bin` 复制到可写目录再运行。
+- **能同时开两个窗口玩吗？** 不建议。存档库按单进程设计，并发写会直接报错；需要两份存档时，用 `--db` 指向不同文件，或复制整个可执行目录。
 
 ### GUI 版本 (推荐)
 
@@ -114,23 +154,33 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 ```text
 .
+├── .clang-format         # Google 风格 + 4 空格 + 100 列
+├── .github/
+│   └── workflows/ci.yml  # Windows 完整/无 GUI 构建测试 + clang-format 检查
 ├── src/
-│   ├── core/            # 核心规则（纯 C++，零外部依赖）
-│   │   ├── types.h          # Pos / Side / Piece
-│   │   ├── board.h|.cpp     # 5×5 棋盘，每方 6 枚棋子
-│   │   ├── game_state.h     # GameState 与 Phase 状态机
-│   │   ├── rules.h|.cpp     # 可选棋子、走法校验、胜负判定
-│   │   └── game.h|.cpp      # 对局门面：提交布阵、掷骰、走子、换手
-│   ├── ai/              # 两代 AI（随机基线 / 竞速胜率 Expectiminimax），仅依赖 core
-│   ├── storage/         # save_manager 存档序列化（含 AI 档位）+ sqlite_wrapper RAII 封装
-│   └── ui/              # 三个并列入口，各自独立可执行目标
-│       ├── gui/             # Qt6：main_window + views/ + components/ + dialogs/ + style.qss
-│       ├── cli/             # 终端菜单与对局循环
-│       └── botzone/         # Botzone stdin/stdout JSON 适配层 + 可测协议库
+│   ├── core/             # 核心规则（纯 C++，零外部依赖）
+│   │   ├── types.h           # Pos / Side / Piece
+│   │   ├── board.h|.cpp      # 5×5 棋盘，每方 6 枚棋子
+│   │   ├── game_state.h      # GameState 与 Phase 状态机
+│   │   ├── validation.h|.cpp # 局面状态一致性校验
+│   │   ├── rules.h|.cpp      # 可选棋子、走法校验、胜负判定
+│   │   └── game.h|.cpp       # 对局门面：提交布阵、掷骰、走子、换手
+│   ├── ai/               # 两代 AI（随机基线 / 竞速胜率 Expectiminimax），仅依赖 core
+│   ├── storage/          # save_manager 存档序列化（含 AI 档位）+ sqlite_wrapper RAII 封装
+│   └── ui/               # 三个并列入口，各自独立可执行目标
+│       ├── gui/              # Qt6：main_window + views/ + components/ + dialogs/ + style.qss
+│       ├── cli/              # 终端菜单、对局循环与严格输入解析
+│       └── botzone/          # Botzone stdin/stdout JSON 适配层 + 可测协议库
+├── tests/                # CTest 用例、坏库/EOF/CLI 输入夹具与共享测试头
+│   ├── CMakeLists.txt
+│   ├── data/                 # CLI/EOF 等固定输入
+│   └── *_test.cpp / *.cmake  # 19 个用例，默认随构建一起编译
 ├── third_party/
-│   ├── sqlite/          # amalgamation 3.54.1（sqlite3.c 随仓库提供）
-│   └── nlohmann/        # json.hpp 单头文件 3.12.0
-└── CMakeLists.txt       # C++17、统一启用 -Werror，产物输出到 build/bin
+│   ├── sqlite/           # amalgamation 3.54.1（sqlite3.c 随仓库提供）
+│   └── nlohmann/         # json.hpp 单头文件 3.12.0
+├── CMakeLists.txt        # C++17、统一启用 -Werror，产物输出到 build/bin
+├── LICENSE               # MIT
+└── README.md
 ```
 
 ### 构建目标与依赖
@@ -155,6 +205,12 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 - **测试覆盖仍有限**：默认构建注册 19 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（选子、走法、胜负、布阵与对局生命周期）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`botzone_protocol`（协议库的布阵/走子/严格输入校验）、`save_level`（存档档位往返、旧档兼容与损坏拒绝）、`storage_roundtrip`（局面完整往返与语义校验）、`state_validation`（局面状态校验）、`game_state_guard`（core 状态机守卫）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`dice_widget`（骰子点数绘制与非法值错误标记）、`gui_dialogs`（布阵与存档对话框、同名覆盖确认）、`cli_input`（CLI 参数与整行数字解析边界）、`cli_eof`（EOF 处理）、`cli_exit`（退出菜单）、`cli_session`（菜单交互与中途 EOF）、`cli_broken_db`（坏存档库错误边界）。`-DEINSTEIN_BUILD_GUI=OFF` 时五个 GUI 用例不注册，其余 14 个仍可运行；GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
 - **Windows 下 GUI 附带控制台窗口**：`einstein_gui` 未标记 `WIN32` 子系统，启动时会多出一个控制台窗口，不影响功能。
+
+## 📄 许可证
+
+本项目以 **MIT License** 发布，完整文本见 [LICENSE](LICENSE)。
+
+第三方组件仍受其原始许可证约束：Qt6 通过动态链接使用（LGPLv3），SQLite amalgamation 为 public domain，nlohmann/json 为 MIT。分发二进制时请保留相应的许可证与版权声明。
 
 ## 👥 作者与分工
 
