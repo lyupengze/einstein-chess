@@ -11,6 +11,7 @@
 #include <iostream>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -409,6 +410,22 @@ int main() {
         expect(layout_threw && !game.get_state().player1_ready &&
                    game.get_state().phase == core::Phase::LayOut,
                "invalid layout does not mark the side ready");
+    }
+
+    // 15. Board::at 的越界异常必须带坐标，方便定位误用。
+    {
+        core::Board board;
+        bool threw = false;
+        std::string message;
+        try {
+            (void)board.at({5, 0});
+        } catch (const std::out_of_range& error) {
+            threw = true;
+            message = error.what();
+        }
+        expect(threw, "out-of-range board access throws std::out_of_range");
+        expect(message.find("(5, 0)") != std::string::npos,
+               "out-of-range message includes the offending coordinates");
     }
 
     return test_support::finish();

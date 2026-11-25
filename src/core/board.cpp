@@ -22,7 +22,8 @@ bool Board::is_in_bounds(const Pos& p) const noexcept {
 
 const Piece& Board::at(const Pos& p) const {
     if (!is_in_bounds(p)) {
-        throw std::out_of_range("p is illegal");
+        throw std::out_of_range("棋盘坐标越界: (" + std::to_string(p.x) + ", " +
+                                std::to_string(p.y) + ")");
     }
 
     return cells_[p.x][p.y];
