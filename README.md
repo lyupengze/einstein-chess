@@ -17,6 +17,12 @@
 
 </div>
 
+## 🖼️ 界面预览
+
+<div align="center">
+  <img src="docs/images/overview.png" alt="主菜单、布阵与对局界面" width="900">
+</div>
+
 ## 📖 规则速览
 
 > **规则基准**：本项目以 Botzone 爱因斯坦棋裁判代码为准，不是自行设计的变体。下面只列容易与常见棋类直觉冲突、或读代码前容易误解的规则；完整分支由 `tests/core_rules_test.cpp` 等回归测试固化。
@@ -106,7 +112,8 @@ echo '{"requests":[],"responses":[]}' | ./build/bin/einstein_botzone
 ├── docs/
 │   ├── BUILD.md          # 环境依赖、构建、测试与 CI 完整说明
 │   ├── BOTZONE.md        # Botzone 协议、示例与错误处理
-│   └── DESIGN.md         # 设计取舍、代价与何时重新考虑
+│   ├── DESIGN.md         # 设计取舍、代价与何时重新考虑
+│   └── images/           # README 界面预览截图
 ├── src/
 │   ├── core/             # 核心规则（纯 C++，零外部依赖）
 │   │   ├── types.h           # Pos / Side / Piece
