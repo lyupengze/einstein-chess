@@ -16,7 +16,7 @@
 
 ## 相关文档
 
-- [README](../README.md)：面向使用者的“当前限制”摘要。
+- [使用说明与当前限制](../README.md)：面向使用者的“当前限制”摘要。
 - [构建与测试](BUILD.md)：环境、构建类型、测试与 CI。
 - [Botzone 协议](BOTZONE.md)：严格输入校验与空 response 的具体行为。
 - [第三方组件与许可证](../THIRD_PARTY_NOTICES.md)：Qt、SQLite、nlohmann/json 的分发边界。

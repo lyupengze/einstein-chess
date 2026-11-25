@@ -68,7 +68,7 @@ ctest --test-dir build --output-on-failure
   - Linux：使用发行版提供的 Qt6 运行时包，或通过 `LD_LIBRARY_PATH`、rpath 指向 Qt 库目录；
   - macOS：用 `macdeployqt` 打包，或设置 `DYLD_LIBRARY_PATH`。
 - `einstein_cli` 与 `einstein_botzone` 不依赖 Qt。若在 Windows 上以 MinGW 动态运行时构建，需保证 `libstdc++-6.dll`、`libgcc_s_seh-1.dll` 可被加载（把工具链的 `bin` 加入 `PATH`，或用 `-static-libgcc -static-libstdc++` 静态链接）；Linux/macOS 通常无需额外处理。
-- 存档路径、可写目录与单实例限制属于运行行为，见 [README](../README.md) 的“运行前提”一节。
+- 存档路径、可写目录与单实例限制属于运行行为，见 [使用说明](../README.md) 的“运行前提”一节。
 
 ## 测试
 
@@ -98,7 +98,7 @@ ctest --test-dir build --output-on-failure
 
 - GUI 用例自动使用 `QT_QPA_PLATFORM=offscreen`，不需要真实显示器；`-DEINSTEIN_BUILD_GUI=OFF` 时这 5 个用例不注册，其余 14 个仍可运行。
 - 按标签筛选示例：`ctest --test-dir build -L core`、`ctest --test-dir build -L gui`。
-- GUI 的完整分支仍未全部覆盖；测试覆盖有限的原因与取舍见 [README](../README.md) 的“当前限制”一节。
+- GUI 的完整分支仍未全部覆盖；测试覆盖有限的原因与取舍见 [使用说明](../README.md) 的“当前限制”一节。
 
 ## CI
 
