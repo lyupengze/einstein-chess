@@ -18,6 +18,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 格式检查独立成一个 job：不需要 Qt/MSYS2，失败信息也最直观。
+  # 固定与 .clang-format 基线相同的 clang-format 版本，避免本地/CI 互相打架。
+  format:
+    name: clang-format (23.1.1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install clang-format
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir clang-format==23.1.1
+          clang-format --version
+          clang-format --version | grep -q 'version 23\.1\.1'
+
+      - name: Check formatting
+        run: |
+          set -euo pipefail
+          # 只检查仓库内的 C++ 源码；third_party/ 不在 src/、tests/ 下，天然排除。
+          mapfile -t files < <(git ls-files -- 'src' 'tests' | grep -E '\.(cpp|h|hpp)$')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No C++ files found under src/ or tests/" >&2
+            exit 1
+          fi
+          echo "Checking ${#files[@]} C++ files with clang-format 23.1.1"
+          clang-format --dry-run --Werror "${files[@]}"
+
   windows-ucrt64:
     name: Windows UCRT64 (Qt GUI)
     runs-on: windows-latest
