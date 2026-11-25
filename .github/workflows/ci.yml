@@ -42,10 +42,10 @@ jobs:
       - name: Check formatting
         run: |
           set -euo pipefail
-          # 只检查仓库内的 C++ 源码；third_party/ 不在 src/、tests/ 下，天然排除。
-          mapfile -t files < <(git ls-files -- 'src' 'tests' | grep -E '\.(cpp|h|hpp)$')
+          # 只检查仓库内的 C++ 源码；third_party/ 不在 src/、tests/、benchmarks/ 下，天然排除。
+          mapfile -t files < <(git ls-files -- 'src' 'tests' 'benchmarks' | grep -E '\.(cpp|h|hpp)$')
           if [ "${#files[@]}" -eq 0 ]; then
-            echo "No C++ files found under src/ or tests/" >&2
+            echo "No C++ files found under src/, tests/ or benchmarks/" >&2
             exit 1
           fi
           echo "Checking ${#files[@]} C++ files with clang-format 23.1.1"
