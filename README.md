@@ -64,7 +64,9 @@ ctest --test-dir build --output-on-failure
   - Linux：使用发行版提供的 Qt6 运行时包，或通过 `LD_LIBRARY_PATH`、rpath 指向 Qt 库目录；
   - macOS：用 `macdeployqt` 打包，或设置 `DYLD_LIBRARY_PATH`。
 - `einstein_cli` 与 `einstein_botzone` 不依赖 Qt。若在 Windows 上以 MinGW 动态运行时构建，需保证 `libstdc++-6.dll`、`libgcc_s_seh-1.dll` 可被加载（把工具链的 `bin` 加入 `PATH`，或用 `-static-libgcc -static-libstdc++` 静态链接）；Linux/macOS 通常无需额外处理。
-- 存档写入 `einstein_save.db`（相对路径，见 `storage::kDefaultDbPath`）。GUI 启动时会执行 `QDir::setCurrent(applicationDirPath())`，把工作目录切到可执行文件所在目录，存档因此与之同目录；CLI 不切换工作目录，存档跟随启动目录。两者工作目录相同时才会共用同一份存档。
+- 存档写入 `einstein_save.db`（相对路径，见 `storage::kDefaultDbPath`）。GUI 启动时会执行 `QDir::setCurrent(applicationDirPath())`，把工作目录切到可执行文件所在目录，存档因此与之同目录；CLI 不切换工作目录，默认存档跟随启动目录。两者工作目录相同时才会共用同一份存档。
+- CLI 启动时会打印实际使用的存档库绝对路径；如果不想依赖启动目录，可以用 `--db <路径>` 显式指定，例如从项目根目录与 GUI 共用存档：
+  `./build/bin/einstein_cli --db ./build/bin/einstein_save.db`。
 - 这是为“课程作业/便携运行”设计的自包含布局：请从**可写目录**运行，不要把程序安装到 `Program Files` 等只读位置；否则 SQLite 无法创建 `einstein_save.db`，保存会失败。
 - **同一时间只允许一个窗口/进程操作存档库**。代码没有加 `busy_timeout` 去等待并发写锁：同时打开多个 GUI/CLI 属于异常操作，应当立即报错而不是静默等待。
 
@@ -77,8 +79,9 @@ ctest --test-dir build --output-on-failure
 
 ### CLI 版本 (备用)
 
-1. 在终端运行 `./build/bin/einstein_cli`（Windows 下为 `einstein_cli.exe`）。
+1. 在终端运行 `./build/bin/einstein_cli`（Windows 下为 `einstein_cli.exe`）；启动参数支持 `--db <路径>` 指定存档库、`--seed <整数>` 固定 AI 随机种子。
 2. 按菜单提示输入指令（1 开始游戏 / 2 读档 / 3 退出）；开新局时会先选择电脑强度（直接回车取默认的最新版），走法格式如 `0 2 1 2`。
+3. CLI 默认在当前工作目录读写 `einstein_save.db`，启动时会打印绝对路径；想和 GUI 共用存档时，`cd build/bin` 后运行，或使用 `--db` 指向 GUI 的存档文件。
 
 ### Botzone 版本 (对战平台)
 

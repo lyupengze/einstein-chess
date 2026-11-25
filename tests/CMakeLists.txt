@@ -152,6 +152,7 @@ add_test(NAME cli_exit
          COMMAND ${CMAKE_COMMAND}
                  -DEXE=$<TARGET_FILE:einstein_cli>
                  -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/data/cli_exit_input.txt
+                 -DDB=${CLI_WORK_DIR}/cli_exit.db
                  -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_exit_test.cmake
 )
 set_tests_properties(cli_exit PROPERTIES

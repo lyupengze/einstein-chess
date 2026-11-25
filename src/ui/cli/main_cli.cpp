@@ -1,13 +1,15 @@
 // 命令行版爱因斯坦棋：在单进程内完成"选强度 → 选色 → 布阵 → 掷骰 / 走子"的完整对局，
 // 对手由 ai 模块扮演，存档通过 storage::SaveManager 写入 SQLite。
 // 交互约定：人类回合内输入 save 可存档、输入 exit 返回主菜单。
-// 启动参数 --seed <n> 固定 AI 随机种子，便于复现同一局。
+// 启动参数 --seed <n> 固定 AI 随机种子，便于复现同一局；
+// --db <path> 显式指定存档库，避免存档位置随启动目录漂移。
 // 所有输入都按整行读取再自行解析，避免 operator>> 在输入缓冲区留下换行残渣。
 
 #include <array>
 #include <cstddef>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -228,9 +230,15 @@ int main(int argc, char* argv[]) {
     std::cout << "=== 爱因斯坦棋 (CLI) ===\n";
 
     // --seed <n>：固定 AI 随机种子（BUG-10 的配套入口），同种子可复现同一局。
+    // --db <path>：显式指定存档库；不指定时仍跟随当前工作目录。
+    std::string db_path = storage::kDefaultDbPath;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
-        if (arg == "--seed" && i + 1 < argc) {
+        if (arg == "--seed") {
+            if (i + 1 >= argc) {
+                std::cerr << "--seed 需要一个非负整数\n";
+                return 2;
+            }
             const char* text = argv[++i];
             char* end = nullptr;
             const unsigned long value = std::strtoul(text, &end, 10);
@@ -239,21 +247,38 @@ int main(int argc, char* argv[]) {
                 return 2;
             }
             ai::set_random_seed(static_cast<unsigned int>(value));
+        } else if (arg == "--db") {
+            if (i + 1 >= argc) {
+                std::cerr << "--db 需要一个存档文件路径\n";
+                return 2;
+            }
+            db_path = argv[++i];
+            if (db_path.empty()) {
+                std::cerr << "--db 的路径不能为空\n";
+                return 2;
+            }
         } else {
-            std::cerr << "未知参数: " << arg << "（可用: --seed <n>）\n";
+            std::cerr << "未知参数: " << arg << "（可用: --seed <n>, --db <路径>）\n";
             return 2;
         }
     }
 
-    // 打开默认存档库（文件不存在会自动创建）；实际落盘位置由进程工作目录决定。
-    // 打不开（工作目录不可写、路径被同名目录占用等）时打印指引并退出，
-    // 而不是让异常穿出 main 触发 std::terminate。
+    // 把即将使用的存档库绝对路径告诉玩家：CLI 默认跟随启动目录，
+    // 不打印的话用户很难判断刚才的存档到底落在哪里。
+    std::error_code path_error;
+    const std::filesystem::path absolute_db =
+        std::filesystem::absolute(db_path, path_error);
+    const std::string db_display = path_error ? db_path : absolute_db.string();
+    std::cout << "存档会保存在: " << db_display << "\n";
+
+    // 打开存档库（文件不存在会自动创建）；打不开（工作目录不可写、
+    // 路径被同名目录占用等）时打印指引并退出，而不是让异常穿出 main。
     std::unique_ptr<storage::SaveManager> save_manager;
     try {
-        save_manager = std::make_unique<storage::SaveManager>(storage::kDefaultDbPath);
+        save_manager = std::make_unique<storage::SaveManager>(db_path);
     } catch (const std::exception& e) {
-        std::cerr << "无法打开存档库 " << storage::kDefaultDbPath << ": " << e.what() << "\n"
-                  << "请确认当前工作目录可写（存档库会创建在工作目录下）。\n";
+        std::cerr << "无法打开存档库 " << db_display << ": " << e.what() << "\n"
+                  << "请确认存档位置可写；默认是当前工作目录，可用 --db 指定其他文件。\n";
         return 1;
     }
 
