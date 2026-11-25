@@ -86,29 +86,13 @@ cmake --build build --parallel 8
 
 ### Botzone 版本 (对战平台)
 
-无状态单次调用适配层：从 stdin 读取**一行** JSON 请求，向 stdout 写出**一行** JSON 响应后退出。不链接 `storage`，也不写任何文件。
+`einstein_botzone` 是无状态单行 JSON 适配层：从 stdin 读取一行请求，向 stdout 写出一行响应后退出；不链接 `storage`，也不写任何文件。
 
-以下示例按 POSIX shell 书写（Windows 下把可执行文件名换成 `einstein_botzone.exe`，管道与 JSON 内容不变）：
+完整的请求/响应字段、布阵与走子示例、严格 5×5 棋盘校验，以及 `Bot protocol error` / `Bot internal error` 的处理方式，见 [Botzone 协议文档](docs/BOTZONE.md)。
 
 ```bash
-# 布阵：每条 request 由裁判给出 color 与 region（这里以蓝方为例）
-echo '{"requests":[{"phase":"layout","color":1,"region":[[4,4],[4,3],[4,2],[3,4],[3,3],[2,4]]}],"responses":[]}' \
-  | ./build/bin/einstein_botzone
-# {"response":{"layout":[2,5,1,6,3,4]}}            ← 布阵仍为随机排列，每次不同
-
-# 走子：蓝方（color=1）掷出 4 点，初始局面下 4 号棋子在 (3,4)
-echo '{"requests":[{"phase":"move","color":1,"dice":4,"board":[[1,2,3,0,0],[4,5,0,0,0],[6,0,0,0,-6],[0,0,0,-5,-4],[0,0,-3,-2,-1]]}],"responses":[]}' \
-  | ./build/bin/einstein_botzone
-# {"response":{"x0":3,"x1":3,"y0":4,"y1":3}}        ← 由 Expectiminimax 搜索选择，合法落点之一
-
-# 骰点降级：红方掷出 3 点但 3 号不在场，按规则降级为可选 1 号
-echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,-1]]}],"responses":[]}' \
-  | ./build/bin/einstein_botzone
-# {"response":{"x0":0,"x1":1,"y0":0,"y1":1}}        ← 由 Expectiminimax 搜索选择，合法落点之一
+echo '{"requests":[],"responses":[]}' | ./build/bin/einstein_botzone
 ```
-
-- 输入：`requests` 必须是数组，且每个元素都是对象；适配层只取最后一条。平台不会给 Bot 下发顶层 `initdata`；本方阵营来自该条 request 的 `color` 字段（0 = 红方先手，1 = 蓝方）。`requests` 缺失或为空、以及 `phase` 为 `layout` 时返回布阵（布阵与颜色无关，按裁判 `region` 顺序落位，与 core 的初始区逐格一致）；`phase` 为 `move` 时，依据 `dice` 与严格 5×5 的整数 `board`（外层行 x、内层列 y，正数红方 1~6、负数蓝方 1~6、0 空格）返回走法；缺行、缺列、非整数或越界都会被拒绝，不会再把残缺棋盘按空位补全；其他 `phase` 返回空 `response`。
-- 输出：`response.layout`（6 个编号）或 `response.x0/y0/x1/y1`。请求非法时（JSON 解析失败、`requests`/`phase` 类型错误、`dice` 缺失或不在 1~6、`board` 缺失或不是严格 5×5 整数矩阵、`color` 不是 0/1、棋子编号越界或重复），stderr 打印 `Bot protocol error: ...`；AI 内部异常打印 `Bot internal error: ...`。两种情况 stdout 都输出 `{"response":{}}`，进程退出码仍为 0。
 
 ## 📂 项目结构
 
@@ -118,7 +102,8 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 ├── .github/
 │   └── workflows/ci.yml  # Windows 完整/无 GUI 构建测试 + clang-format 检查
 ├── docs/
-│   └── BUILD.md          # 环境依赖、构建、测试与 CI 完整说明
+│   ├── BUILD.md          # 环境依赖、构建、测试与 CI 完整说明
+│   └── BOTZONE.md        # Botzone 协议、示例与错误处理
 ├── src/
 │   ├── core/             # 核心规则（纯 C++，零外部依赖）
 │   │   ├── types.h           # Pos / Side / Piece
