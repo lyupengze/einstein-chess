@@ -1,6 +1,5 @@
 #include "save_manager.h"
 
-#include <array>
 #include <cstddef>
 #include <optional>
 #include <sstream>
@@ -64,10 +63,10 @@ constexpr int kNoDice = -1;
     return oss.str();
 }
 
-// 反序列化并做严格的值域校验：任何不合预期的输入都抛 std::runtime_error，
-// 保证返回的 GameState 各字段至少落在合法取值范围内。
-// 读满全部字段后还会调用 core::validate_state 做完整的局面状态机校验，
-// 因为单看字段都合法、组合起来却不可能出现的状态一样会让 GUI 卡死或让 CLI 抛异常。
+// 反序列化只负责“把文本安全地还原成字段”，领域合法性统一交给 core::validate_state。
+// 这样阶段、阵营、骰子、重复编号等规则只在 validate_state 中维护一份，避免两处漂移。
+// 解析层仍保留转换安全边界：棋盘格范围（防止 -INT_MIN 溢出）、ready 的 int->bool
+// 窄化、AI 档位范围，以及字段是否读全/尾随内容等 validate_state 看不到的格式问题。
 // AI 档位是可选的尾部字段：旧存档没有它，按默认档位恢复。
 SavedGame deserialize(const std::string& data) {
     std::istringstream iss(data);
@@ -79,27 +78,7 @@ SavedGame deserialize(const std::string& data) {
         throw std::runtime_error("反序列化失败: 元数据缺失或损坏");
     }
 
-    // 取值域边界统一从枚举/常量推导，避免在此写死 0~2 之类的魔数。
-    constexpr int kSideMin = static_cast<int>(core::Side::None);
-    constexpr int kSideMax = static_cast<int>(core::Side::Blue);
-    constexpr int kPhaseMin = static_cast<int>(core::Phase::LayOut);
-    constexpr int kPhaseMax = static_cast<int>(core::Phase::GameOver);
     constexpr int kMaxChessId = core::Board::kChessCount;
-
-    // 三个阵营字段都允许 None：对局尚未分出胜负时 winner 就是 None。
-    if (p1_side < kSideMin || p1_side > kSideMax || cur_side < kSideMin || cur_side > kSideMax ||
-        winner < kSideMin || winner > kSideMax) {
-        throw std::runtime_error("反序列化失败: 非法阵营数据");
-    }
-
-    if (phase < kPhaseMin || phase > kPhaseMax) {
-        throw std::runtime_error("反序列化失败: 非法阶段数据");
-    }
-
-    // dice 只有两种合法情况：kNoDice（无骰子）或在 1..kMaxChessId 内。
-    if (dice != kNoDice && (dice < 1 || dice > kMaxChessId)) {
-        throw std::runtime_error("反序列化失败: 非法骰子点数");
-    }
 
     // ready 只接受 0/1。其他整数转 bool 虽然"能转"（非零即真），
     // 但出现这类值本身就说明数据已经损坏。
@@ -119,9 +98,8 @@ SavedGame deserialize(const std::string& data) {
         state.current_dice = dice;
     }
 
-    // 逐格读取棋盘。seen 记录每方已出现过的编号，用于拒绝重复棋子；
-    // 但只查重、不要求 1~6 齐全——残局中棋子可能已被吃掉。
-    std::array<std::array<bool, 7>, 2> seen{};
+    // 逐格读取棋盘。这里只做编码范围检查，不查重也不要求 1~6 齐全；
+    // 重复编号、非法棋子等语义问题统一由 validate_state 报告。
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
             int val;
@@ -133,18 +111,9 @@ SavedGame deserialize(const std::string& data) {
             }
 
             if (val > 0) {
-                // seen[0] 记录红方：下标 = 编号 - 1。
-                if (seen[0][val - 1]) {
-                    throw std::runtime_error("反序列化失败: 重复的棋子编号");
-                }
-                seen[0][val - 1] = true;
                 state.board.at({x, y}) = {core::Side::Red, val};
             } else if (val < 0) {
                 // 蓝方用 -val 还原出正数编号。
-                if (seen[1][-val - 1]) {
-                    throw std::runtime_error("反序列化失败: 重复的棋子编号");
-                }
-                seen[1][-val - 1] = true;
                 state.board.at({x, y}) = {core::Side::Blue, -val};
             } else {
                 state.board.at({x, y}) = {core::Side::None, 0};
@@ -174,22 +143,8 @@ SavedGame deserialize(const std::string& data) {
         throw std::runtime_error("反序列化失败: 数据格式中存在冗余内容");
     }
 
-    // 语义自洽校验：上面每个字段都各自合法，但组合起来可能对应不上任何真实对局。
-    // 最典型的是"思考阶段却没有骰子点数"——GUI 的 update_ui 会直接解引用
-    // current_dice，读到空 optional 就是未定义行为。存档一旦损坏就应在载入时报错，
-    // 而不是把不自洽的状态交给上层去猜。
-    const bool thinking =
-        state.phase == core::Phase::Player1Thinking || state.phase == core::Phase::Player2Thinking;
-    if (thinking && !state.current_dice) {
-        throw std::runtime_error("反序列化失败: 思考阶段缺少骰子点数");
-    }
-    if (!thinking && state.current_dice) {
-        throw std::runtime_error("反序列化失败: 非思考阶段却带有骰子点数");
-    }
-
-    // 字段级校验通过后，再做一次完整的阶段状态机校验，覆盖
-    // "Player2Thinking 却轮到 player1"、"GameOver 没有胜者"、
-    // "非终局棋盘已经满足胜利条件"等组合错误。
+    // 字段都还原后，统一交给 validate_state 做阶段状态机校验；
+    // 这里不再重复检查“思考阶段与骰子”等规则，避免与 core 中的定义漂移。
     const std::vector<core::StateIssue> issues = core::validate_state(state);
     if (!issues.empty()) {
         throw std::runtime_error("反序列化失败: " + issues.front().field + ": " +
