@@ -135,7 +135,7 @@ int main() {
 
         bool bad_level_threw = false;
         try {
-            (void)manager.load_game("bad-level");
+            [[maybe_unused]] const auto& ignored = manager.load_game("bad-level");
         } catch (const std::runtime_error&) {
             bad_level_threw = true;
         }
@@ -143,7 +143,7 @@ int main() {
 
         bool garbage_threw = false;
         try {
-            (void)manager.load_game("garbage");
+            [[maybe_unused]] const auto& ignored = manager.load_game("garbage");
         } catch (const std::runtime_error&) {
             garbage_threw = true;
         }

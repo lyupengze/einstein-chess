@@ -267,7 +267,7 @@ int main(int argc, char* argv[]) {
         expect(dialog.get_selected_name().empty(), "load dialog has no selection when empty");
         bool save_name_threw = false;
         try {
-            (void)dialog.get_save_name();
+            [[maybe_unused]] const auto& ignored = dialog.get_save_name();
         } catch (const std::logic_error&) {
             save_name_threw = true;
         }

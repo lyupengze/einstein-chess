@@ -41,7 +41,7 @@ bool is_legal(const core::GameState& state, const core::Move& move) {
 bool rejects_bad_phase(ai::Level level) {
     core::GameState idle;
     try {
-        (void)ai::decide_move(idle, level);
+        [[maybe_unused]] const core::Move ignored = ai::decide_move(idle, level);
     } catch (const std::invalid_argument&) {
         return true;
     }
@@ -92,7 +92,8 @@ int main() {
     {
         bool unknown_threw = false;
         try {
-            (void)ai::decide_move(state, static_cast<ai::Level>(99));
+            [[maybe_unused]] const core::Move ignored =
+                ai::decide_move(state, static_cast<ai::Level>(99));
         } catch (const std::invalid_argument&) {
             unknown_threw = true;
         }

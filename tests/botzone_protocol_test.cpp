@@ -253,14 +253,18 @@ int main() {
     {
         const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, 2);
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "out-of-range color is rejected");
     }
     {
         const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, 0);
         request["requests"][0]["color"] = "red";
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-integer color is rejected");
     }
 
@@ -269,19 +273,25 @@ int main() {
         const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, 0);
         request["requests"][0].erase("dice");
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "missing dice is rejected");
     }
     {
         const core::GameState state = make_red_state(0);
         json request = make_move_request(state, 0, 0);
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "zero dice is rejected");
     }
     {
         const core::GameState state = make_red_state(7);
         json request = make_move_request(state, 7, 0);
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "out-of-range dice is rejected");
     }
 
@@ -290,14 +300,18 @@ int main() {
         const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, 0);
         request["requests"][0].erase("board");
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "missing board is rejected");
     }
     {
         const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, 0);
         request["requests"][0]["board"] = 42;
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-array board is rejected");
     }
 
@@ -306,14 +320,18 @@ int main() {
         const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, 0);
         request["requests"][0]["board"][0][0] = 7;
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "piece id above six is rejected");
     }
     {
         const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, 0);
         request["requests"][0]["board"][0][1] = 1;
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "duplicate red piece id is rejected");
     }
     {
@@ -321,7 +339,9 @@ int main() {
         json request = make_move_request(state, 1, 0);
         // 两方各有一个 1 号是合法的；只有同一方重复才应拒绝。
         request["requests"][0]["board"][4][4] = -1;
-        expect(!throws_exception([&] { (void)botzone::handle_request(request); }),
+        expect(!throws_exception([&] {
+            [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+        }),
                "same id on opposite sides is accepted");
     }
     {
@@ -329,30 +349,39 @@ int main() {
         json request = make_move_request(state, 1, 0);
         // 只有红方有子、蓝方为空，维度合法但整体状态不可能来自正常对局。
         request["requests"][0]["board"][4][4] = 0;
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "semantically invalid board is rejected");
     }
 
     // 11. 入口层：非法 JSON 文本必须抛异常，交给 main 兜底为空 response。
-    expect(throws_protocol_error([] { (void)botzone::handle_line("{"); }),
+    expect(throws_protocol_error(
+               [] { [[maybe_unused]] const auto& ignored = botzone::handle_line("{"); }),
            "malformed JSON line is a protocol error");
 
     // 12. 协议结构错误：requests/phase/board 的类型与维度必须被拒绝。
     {
-        expect(throws_protocol_error([] { (void)botzone::handle_request(json::array()); }),
+        expect(throws_protocol_error([] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(json::array());
+               }),
                "non-object request is rejected");
     }
     {
         json request;
         request["requests"] = 42;
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-array requests is rejected");
     }
     {
         json request;
         request["requests"] = json::array();
         request["requests"].push_back(42);
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-object latest request is rejected");
     }
     {
@@ -362,7 +391,9 @@ int main() {
         request["requests"] = json::array();
         request["requests"].push_back(42);
         request["requests"].push_back(item);
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-object historical request is rejected");
     }
     {
@@ -371,7 +402,9 @@ int main() {
         json request;
         request["requests"] = json::array();
         request["requests"].push_back(item);
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-string phase is rejected");
     }
 
@@ -383,56 +416,74 @@ int main() {
     {
         json request = make_move_request(board_state, 1, 0);
         request["requests"][0]["board"].erase(request["requests"][0]["board"].begin());
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "board with four rows is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);
         request["requests"][0]["board"][0].erase(request["requests"][0]["board"][0].begin());
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "board row with four cells is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);
         request["requests"][0]["board"][0] = 42;
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-array board row is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);
         request["requests"][0]["board"][0][0] = "red";
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-integer board cell is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);
         const json extra_row = request["requests"][0]["board"][0];
         request["requests"][0]["board"].push_back(extra_row);
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "board with six rows is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);
         request["requests"][0]["board"][0].push_back(0);
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "board row with six cells is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);
         request["requests"][0]["board"][0][0] = 999999999999LL;
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "board cell outside int range is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);
         request["requests"][0]["board"][0][0] = -7;
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "negative piece id outside range is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);
         request["requests"][0]["dice"] = "3";
-        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
                "non-integer dice is rejected");
     }
 

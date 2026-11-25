@@ -125,7 +125,7 @@ void write_raw(const std::string& slot, const std::string& data) {
 /// @brief 读档是否抛出 std::runtime_error（损坏数据统一用这个异常报告）。
 bool load_throws(storage::SaveManager& manager, const std::string& slot) {
     try {
-        (void)manager.load_game(slot);
+        [[maybe_unused]] const auto& ignored = manager.load_game(slot);
     } catch (const std::runtime_error&) {
         return true;
     }

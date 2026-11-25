@@ -221,7 +221,8 @@ int main() {
         const core::GameState before = state;
         bool threw = false;
         try {
-            (void)core::apply_move_and_settle(state, {0, 0}, {1, 2});
+            [[maybe_unused]] const auto& ignored =
+                core::apply_move_and_settle(state, {0, 0}, {1, 2});
         } catch (const std::invalid_argument&) {
             threw = true;
         }
@@ -418,7 +419,7 @@ int main() {
         bool threw = false;
         std::string message;
         try {
-            (void)board.at({5, 0});
+            [[maybe_unused]] const core::Piece& ignored = board.at({5, 0});
         } catch (const std::out_of_range& error) {
             threw = true;
             message = error.what();

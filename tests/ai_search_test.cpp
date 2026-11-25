@@ -185,7 +185,7 @@ int main() {
         core::GameState idle;
         bool phase_threw = false;
         try {
-            (void)ai::decide_move(idle);
+            [[maybe_unused]] const core::Move ignored = ai::decide_move(idle);
         } catch (const std::invalid_argument&) {
             phase_threw = true;
         }
@@ -197,7 +197,7 @@ int main() {
         put(no_dice, {4, 4}, core::Side::Blue, 1);
         bool no_move_threw = false;
         try {
-            (void)ai::decide_move(no_dice);
+            [[maybe_unused]] const core::Move ignored = ai::decide_move(no_dice);
         } catch (const std::runtime_error&) {
             no_move_threw = true;
         }

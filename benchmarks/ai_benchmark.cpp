@@ -13,7 +13,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <exception>
 #include <iomanip>
 #include <iostream>
@@ -134,21 +133,17 @@ LatencyStats measure_latency(const core::GameState& state, std::string_view name
     config.max_depth = kSearchDepth;
 
     // 先跑一次，排除首次分配/缓存冷启动对样本的干扰。
-    const core::Move warmup = ai::decide_move(state, config);
-    (void)warmup;
+    [[maybe_unused]] const core::Move warmup = ai::decide_move(state, config);
 
     std::vector<double> samples;
     samples.reserve(kLatencyRepeats);
-    std::uint64_t checksum = 0;
     for (int i = 0; i < kLatencyRepeats; ++i) {
         const auto start = std::chrono::steady_clock::now();
-        const core::Move move = ai::decide_move(state, config);
+        [[maybe_unused]] const core::Move move = ai::decide_move(state, config);
         const auto end = std::chrono::steady_clock::now();
         const std::chrono::duration<double, std::milli> elapsed = end - start;
         samples.push_back(elapsed.count());
-        checksum += static_cast<std::uint64_t>(move.from.x + move.from.y + move.to.x + move.to.y);
     }
-    (void)checksum;
 
     std::sort(samples.begin(), samples.end());
     LatencyStats stats;
