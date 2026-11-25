@@ -3,8 +3,8 @@
 // 跨实例持久化，以及“字段各自合法但组合不自洽”的损坏数据必须被拒绝。
 //
 // 与 save_level_test 的分工：
-// - save_level_test 关注 AI 档位这一后加字段的兼容性（旧档回落、越界报错）；
-// - 本用例关注局面本身的完整往返，以及反序列化的语义校验。
+// - save_level_test 关注 AI 档位必填、严格解析与损坏拒绝；
+// - 本用例关注局面本身的完整往返、存档边界校验，以及布阵阶段存档的拒绝。
 // 两者都直接使用临时 SQLite 文件，互不共享数据库。
 
 #include <algorithm>
@@ -146,22 +146,15 @@ int main() {
         const core::GameState game_over = make_game_over_state();
 
         manager.save_game("完整对局", full, ai::Level::kRandom);
-        manager.save_game("布阵阶段", layout, ai::Level::kSearch);
         manager.save_game("终局", game_over, ai::kDefaultLevel);
 
-        // 1. 三种阶段各自完整往返，棋盘每一格与可选骰子都要一致。
+        // 1. 两种可恢复阶段各自完整往返，棋盘每一格与可选骰子都要一致。
         const auto full_saved = manager.load_game("完整对局");
         expect(full_saved.has_value(), "full save is loadable");
         expect(full_saved && same_state(full_saved->state, full),
                "full save round-trips every board cell and dice");
         expect(full_saved && full_saved->ai_level == ai::Level::kRandom,
                "full save restores its AI level");
-
-        const auto layout_saved = manager.load_game("布阵阶段");
-        expect(layout_saved && same_state(layout_saved->state, layout),
-               "layout save round-trips without a dice value");
-        expect(layout_saved && layout_saved->ai_level == ai::Level::kSearch,
-               "layout save restores its AI level");
 
         const auto over_saved = manager.load_game("终局");
         expect(over_saved && same_state(over_saved->state, game_over),
@@ -177,13 +170,11 @@ int main() {
         expect(overwritten && overwritten->ai_level == ai::Level::kSearch,
                "overwriting also replaces the stored AI level");
 
-        // 3. 列表应恰好有三个槽位；同名覆盖不能产生重复项。
+        // 3. 列表应恰好有两个槽位；同名覆盖不能产生重复项。
         const auto names = manager.list_saves();
-        expect(names.size() == 3, "list_saves returns exactly the three saved slots");
+        expect(names.size() == 2, "list_saves returns exactly the two saved slots");
         expect(std::find(names.begin(), names.end(), "完整对局") != names.end(),
                "list_saves contains the overwritten slot");
-        expect(std::find(names.begin(), names.end(), "布阵阶段") != names.end(),
-               "list_saves contains the layout slot");
         expect(std::find(names.begin(), names.end(), "终局") != names.end(),
                "list_saves contains the game-over slot");
         expect(std::count(names.begin(), names.end(), "完整对局") == 1,
@@ -204,6 +195,31 @@ int main() {
             save_threw = true;
         }
         expect(save_threw, "save_game rejects a semantically invalid state");
+
+        // 6. 布阵阶段没有可恢复的 UI 流程，必须在写库前拒绝。
+        bool layout_save_threw = false;
+        try {
+            manager.save_game("布阵阶段", layout, ai::Level::kSearch);
+        } catch (const std::invalid_argument&) {
+            layout_save_threw = true;
+        }
+        expect(layout_save_threw, "save_game rejects a layout-phase state");
+
+        // 7. 非法 AI 档位不能写进库，也不能覆盖同名旧档。
+        bool invalid_level_threw = false;
+        try {
+            manager.save_game("终局", game_over, static_cast<ai::Level>(99));
+        } catch (const std::invalid_argument&) {
+            invalid_level_threw = true;
+        }
+        expect(invalid_level_threw, "save_game rejects an unknown AI level");
+        const auto preserved = manager.load_game("终局");
+        expect(preserved && same_state(preserved->state, game_over) &&
+                   preserved->ai_level == ai::kDefaultLevel,
+               "invalid AI level does not overwrite the existing slot");
+
+        // 8. 非法局面/布阵阶段/非法档位被拒绝后，列表数量保持不变。
+        expect(manager.list_saves().size() == 2, "rejected saves do not add slots to list_saves");
     }
 
     // 6. 关闭连接后重新打开同一个数据库，数据仍应完整存在（真正的持久化）。
@@ -256,6 +272,8 @@ int main() {
     write_raw("当前方缺失", "1 0 3 1 0 1 1 " + two_piece_board + "1\n");
     //    GameOver 却没有胜者：界面会显示“无 获胜！”。
     write_raw("终局无胜者", "1 0 4 -1 0 1 1 " + two_piece_board + "1\n");
+    //    布阵阶段局面本身合法，但读档后没有可恢复的界面流程，必须在边界拒绝。
+    write_raw("布阵阶段", "1 0 0 -1 0 0 1 " + two_piece_board + "1\n");
 
     {
         storage::SaveManager manager(kDbPath);
@@ -267,6 +285,7 @@ int main() {
         expect(load_throws(manager, "当前方缺失"),
                "thinking phase with current_side=None is rejected");
         expect(load_throws(manager, "终局无胜者"), "GameOver without a winner is rejected");
+        expect(load_throws(manager, "布阵阶段"), "layout-phase save is rejected");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。

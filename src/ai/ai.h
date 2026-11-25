@@ -41,6 +41,20 @@ inline constexpr Level kDefaultLevel = Level::kSearch;
 ///       否则界面上会少一个选项（decide_move 本身仍能接受它）。
 inline constexpr std::array<Level, 2> kAllLevels = {Level::kRandom, Level::kSearch};
 
+/// @brief 判断枚举值是否是已定义的 AI 档位。
+/// @param level 待检查的档位
+/// @return 属于 kAllLevels 时返回 true；越界的枚举值返回 false
+/// @note 存档与协议边界用它拒绝 `static_cast<Level>(99)` 这类值，
+///       避免把非法档位写进数据库或交给 decide_move。
+[[nodiscard]] constexpr bool is_valid_level(Level level) noexcept {
+    for (const Level candidate : kAllLevels) {
+        if (candidate == level) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /// @brief AI 版本的展示名，供 CLI / GUI 输出或日志使用。
 /// @param level 版本档位
 /// @return 中文名称；传入越界的枚举值时返回"未知"

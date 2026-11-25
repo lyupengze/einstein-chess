@@ -1,10 +1,12 @@
 #include "save_manager.h"
 
+#include <charconv>
 #include <cstddef>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/board.h"
@@ -23,12 +25,22 @@ constexpr int kNoDice = -1;
 // 序列化格式（单行文本）：
 //   7 个局面元数据：player1_side current_side phase dice winner player1_ready player2_ready
 //   25 个棋盘格：x（行）为外层、y（列）为内层逐格输出
-//   1 个可选元数据：AI 档位（ai::Level 的底层整数值），追加在最后
+//   1 个必填元数据：AI 档位（ai::Level 的底层整数值），追加在最后
 // 枚举一律按底层整数值写出；dice 无值时写 kNoDice。
 // 棋盘格编码：正数 = 红方棋子编号，负数 = 蓝方棋子编号，0 = 空格。
-// AI 档位放在末尾而不是开头：旧存档（没有这一项）仍能按“读到 25 格就结束”解析，
-// 新存档多出一个尾部整数也不会与任何棋盘格混淆。
+//
+// AI 档位是必填字段：项目没有历史发行版，不需要为“没有档位的旧档”保留
+// 静默回落；缺字段或字段损坏必须在读档时明确报错。
 [[nodiscard]] std::string serialize(const core::GameState& state, ai::Level level) {
+    // 写库前先校验档位与局面：非法档位不能写进数据库，否则会在读档时才暴露，
+    // 还可能覆盖掉同名槽位里的好档。
+    if (!ai::is_valid_level(level)) {
+        throw std::invalid_argument("保存失败: 非法 AI 档位");
+    }
+    if (state.phase == core::Phase::LayOut) {
+        throw std::invalid_argument("保存失败: 布阵阶段的对局不能存档");
+    }
+
     // 写库前先校验：不允许把"字段都能序列化、组合起来却不可能"的局面存进档案，
     // 否则下次读档时才暴露，排查成本更高。
     const std::vector<core::StateIssue> issues = core::validate_state(state);
@@ -66,8 +78,7 @@ constexpr int kNoDice = -1;
 // 反序列化只负责“把文本安全地还原成字段”，领域合法性统一交给 core::validate_state。
 // 这样阶段、阵营、骰子、重复编号等规则只在 validate_state 中维护一份，避免两处漂移。
 // 解析层仍保留转换安全边界：棋盘格范围（防止 -INT_MIN 溢出）、ready 的 int->bool
-// 窄化、AI 档位范围，以及字段是否读全/尾随内容等 validate_state 看不到的格式问题。
-// AI 档位是可选的尾部字段：旧存档没有它，按默认档位恢复。
+// 窄化、AI 档位必填与范围，以及尾部不能有额外内容等 validate_state 看不到的格式问题。
 SavedGame deserialize(const std::string& data) {
     std::istringstream iss(data);
     core::GameState state;
@@ -121,26 +132,28 @@ SavedGame deserialize(const std::string& data) {
         }
     }
 
-    // 第八个字段（AI 档位）是后加的：旧存档读到 25 格后已经是 EOF，
-    // 这时保持 kDefaultLevel；只有“字段存在但解析失败”才视为数据损坏。
-    ai::Level level = ai::kDefaultLevel;
+    // 第八个字段（AI 档位）必填。先用 getline 取走尾部，再用 from_chars
+    // 完整消费：旧代码用 operator>>，溢出时会同时置 failbit|eofbit，
+    // 导致“半截数字”被误当成 EOF 并静默回落到默认档位。
+    std::string tail;
+    if (!std::getline(iss, tail)) {
+        throw std::runtime_error("反序列化失败: 缺少 AI 档位");
+    }
+    const std::size_t first = tail.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) {
+        throw std::runtime_error("反序列化失败: 缺少 AI 档位");
+    }
+    const std::size_t last = tail.find_last_not_of(" \t\r\n");
+    const std::string_view token(tail.data() + first, last - first + 1);
+
     int level_int = 0;
-    if (iss >> level_int) {
-        constexpr int kLevelMin = static_cast<int>(ai::Level::kRandom);
-        constexpr int kLevelMax = static_cast<int>(ai::Level::kSearch);
-        if (level_int < kLevelMin || level_int > kLevelMax) {
-            throw std::runtime_error("反序列化失败: 非法 AI 档位");
-        }
-        level = static_cast<ai::Level>(level_int);
-    } else if (!iss.eof()) {
-        // 非数字的尾部内容（例如存档被手工拼接）同样按损坏处理。
+    const auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), level_int);
+    if (ec != std::errc{} || ptr != token.data() + token.size()) {
         throw std::runtime_error("反序列化失败: 非法 AI 档位");
     }
-
-    // 读完 AI 档位后流必须恰好结束；有多余内容说明数据被拼接或字段错位。
-    std::string extra;
-    if (iss >> extra) {
-        throw std::runtime_error("反序列化失败: 数据格式中存在冗余内容");
+    const ai::Level level = static_cast<ai::Level>(level_int);
+    if (!ai::is_valid_level(level)) {
+        throw std::runtime_error("反序列化失败: 非法 AI 档位");
     }
 
     // 字段都还原后，统一交给 validate_state 做阶段状态机校验；
@@ -149,6 +162,12 @@ SavedGame deserialize(const std::string& data) {
     if (!issues.empty()) {
         throw std::runtime_error("反序列化失败: " + issues.front().field + ": " +
                                  issues.front().message);
+    }
+
+    // 布阵阶段没有可恢复的界面流程：读回后既不能继续布阵，也不能直接走子，
+    // 因此统一在存档边界拒绝，而不是让 GUI/CLI 各自处理半截状态。
+    if (state.phase == core::Phase::LayOut) {
+        throw std::runtime_error("反序列化失败: 布阵阶段的对局不能读档");
     }
 
     return SavedGame{state, level};

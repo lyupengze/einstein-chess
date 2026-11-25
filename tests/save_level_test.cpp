@@ -1,9 +1,9 @@
 // 存档强度回归：验证 AI 档位随存档一起保存、读档时原样恢复，
-// 并且没有档位字段的旧存档仍能读出，按默认档位（当前最新版）继续。
+// 并且缺少档位、档位溢出或档位不是整数的存档都会被明确拒绝。
 //
 // 这里直接操作临时 SQLite 文件：先用 SaveManager 正常存档，再借 sqlite_wrapper
-// 把 data 列改成“旧格式”或“损坏值”，观察 SaveManager 的解析行为。
-// 覆盖的三条路径正对应玩家会遇到的三种档案：新档、旧档、被改坏的档。
+// 把 data 列改成“缺少档位”或“损坏值”，观察 SaveManager 的解析行为。
+// AI 档位是必填字段：项目没有历史发行版，不需要为旧格式保留静默回落。
 
 #include <cstdio>
 #include <exception>
@@ -69,8 +69,7 @@ std::size_t last_field_start(const std::string& data) {
     return space;
 }
 
-/// 去掉尾部的 AI 档位字段，模拟“升级前写入的旧存档”。
-/// 只删字段本身，保留行尾换行，旧版解析器读到 25 格后即 EOF。
+/// 去掉尾部的 AI 档位字段，模拟“缺少必需字段”的损坏存档。
 std::string strip_ai_level(std::string data) {
     const auto space = last_field_start(data);
     const auto newline = data.find_last_of('\n');
@@ -116,22 +115,29 @@ int main() {
                    random_saved->state.current_dice == state.current_dice,
                "board state still round-trips alongside the AI level");
 
-        // 下面用原始 SQL 伪造旧档与损坏档，因此先把 data 取出来。
+        // 下面用原始 SQL 伪造缺失字段与损坏档，因此先把 data 取出来。
         {
             storage::Database db(kDbPath);
             const std::string data = read_data(db, "random");
 
-            // 3. 旧存档没有尾部档位字段：必须读得出来，并落到默认档位。
-            write_data(db, "legacy", strip_ai_level(data));
+            // 3. 缺少尾部档位字段：必填字段缺失，不能静默回落。
+            write_data(db, "missing-level", strip_ai_level(data));
             // 4. 档位越界：视为数据损坏，不能静默降级。
             write_data(db, "bad-level", replace_ai_level(data, "9"));
             // 5. 档位不是整数：同样视为数据损坏。
             write_data(db, "garbage", replace_ai_level(data, "abc"));
+            // 6. 超出 int 的整数：operator>> 会置 failbit|eofbit，旧实现
+            //    会误判成 EOF 并回落到默认档；现在必须拒绝。
+            write_data(db, "overflow-level", replace_ai_level(data, "2147483648"));
         }
 
-        const auto legacy_saved = manager.load_game("legacy");
-        expect(legacy_saved && legacy_saved->ai_level == ai::kDefaultLevel,
-               "old save without an AI level falls back to the default (latest)");
+        bool missing_level_threw = false;
+        try {
+            [[maybe_unused]] const auto& ignored = manager.load_game("missing-level");
+        } catch (const std::runtime_error&) {
+            missing_level_threw = true;
+        }
+        expect(missing_level_threw, "save without an AI level is rejected");
 
         bool bad_level_threw = false;
         try {
@@ -148,6 +154,14 @@ int main() {
             garbage_threw = true;
         }
         expect(garbage_threw, "non-numeric AI level field is rejected");
+
+        bool overflow_threw = false;
+        try {
+            [[maybe_unused]] const auto& ignored = manager.load_game("overflow-level");
+        } catch (const std::runtime_error&) {
+            overflow_threw = true;
+        }
+        expect(overflow_threw, "overflowing AI level field is rejected instead of treated as EOF");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。
