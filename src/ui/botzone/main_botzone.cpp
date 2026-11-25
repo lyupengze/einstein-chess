@@ -20,11 +20,15 @@ int main() {
     try {
         // 一行紧凑 JSON + 换行，构成完整的一帧响应。
         std::cout << botzone::handle_line(input_line).dump() << std::endl;
+    } catch (const botzone::ProtocolError& e) {
+        // 平台数据不符合协议：这是外部输入问题，值得单独标出来排查。
+        // Botzone 没有定义错误响应，仍回空 response，避免伪造着法。
+        std::cerr << "Bot protocol error: " << e.what() << std::endl;
+        std::cout << botzone::empty_response().dump() << std::endl;
     } catch (const std::exception& e) {
-        // 兜底：任何异常（JSON 语法、字段缺失、无路可走等）都回空 response，
-        // 并以 0 退出，让平台看到"本次没有决策"而不是进程崩溃。
-        std::cerr << "Bot error: " << e.what() << std::endl;
-        std::cout << "{\"response\":{}}" << std::endl;
+        // 内部错误（例如 AI 无路可走）：同样回空 response，但日志区分开。
+        std::cerr << "Bot internal error: " << e.what() << std::endl;
+        std::cout << botzone::empty_response().dump() << std::endl;
     }
 
     return 0;
