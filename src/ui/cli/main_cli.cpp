@@ -7,7 +7,6 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <iostream>
@@ -16,6 +15,13 @@
 #include <optional>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 #include "ai/ai.h"
 #include "cli_input.h"
@@ -223,11 +229,14 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
-    // Windows 控制台切到 UTF-8 代码页，否则中文与棋盘符号会乱码。
-    // 末尾的 "< nul" 不能省：cmd.exe 在 stdin 被重定向（文件/管道）时会读走
-    // 调用方喂进来的第一行，导致 CLI 直接看到 EOF。把 chcp 自己的 stdin
-    // 接到 NUL，既保住 UTF-8 输出，又不碰真正的输入流。
-    system("chcp 65001 > nul < nul");
+    // Windows 控制台的默认代码页通常不是 UTF-8，直接输出中文和棋盘符号会乱码。
+    // 这里用 Win32 API 切换输入/输出代码页，而不是 system("chcp ...")：
+    // 不启动 cmd.exe 子进程，也不会让 chcp 读走被重定向的 stdin 第一行。
+    const bool output_ok = SetConsoleOutputCP(CP_UTF8) != 0;
+    const bool input_ok = SetConsoleCP(CP_UTF8) != 0;
+    if (!output_ok || !input_ok) {
+        std::cerr << "警告: 无法将 Windows 控制台切换到 UTF-8，中文可能显示异常。\n";
+    }
 #endif
     std::cout << "=== 爱因斯坦棋 (CLI) ===\n";
 
