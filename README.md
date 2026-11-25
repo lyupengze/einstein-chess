@@ -45,60 +45,19 @@ cmake --build build --parallel 8
 
 `--parallel 8` 的 `8` 只是示例，按机器核数与内存改成 4、2 或更高都可以；不要写成裸 `-j`，GNU Make 会把无参数的 `-j` 解释为不限制并发。
 
-构建完成后可直接启动；想确认测试环境是否完整，见下方“编译方法”的第 3 步。
+构建完成后可直接启动。需要确认测试环境、Qt6 路径、生成器、Release/Debug 控制台行为或并行度时，见 [构建、测试与环境说明](docs/BUILD.md)。
 
-没有 Qt6、只需要 CLI 或 Botzone，或者需要指定 Qt6 路径时，见下方“环境依赖与编译说明”中的完整配置方式。
+## 🛠️ 构建与测试
 
-## 🛠️ 环境依赖与编译说明
+需要 CMake ≥ 3.20 与 C++17 编译器；GUI 还需要 Qt6。完整的依赖说明、Qt6 查找、生成器与构建类型、无 GUI 构建、19 个测试与 CI 配置见 [docs/BUILD.md](docs/BUILD.md)。
 
-- **编译器**：任意支持 C++17 的编译器（GCC / Clang / MSVC；开发环境实测 GCC 16.2.0）
-- **构建工具**：CMake ≥ 3.20（开发环境实测 4.4.3）
-- **第三方库**：
-  - `Qt6`：仅 GUI 需要；GUI 默认开启，配置时加 `-DEINSTEIN_BUILD_GUI=OFF` 可完全不查找 Qt6，只构建 CLI、Botzone 与无界面测试
-  - `SQLite3`：已集成 amalgamation 源码（3.54.1），无需外部安装
-  - `nlohmann/json`：单头文件（3.12.0），已内置，仅 Botzone 适配层使用
-
-**平台支持**：core、AI、storage、CLI 与 Botzone 都是可移植的 C++17 代码；唯一的平台分支在 CLI 启动时把 Windows 控制台切到 UTF-8 代码页（`src/ui/cli/main_cli.cpp` 中的 `#ifdef _WIN32`，使用 `SetConsoleOutputCP` / `SetConsoleCP`）。GUI 依赖 Qt6。SQLite 与 JSON 均为可移植的 amalgamation/单头文件源码，因此工程在源码层面不排斥 Linux、macOS 或 MSVC，任何满足 C++17 的编译器与 Qt6 环境都可尝试构建。需要说明的是，当前仓库只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，其他平台尚未验证；GitHub Actions 也只在同一环境上跑完整与无 GUI 两套构建，并额外跑 clang-format 检查。
-
-### 编译方法
-
-```bash
-# 1. 配置（单配置生成器用 -DCMAKE_BUILD_TYPE；VS / Xcode 等多配置生成器改用 --config）
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-# 2. 构建（并发数按机器核数/内存调整）
-cmake --build build --parallel 8
-# 3. 运行回归测试（可选，测试目标默认随构建一起编译）
-ctest --test-dir build --output-on-failure
-```
-
-> 没有 Qt6、只需要 CLI 或 Botzone 时，配置阶段加 `-DEINSTEIN_BUILD_GUI=OFF`；此时不查找 Qt6，GUI 相关测试也不会注册。
->
-> ```bash
-> cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DEINSTEIN_BUILD_GUI=OFF
-> ```
->
-> 配好后仍用上面的 `cmake --build` 与 `ctest` 命令构建、测试。
-
-> 可执行文件统一输出到 `build/bin/`，共三个可执行程序目标：`einstein_gui`、`einstein_cli`、`einstein_botzone`（Windows 下带 `.exe` 后缀）；回归测试的可执行文件也输出到同一目录。
-
-**让 CMake 找到 Qt6**：`find_package(Qt6)` 会搜索默认前缀、`PATH`、`CMAKE_PREFIX_PATH` 等位置，Qt6 装在这些位置之外时配置会直接失败。可任选一种处理：
-
-- 配置前把 Qt 的 `bin` 目录加入 `PATH`。Windows 上还需注意 `moc`/`rcc` 能加载 Qt 运行时 DLL，否则 `AUTORCC` 的测试执行会以 `0xc0000139` 中断，生成阶段随之中断；
-- 或显式指定前缀：`cmake -S . -B build -DCMAKE_PREFIX_PATH=<Qt6 安装前缀>`。
-
-> **构建类型**：Ninja、MinGW Makefiles、Unix Makefiles 都是单配置生成器，`--config Release` 不会生效，构建类型只能在配置阶段用 `-DCMAKE_BUILD_TYPE` 指定；Visual Studio、Xcode 则是多配置生成器，用 `--config <Config>`。留空时走 `einstein_warnings` 中的 `-O2` 分支。Windows 下 `einstein_gui` 的子系统随配置变化：Release 使用 Windows GUI 子系统（双击不附带控制台窗口），Debug 保留 Console 子系统（便于查看日志）。这由 `src/ui/gui/CMakeLists.txt` 中的 `WIN32_EXECUTABLE "$<CONFIG:Release>"` 控制。
-
-> **生成器**：不写 `-G` 时 CMake 会挑默认生成器，可能与手上的 Qt6 不匹配（例如 Windows 上装了 Visual Studio，却要用 MSYS2 的 GCC 配 UCRT64 版 Qt6）——此时用 `-G "MinGW Makefiles"` 显式指定。只想产出可执行文件、不编译测试时，配置时加 `-DEINSTEIN_BUILD_TESTS=OFF`；想在没有 Qt6 的环境里只构建 CLI/Botzone，加 `-DEINSTEIN_BUILD_GUI=OFF`。
+可执行文件统一输出到 `build/bin/`，共三个程序目标：`einstein_gui`、`einstein_cli`、`einstein_botzone`（Windows 下带 `.exe` 后缀）；回归测试的可执行文件也输出到同一目录。
 
 ## 🎮 操作说明
 
 ### 运行前提
 
-- `einstein_gui` 动态链接 `Qt6Core`/`Qt6Gui`/`Qt6Widgets`，运行时必须能加载这些库：
-  - Windows：把 Qt 的 `bin` 目录加入 `PATH`，或用 `windeployqt` 把依赖收集到可执行文件同目录；
-  - Linux：使用发行版提供的 Qt6 运行时包，或通过 `LD_LIBRARY_PATH`、rpath 指向 Qt 库目录；
-  - macOS：用 `macdeployqt` 打包，或设置 `DYLD_LIBRARY_PATH`。
-- `einstein_cli` 与 `einstein_botzone` 不依赖 Qt。若在 Windows 上以 MinGW 动态运行时构建，需保证 `libstdc++-6.dll`、`libgcc_s_seh-1.dll` 可被加载（把工具链的 `bin` 加入 `PATH`，或用 `-static-libgcc -static-libstdc++` 静态链接）；Linux/macOS 通常无需额外处理。
+- GUI 依赖 Qt6 运行时，CLI 与 Botzone 不依赖 Qt；Windows 的 Qt/MinGW DLL 部署、Linux/macOS 的动态库路径见 [docs/BUILD.md](docs/BUILD.md) 的“运行环境”一节。
 - 存档写入 `einstein_save.db`（相对路径，见 `storage::kDefaultDbPath`）。GUI 启动时会执行 `QDir::setCurrent(applicationDirPath())`，把工作目录切到可执行文件所在目录，存档因此与之同目录；CLI 不切换工作目录，默认存档跟随启动目录。两者工作目录相同时才会共用同一份存档。
 - CLI 启动时会打印实际使用的存档库绝对路径；如果不想依赖启动目录，可以用 `--db <路径>` 显式指定，例如从项目根目录与 GUI 共用存档：
   `./build/bin/einstein_cli --db ./build/bin/einstein_save.db`。
@@ -158,6 +117,8 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 ├── .clang-format         # Google 风格 + 4 空格 + 100 列
 ├── .github/
 │   └── workflows/ci.yml  # Windows 完整/无 GUI 构建测试 + clang-format 检查
+├── docs/
+│   └── BUILD.md          # 环境依赖、构建、测试与 CI 完整说明
 ├── src/
 │   ├── core/             # 核心规则（纯 C++，零外部依赖）
 │   │   ├── types.h           # Pos / Side / Piece
@@ -204,7 +165,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 - **AI 提供两档强度**：公共接口用 `ai::Level` 选择版本，`ai::kDefaultLevel` 当前指向最新版 `Level::kSearch`，因此 `ai::decide_move(state)` 就是搜索版。`Level::kRandom` 复用第一版随机基线（在合法着法中均匀随机），用于最低难度或对照；显式指定时写作 `ai::decide_move(state, ai::Level::kRandom)`。搜索版使用固定深度的 Expectiminimax（默认 4 回合），叶节点用 46656 个单方竞速状态预计算出的到达时间分布合成胜率，**不设材料价值项**——吃对方子、送己方子都只通过竞速分布影响胜率；不含 alpha-beta、置换表与时间预算。同分时先按“走完后离终点更近”过滤，再优先斜向，最后才随机，避免无进展的轴向着法。`decide_layout()` 两版共用同一套随机打乱，因此不接受 Level。GUI 的布阵对话框与 CLI 的开新局流程都会让玩家选择档位（默认最新版）；选中的档位随存档写入 SQLite，读档时原样恢复，因此同一局无论读多少次、中途开过什么强度的新局，电脑强度都保持一致；旧存档没有档位字段，按 `kDefaultLevel`（最新版）恢复。Botzone 不接 UI，始终调用无版本参数的接口，即固定使用最新版。
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证；CI 目前也只覆盖 Windows + MSYS2 UCRT64，`-Werror` 下其他编译器的告警差异可能带来额外修改。
-- **测试覆盖仍有限**：默认构建注册 19 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（选子、走法、胜负、布阵与对局生命周期）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`botzone_protocol`（协议库的布阵/走子/严格输入校验）、`save_level`（存档档位往返、旧档兼容与损坏拒绝）、`storage_roundtrip`（局面完整往返与语义校验）、`state_validation`（局面状态校验）、`game_state_guard`（core 状态机守卫）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`dice_widget`（骰子点数绘制与非法值错误标记）、`gui_dialogs`（布阵与存档对话框、同名覆盖确认）、`cli_input`（CLI 参数与整行数字解析边界）、`cli_eof`（EOF 处理）、`cli_exit`（退出菜单）、`cli_session`（菜单交互与中途 EOF）、`cli_broken_db`（坏存档库错误边界）。`-DEINSTEIN_BUILD_GUI=OFF` 时五个 GUI 用例不注册，其余 14 个仍可运行；GUI 的完整分支仍未全部覆盖。
+- **测试覆盖仍有限**：默认构建注册 19 个用例，完整清单、标签与无 GUI 数量见 [docs/BUILD.md](docs/BUILD.md) 的“测试”一节；`-DEINSTEIN_BUILD_GUI=OFF` 时 5 个 GUI 用例不注册，其余 14 个仍可运行。GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
 
 ## 📄 许可证
