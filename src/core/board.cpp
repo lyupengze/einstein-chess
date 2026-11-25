@@ -72,9 +72,9 @@ int Board::count_pieces(Side side) const {
 }
 
 void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) {
-    // Side::None 无法映射到任何一方，必须先拒绝，否则下面的分支会把它当蓝方处理。
-    if (side == Side::None) {
-        throw std::invalid_argument("side 不能为 None");
+    // 只接受红/蓝：None 与任何未来新增的枚举值都无法映射到实际布阵区。
+    if (side != Side::Red && side != Side::Blue) {
+        throw std::invalid_argument("side 必须是红方或蓝方");
     }
 
     // layout 必须是 1~6 的排列：用 seen 数组同时检查越界（id <= 0 或 > 6）与重复。
@@ -84,6 +84,18 @@ void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) 
             throw std::invalid_argument("不合法的 layout");
         }
         seen[id - 1] = true;
+    }
+
+    // 先清空该方全部棋子，再写入新布阵。这样即使调用方重复提交，
+    // 也不会把上一轮的棋子留在初始区之外，形成重复编号或超过 6 子。
+    // 清空放在所有校验之后，保证非法 layout 不会破坏原棋盘（强异常保证）。
+    for (std::size_t x = 0; x < kSize; ++x) {
+        for (std::size_t y = 0; y < kSize; ++y) {
+            Piece& piece = at({x, y});
+            if (piece.side == side) {
+                piece = {Side::None, 0};
+            }
+        }
     }
 
     // 初始区六个格子的落位顺序：layout[0..5] 依次写入这里列出的坐标。

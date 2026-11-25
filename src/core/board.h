@@ -49,10 +49,11 @@ public:
     ///
     /// layout[i] 依次对应该方六个初始格（红方从左上角、蓝方从右下角开始排列），
     /// 落位顺序必须与 SetupDialog::get_index_in_region 的编号映射一致。
-    /// @param side 布阵方，不能为 Side::None
+    /// @param side 布阵方，必须是 Side::Red 或 Side::Blue
     /// @param layout 必须是 1~6 的一个排列（不可缺号、不可重复）
-    /// @throws std::invalid_argument side 为 None、或 layout 不是合法排列
-    /// @note 重复调用会覆盖该方原有棋子（不会先清盘，因为初始区之外不会有该方棋子）。
+    /// @throws std::invalid_argument side 不是红/蓝、或 layout 不是合法排列
+    /// @note 写入前会先清空该方全部棋子，因此重复调用是"替换"而不是"叠加"；
+    ///       非法 layout 在清空之前就被拒绝，原棋盘保持不变。
     void setup_custom(Side side, const std::array<int, kChessCount>& layout);
 
     /// @brief 生成供 CLI 文本界面打印的棋盘快照。

@@ -27,22 +27,24 @@ public:
 
     /// @brief 提交某一方的布阵结果。
     /// @param layout 1~6 的排列，语义见 Board::setup_custom
-    /// @throws std::invalid_argument layout 非法或 side 为 None
-    /// @note 同侧重复提交会覆盖原布阵；双方都就绪后自动进入 ThrowingDice
+    /// @throws std::invalid_argument 不在 LayOut 阶段、该方已提交过、layout 非法或 side 非法
+    /// @note 双方都就绪后自动进入 ThrowingDice；同侧不允许重复提交
     void submit_layout(Side side, const std::array<int, 6>& layout);
 
-    /// @brief 从存档恢复整局状态（直接替换，不做校验）。
-    /// @note 数据合法性由 storage 反序列化阶段保证，这里信任入参
+    /// @brief 从存档恢复整局状态。
+    /// @throws std::invalid_argument 状态不满足 core::validate_state 的完整约束
+    /// @note 即使调用方来自 storage，这里也会重新校验，非法局面不会进入对局对象
     void load_game(GameState game_state);
 
     /// @brief 掷骰子并进入对应方的走子阶段。
-    /// @throws std::invalid_argument 当前不在 ThrowingDice 阶段
+    /// @throws std::invalid_argument 当前不在 ThrowingDice 阶段，或 current_side 无效
     /// @note 点数在 1~6 均匀分布；结果是 Player1Thinking 还是 Player2Thinking
     ///       取决于 current_side 是否等于 player1_side，与红蓝无关
     void roll_dice();
 
     /// @brief 走一步棋，并完成判胜、换手、清骰等结算。
-    /// @throws std::invalid_argument 走法非法（原因来自 rules::check_move）
+    /// @throws std::invalid_argument 不在思考阶段、没有骰子、当前方无效，
+    ///         或走法非法（原因来自 rules::check_move）
     /// @note 结算顺序：落子 → 判胜 → 未分胜负则换手并回到 ThrowingDice → 清空骰子；
     ///       分胜负则直接进入 GameOver。顺序有依赖，不要随意调整
     void make_move(Pos from, Pos to);
