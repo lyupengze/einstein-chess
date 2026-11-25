@@ -87,18 +87,11 @@ int main(int argc, char** argv) {
     }
 
     {
-        // 清空蓝方全部棋子：不论骰子几点都没有可动子，decide_move 必然抛异常。
+        // 用合法局面 + 非法 AI 档位触发 decide_move 的“未知 AI 版本”异常。
+        // 不能再用“清空蓝方全部棋子”的残缺局面：load_game_state 现在会先做
+        // 局面校验，缺子/已满足胜利条件的快照会在入口被拒绝，测不到 handle_ai_turn
+        // 的异常兜底。非法枚举值能通过局面校验，但会让 decide_move 抛异常。
         // 旧行为：只打印 qDebug，阶段停在 Player2Thinking，界面永久卡住。
-        core::GameState broken = thinking;
-        for (std::size_t x = 0; x < core::Board::kSize; ++x) {
-            for (std::size_t y = 0; y < core::Board::kSize; ++y) {
-                auto& piece = broken.board.at({x, y});
-                if (piece.side == core::Side::Blue) {
-                    piece = {core::Side::None, 0};
-                }
-            }
-        }
-
         ui::GameWidget widget;
         widget.set_action_delays(1, 1, 1);
         widget.resize(900, 700);
@@ -107,7 +100,7 @@ int main(int argc, char** argv) {
 
         auto* history = widget.findChild<QListWidget*>();
         expect(history != nullptr, "game widget exposes its history list");
-        widget.load_game_state(broken, ai::kDefaultLevel);
+        widget.load_game_state(thinking, static_cast<ai::Level>(99));
 
         expect(test_support::wait_until(
                    [&] {
@@ -116,7 +109,7 @@ int main(int argc, char** argv) {
                    3000, "AI failure surfaces a visible message"),
                "AI failure surfaces a visible message");
         expect(history != nullptr && history->count() == 0,
-               "AI with no legal move does not make a move");
+               "AI that throws before choosing a move does not make a move");
         expect(test_support::wait_until(
                    [&] { return any_contains(label_texts(widget), QString::fromUtf8("轮到你了")); },
                    3000, "status text returns to the human turn"),

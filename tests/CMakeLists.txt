@@ -61,6 +61,10 @@ add_executable(test_core_rules core_rules_test.cpp)
 target_link_libraries(test_core_rules PRIVATE einstein_core einstein_warnings)
 einstein_add_test(core_rules test_core_rules TIMEOUT 60 LABEL core)
 
+add_executable(test_state_validation state_validation_test.cpp)
+target_link_libraries(test_state_validation PRIVATE einstein_core einstein_warnings)
+einstein_add_test(state_validation test_state_validation TIMEOUT 30 LABEL core)
+
 add_executable(test_ai_search ai_search_test.cpp)
 target_link_libraries(test_ai_search PRIVATE einstein_ai einstein_warnings)
 einstein_add_test(ai_search test_ai_search TIMEOUT 120 LABEL ai)

@@ -11,6 +11,7 @@
 #include "core/board.h"
 #include "core/game_state.h"
 #include "core/types.h"
+#include "core/validation.h"
 #include "sqlite_wrapper.h"
 
 namespace storage {
@@ -29,6 +30,14 @@ constexpr int kNoDice = -1;
 // AI 档位放在末尾而不是开头：旧存档（没有这一项）仍能按“读到 25 格就结束”解析，
 // 新存档多出一个尾部整数也不会与任何棋盘格混淆。
 [[nodiscard]] std::string serialize(const core::GameState& state, ai::Level level) {
+    // 写库前先校验：不允许把"字段都能序列化、组合起来却不可能"的局面存进档案，
+    // 否则下次读档时才暴露，排查成本更高。
+    const std::vector<core::StateIssue> issues = core::validate_state(state);
+    if (!issues.empty()) {
+        throw std::runtime_error("保存失败: " + issues.front().field + ": " +
+                                 issues.front().message);
+    }
+
     std::ostringstream oss;
 
     // 空格分隔；末尾换行只是可读习惯，反序列化按流读取并不依赖它。
@@ -57,8 +66,8 @@ constexpr int kNoDice = -1;
 
 // 反序列化并做严格的值域校验：任何不合预期的输入都抛 std::runtime_error，
 // 保证返回的 GameState 各字段至少落在合法取值范围内。
-// 读满全部字段后还会做一次“语义自洽”校验（阶段与骰子是否匹配），
-// 因为单看字段都合法、组合起来却不可能出现的状态一样会让 UI 解引用空 optional。
+// 读满全部字段后还会调用 core::validate_state 做完整的局面状态机校验，
+// 因为单看字段都合法、组合起来却不可能出现的状态一样会让 GUI 卡死或让 CLI 抛异常。
 // AI 档位是可选的尾部字段：旧存档没有它，按默认档位恢复。
 SavedGame deserialize(const std::string& data) {
     std::istringstream iss(data);
@@ -176,6 +185,15 @@ SavedGame deserialize(const std::string& data) {
     }
     if (!thinking && state.current_dice) {
         throw std::runtime_error("反序列化失败: 非思考阶段却带有骰子点数");
+    }
+
+    // 字段级校验通过后，再做一次完整的阶段状态机校验，覆盖
+    // "Player2Thinking 却轮到 player1"、"GameOver 没有胜者"、
+    // "非终局棋盘已经满足胜利条件"等组合错误。
+    const std::vector<core::StateIssue> issues = core::validate_state(state);
+    if (!issues.empty()) {
+        throw std::runtime_error("反序列化失败: " + issues.front().field + ": " +
+                                 issues.front().message);
     }
 
     return SavedGame{state, level};

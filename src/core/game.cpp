@@ -9,6 +9,7 @@
 #include "game_state.h"
 #include "rules.h"
 #include "types.h"
+#include "validation.h"
 
 namespace core {
 
@@ -37,7 +38,9 @@ void Game::submit_layout(Side side, const std::array<int, 6>& layout) {
 }
 
 void Game::load_game(GameState game_state) {
-    // 存档数据在 storage 反序列化时已做过完整性与范围校验，这里直接信任。
+    // 即使调用方来自 storage，也不能假设它一定做过完整校验：
+    // 这里统一再过一遍状态机约束，非法局面在进入对局对象前就被拒绝。
+    require_valid_state(game_state);
     game_state_ = game_state;
 }
 

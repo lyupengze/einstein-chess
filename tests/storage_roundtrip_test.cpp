@@ -191,9 +191,22 @@ int main() {
         // 4. 不存在的槽位返回空 optional，而不是抛异常。
         expect(!manager.load_game("不存在的档位").has_value(),
                "missing slot returns nullopt");
+
+        // 5. 保存前也要校验：不能把"能序列化但语义不自洽"的局面写进数据库。
+        //    这里复用满盘局面，只把发起方改成 None；若 serialize 没有校验，
+        //    下一次 load_game 才会失败，问题被推迟到读档时。
+        core::GameState invalid = full;
+        invalid.player1_side = core::Side::None;
+        bool save_threw = false;
+        try {
+            manager.save_game("非法局面", invalid, ai::kDefaultLevel);
+        } catch (const std::runtime_error&) {
+            save_threw = true;
+        }
+        expect(save_threw, "save_game rejects a semantically invalid state");
     }
 
-    // 5. 关闭连接后重新打开同一个数据库，数据仍应完整存在（真正的持久化）。
+    // 6. 关闭连接后重新打开同一个数据库，数据仍应完整存在（真正的持久化）。
     {
         storage::SaveManager reopened(kDbPath);
         const core::GameState game_over = make_game_over_state();
@@ -204,7 +217,7 @@ int main() {
                "AI level survives reopening the database");
     }
 
-    // 6. 语义不自洽的数据：每个字段单独看都合法，但组合起来不可能出现。
+    // 7. 语义不自洽的数据：每个字段单独看都合法，但组合起来不可能出现。
     //    GUI 会在思考阶段直接解引用 current_dice，因此这类数据必须在读档时拒绝。
     const std::string empty_board = [] {
         const int cell_count = static_cast<int>(core::Board::kSize * core::Board::kSize);
@@ -215,12 +228,34 @@ int main() {
         return cells;
     }();
 
+    // 一枚红子 (0,0) + 一枚蓝子 (4,4) 的棋盘，用于构造"字段合法但阶段组合错误"的数据。
+    const std::string two_piece_board = [] {
+        const int cell_count = static_cast<int>(core::Board::kSize * core::Board::kSize);
+        std::string cells;
+        for (int i = 0; i < cell_count; ++i) {
+            if (i == 0) {
+                cells += "1 ";
+            } else if (i == cell_count - 1) {
+                cells += "-1 ";
+            } else {
+                cells += "0 ";
+            }
+        }
+        return cells;
+    }();
+
     //    思考阶段却写 -1（无骰子）。
     write_raw("缺少骰子", "0 0 2 -1 0 1 1 " + empty_board + "1\n");
     //    掷骰阶段却带着点数 3。
     write_raw("多余骰子", "0 0 1 3 0 1 1 " + empty_board + "1\n");
     //    棋盘只写了两格就结束。
     write_raw("棋盘残缺", "0 0 0 -1 0 0 0 1 2\n");
+    //    Player2Thinking 却轮到 player1_side：GUI 会显示人类可走但点击被忽略。
+    write_raw("思考方错位", "1 1 3 1 0 1 1 " + two_piece_board + "1\n");
+    //    current_side=None 却处于思考阶段：CLI 会在 decide_move 抛“AI 无路可走！”。
+    write_raw("当前方缺失", "1 0 3 1 0 1 1 " + two_piece_board + "1\n");
+    //    GameOver 却没有胜者：界面会显示“无 获胜！”。
+    write_raw("终局无胜者", "1 0 4 -1 0 1 1 " + two_piece_board + "1\n");
 
     {
         storage::SaveManager manager(kDbPath);
@@ -230,6 +265,12 @@ int main() {
                "non-thinking phase with a dice value is rejected");
         expect(load_throws(manager, "棋盘残缺"),
                "truncated board data is rejected");
+        expect(load_throws(manager, "思考方错位"),
+               "Player2Thinking on player1 side is rejected");
+        expect(load_throws(manager, "当前方缺失"),
+               "thinking phase with current_side=None is rejected");
+        expect(load_throws(manager, "终局无胜者"),
+               "GameOver without a winner is rejected");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。
