@@ -33,11 +33,15 @@
 需要 CMake ≥ 3.20、C++17 编译器；GUI 还需要 Qt6。下面的命令以 Linux/macOS 或 MSYS2 终端为例，Windows 下把可执行文件名换成 `.exe`：
 
 ```bash
+# 配置
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+# 构建
 cmake --build build -j
-ctest --test-dir build --output-on-failure   # 19 个回归测试
-./build/bin/einstein_gui                     # GUI
-# 或者只跑终端版
+# 运行 19 个回归测试
+ctest --test-dir build --output-on-failure
+# 启动 GUI
+./build/bin/einstein_gui
+# 或者只启动终端版
 ./build/bin/einstein_cli
 ```
 
