@@ -46,6 +46,12 @@ using test_support::expect;
 
 namespace {
 
+/// @brief 删除当前工作目录下的默认存档库，保证每个用例从干净状态开始。
+void remove_default_db() {
+    const std::string path(storage::kDefaultDbPath);
+    std::remove(path.c_str());
+}
+
 /// @brief 取网格布局中 (x,y) 位置的按钮；越界或类型不符返回 nullptr。
 QPushButton* grid_button_at(QGridLayout* grid, int x, int y) {
     if (grid == nullptr) {
@@ -253,7 +259,7 @@ int main(int argc, char* argv[]) {
     }
 
     // 5. 存档对话框：空库提示、无选中项。
-    std::remove(storage::kDefaultDbPath);
+    remove_default_db();
     {
         ui::SaveLoadDialog dialog(ui::DialogMode::Load);
         QListWidget* list = dialog.findChild<QListWidget*>();
@@ -384,9 +390,9 @@ int main(int argc, char* argv[]) {
     }
 
     // 11. 构造即开库：坏 schema 必须把异常抛给调用方，而不是在对话框内部吞掉。
-    std::remove(storage::kDefaultDbPath);
+    remove_default_db();
     {
-        storage::Database db(storage::kDefaultDbPath);
+        storage::Database db(std::string(storage::kDefaultDbPath));
         storage::Statement stmt(db, "CREATE TABLE saves (x TEXT);");
         stmt.step();
     }
@@ -397,7 +403,7 @@ int main(int argc, char* argv[]) {
         constructor_threw = true;
     }
     expect(constructor_threw, "save dialog propagates database schema errors");
-    std::remove(storage::kDefaultDbPath);
+    remove_default_db();
 
     return test_support::finish();
 }

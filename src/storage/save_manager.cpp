@@ -159,7 +159,7 @@ SavedGame deserialize(const std::string& data) {
 // 建表语句：IF NOT EXISTS 让重复打开同一数据库是幂等的。
 // name 做主键：天然保证槽位唯一，配合 INSERT OR REPLACE 实现"同名覆盖"。
 // timestamp 仅用于 list_saves 排序，保存时由 SQLite 自动填当前时间。
-SaveManager::SaveManager(const std::string& db_path) : db_(db_path) {
+SaveManager::SaveManager(std::string_view db_path) : db_(std::string(db_path)) {
     Statement stmt(db_,
                    "CREATE TABLE IF NOT EXISTS saves (name TEXT PRIMARY KEY, data TEXT NOT NULL, "
                    "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);");

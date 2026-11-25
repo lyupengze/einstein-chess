@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 #include "ai/ai.h"
 #include "core/game_state.h"
@@ -28,18 +29,18 @@ constexpr int kMaxPieceId = core::Board::kChessCount;
 
 // 校验并返回 0/1 阵营值。非整数或越界都按协议错误抛异常：静默当成某一方
 // 会让整局棋从一开始就走错颜色，反而不如让上层回空 response。
-int check_color(const json& value, const char* field_name) {
+int check_color(const json& value, std::string_view field_name) {
     if (!value.is_number_integer()) {
-        throw ProtocolError(std::string("Invalid color in ") + field_name);
+        throw ProtocolError("Invalid color in " + std::string(field_name));
     }
     int color = kNoPiece;
     try {
         color = value.get<int>();
     } catch (const std::exception&) {
-        throw ProtocolError(std::string("Invalid color in ") + field_name);
+        throw ProtocolError("Invalid color in " + std::string(field_name));
     }
     if (color != kBotzoneRedPlayer && color != kBotzoneBluePlayer) {
-        throw ProtocolError(std::string("Invalid color in ") + field_name);
+        throw ProtocolError("Invalid color in " + std::string(field_name));
     }
     return color;
 }

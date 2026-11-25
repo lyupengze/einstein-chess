@@ -14,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #ifdef _WIN32
@@ -242,20 +243,20 @@ int main(int argc, char* argv[]) {
 
     // --seed <n>：固定 AI 随机种子（BUG-10 的配套入口），同种子可复现同一局。
     // --db <path>：显式指定存档库；不指定时仍跟随当前工作目录。
-    std::string db_path = storage::kDefaultDbPath;
+    std::string db_path(storage::kDefaultDbPath);
     for (int i = 1; i < argc; ++i) {
-        const std::string arg = argv[i];
+        const std::string_view arg = argv[i];
         if (arg == "--seed") {
             if (i + 1 >= argc) {
                 std::cerr << "--seed 需要一个 0.." << std::numeric_limits<unsigned int>::max()
                           << " 的整数\n";
                 return 2;
             }
-            const std::string seed_text = argv[++i];
+            const std::string_view seed_text = argv[++i];
             const auto seed = cli::parse_seed(seed_text);
             if (!seed) {
                 std::cerr << "--seed 需要一个 0.." << std::numeric_limits<unsigned int>::max()
-                          << " 的整数，收到: " << seed_text << "\n";
+                          << " 的整数，收到: " << std::string(seed_text) << "\n";
                 return 2;
             }
             ai::set_random_seed(*seed);

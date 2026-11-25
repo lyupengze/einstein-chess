@@ -9,6 +9,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "ai/ai.h"
@@ -26,14 +27,14 @@ struct SavedGame {
 
 /// 默认数据库文件名。是相对路径，实际位置取决于进程的当前工作目录
 /// （GUI 启动时会把工作目录切到 exe 所在目录，CLI 则跟随启动目录）。
-constexpr const char* kDefaultDbPath = "einstein_save.db";
+constexpr std::string_view kDefaultDbPath = "einstein_save.db";
 
 /// 存档管理器。构造时打开数据库并确保表结构存在。
 class SaveManager {
 public:
-    /// @param db_path 数据库文件路径，不存在时自动创建
+    /// @param db_path 数据库文件路径，不存在时自动创建；构造期间复制，不要求调用方长期持有
     /// @throws std::runtime_error 打开失败，或建表语句执行失败
-    explicit SaveManager(const std::string& db_path);
+    explicit SaveManager(std::string_view db_path);
 
     /// 保存到指定槽位；已存在同名槽位时覆盖。
     /// @param slot_name 槽位名（主键），同名即覆盖旧存档
