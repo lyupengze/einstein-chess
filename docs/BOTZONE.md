@@ -13,12 +13,12 @@ Windows 下可执行文件为 `einstein_botzone.exe`，管道与 JSON 内容不�
 
 ## 请求格式
 
-顶层是 JSON 对象。适配层取 `requests` 数组的最后一条 request 作为决策依据；`responses` 等历史字段不参与决策。平台不会给 Bot 下发顶层 `initdata`，本方阵营优先取该条 request 的 `color` 字段：
+顶层是 JSON 对象。适配层取 `requests` 数组的最后一条 request 作为决策依据；`responses` 等历史字段不参与决策。平台不会给 Bot 下发顶层 `initdata`，本方阵营只取该条 request 的 `color` 字段：
 
 - `0`：红方（先手）
 - `1`：蓝方
 
-为兼容早期本地用例，`color` 缺失时还会尝试读取顶层 `initdata.player`（正式接入不应依赖），两者都缺失才按红方。
+`color` 是必填字段；缺失、非整数或超出 `0/1` 都会按协议错误拒绝，不再猜测红方，也不读取早期本地用例的 `initdata.player`。
 
 `requests` 缺失或为空、以及 `phase` 为 `layout` 时，返回布阵；`phase` 为 `move` 时返回走子；其他 `phase` 返回空 `response`。
 
@@ -46,6 +46,7 @@ Windows 下可执行文件为 `einstein_botzone.exe`，管道与 JSON 内容不�
 - `dice`：整数，必须在 `1..6`；
 - `board`：5 行 × 5 列，外层行 `x`、内层列 `y`；
 - 正数表示红方棋子（`1..6`），负数表示蓝方棋子（`-1..-6`），`0` 表示空格；
+- `color`、`dice`、棋盘格的整数必须在 32 位有符号范围内；超出范围的值不能被截断后继续使用；
 - 缺行、缺列、多余行/列、非整数或越界都会被拒绝，不会再把残缺棋盘按空位补全；
 - 棋盘上的棋子编号在同方内不能重复。
 

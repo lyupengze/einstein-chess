@@ -11,7 +11,7 @@
 | Toast 提示 | 绝对定位的临时浮层，只在 `show_message()` 时按父窗口当前位置计算一次 | 提示条短命，不值得为它监听父控件尺寸变化、增加 eventFilter 耦合 | 窗口在提示显示期间缩放，提示条会停在旧坐标，直到下一次提示 | 改成常驻通知栏或需要跟随布局时 |
 | Windows 控制台 | Debug 使用 Console 子系统，Release 使用 `WIN32` 子系统；UTF-8 通过 `SetConsoleOutputCP` / `SetConsoleCP` 设置，不引入 `WriteConsoleW` 输出层 | Debug 保留日志能力，Release 双击不弹黑框；避免为跨平台项目增加一套宽字符输出路径 | Release 没有控制台输出；控制台不支持 UTF-8 时中文仍可能显示异常（会打印警告） | 需要 Release 日志、或统一走 Unicode 控制台 API 时 |
 | Botzone 错误处理 | 区分 `ProtocolError`（输入/协议问题）与内部异常；stderr 分别打印 `Bot protocol error:` / `Bot internal error:`；stdout 始终输出 `{"response":{}}`，进程退出码 0 | 平台没有明确“非法输入应返回什么”；空 response 表示“本次没有决策”，比伪造一步棋或让进程崩溃更安全 | 本地调试时错误不够直观；平台可能把空 response 视为本回合失败 | 平台给出明确错误协议，或需要本地严格模式时 |
-| 存档格式 | 单行文本，7 个元数据 + 25 格棋盘 + 可选 AI 档位；读取时保留格式/溢出/窄化校验，领域一致性统一交给 `core::validate_state` | 格式小、可读、便于排查；旧档没有档位字段时按默认档恢复 | 没有 schema 版本号，未来字段变化需要兼容逻辑；字段损坏的旧档会被拒绝 | 需要迁移、压缩或存储更多对局元数据时 |
+| 存档格式 | 单行文本，7 个元数据 + 25 格棋盘 + 必填 AI 档位；读取时保留格式/溢出/窄化校验，领域一致性统一交给 `core::validate_state` | 格式小、可读、便于排查；项目没有历史发行版，不需要为缺字段的旧格式保留静默兼容 | 没有 schema 版本号，未来字段变化需要显式迁移；缺档位、非法档位和布阵阶段局面都会被拒绝 | 需要迁移、压缩或存储更多对局元数据时 |
 | 平台支持 | 只在 Windows + MSYS2 UCRT64（GCC 16.2、Qt 6.11）上实测；CI 覆盖 Windows 完整构建、无 GUI 构建和 clang-format | 课程环境固定；Qt/MinGW ABI 在 MSYS2 UCRT64 下最省事 | Linux/macOS 未做构建验证；其他编译器的告警差异可能触发 `-Werror` | 需要跨平台发布或接入 Linux CI 时 |
 
 ## 相关文档

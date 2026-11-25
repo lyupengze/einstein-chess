@@ -82,7 +82,7 @@ ctest --test-dir build --output-on-failure
 | `ai_search` | 搜索合法性、战术与确定性 |
 | `ai_level` | 版本选择、默认最新版与随机版可复现 |
 | `botzone_protocol` | 协议库的布阵/走子/严格输入校验 |
-| `save_level` | 存档档位往返、旧档兼容与损坏拒绝 |
+| `save_level` | 存档档位必填、严格解析与损坏拒绝 |
 | `storage_roundtrip` | 局面完整往返与语义校验 |
 | `state_validation` | 局面状态校验 |
 | `game_state_guard` | core 状态机守卫 |
