@@ -324,6 +324,14 @@ int main() {
         expect(!throws_exception([&] { (void)botzone::handle_request(request); }),
                "same id on opposite sides is accepted");
     }
+    {
+        const core::GameState state = make_red_state(1);
+        json request = make_move_request(state, 1, 0);
+        // 只有红方有子、蓝方为空，维度合法但整体状态不可能来自正常对局。
+        request["requests"][0]["board"][4][4] = 0;
+        expect(throws_protocol_error([&] { (void)botzone::handle_request(request); }),
+               "semantically invalid board is rejected");
+    }
 
     // 11. 入口层：非法 JSON 文本必须抛异常，交给 main 兜底为空 response。
     expect(throws_protocol_error([] { (void)botzone::handle_line("{"); }),

@@ -8,6 +8,7 @@
 #include "ai/ai.h"
 #include "core/game_state.h"
 #include "core/types.h"
+#include "core/validation.h"
 
 namespace botzone {
 
@@ -173,13 +174,13 @@ json handle_request(const json& input) {
 
     // 协议只给"颜色 + 棋盘 + 骰子"，这里拼出 ai::decide_move 所需的最小
     // GameState：player1_side 固定写红方（decide_move 并不关心它），
-    // current_side 才是真正要决策的一方；phase 设为思考阶段以通过
-    // decide_move 的前置检查。
+    // current_side 才是真正要决策的一方。phase 必须与当前方一致，不能一律
+    // 写成 Player1Thinking，否则蓝方会构造出自相矛盾的思考阶段。
+    const bool is_red = resolve_color(latest_req, input) == kBotzoneRedPlayer;
     core::GameState state;
     state.player1_side = core::Side::Red;
-    state.current_side = (resolve_color(latest_req, input) == kBotzoneRedPlayer) ? core::Side::Red
-                                                                                 : core::Side::Blue;
-    state.phase = core::Phase::Player1Thinking;
+    state.current_side = is_red ? core::Side::Red : core::Side::Blue;
+    state.phase = is_red ? core::Phase::Player1Thinking : core::Phase::Player2Thinking;
 
     // 骰子必须显式给出且为 1~6 的整数；缺失、非整数、越界都按协议错误处理。
     if (!latest_req.contains("dice")) {
@@ -207,6 +208,20 @@ json handle_request(const json& input) {
         throw ProtocolError("board must be an array");
     }
     decode_board(latest_req["board"], state);
+
+    // 棋盘只校验了维度与单格编码，整体是否自洽还要交给 core 的统一校验：
+    // 例如只剩一方棋子、已经占角却仍处于思考阶段，都不应进入 AI 决策。
+    const auto issues = core::validate_state(state);
+    if (!issues.empty()) {
+        std::string detail;
+        for (const auto& issue : issues) {
+            if (!detail.empty()) {
+                detail += "；";
+            }
+            detail += issue.field + ": " + issue.message;
+        }
+        throw ProtocolError("局面状态不合法：" + detail);
+    }
 
     // 输出四个坐标：x 为行、y 为列，与 core::Pos 的约定一致。
     const core::Move move = ai::decide_move(state);
