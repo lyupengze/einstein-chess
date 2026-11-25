@@ -78,10 +78,9 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
         }
     });
 
-    // 流程三：对局页的“返回主页”。不清理 game_，也不停 AI 定时器：切页瞬间若已有
-    // AI 行动排队，它仍会在后台把这一步走完（返回主页不暂停对局）。
-    // 真正危险的“旧回调落到新局”由 GameWidget::start_new_game / load_game_state
-    // 里的 cancel_pending_actions() 兜住。
+    // 流程三：对局页的“返回主页”。GameWidget 会先停掉尚未执行的掷骰/AI 定时器，
+    // 再发出信号；因此切回菜单后，后台不会继续推进一个玩家已经离开的局面。
+    // game_ 本身保留在内存里，等下次开新局/读档时整体覆盖。
     connect(game_widget_, &GameWidget::exit_to_menu, this,
             [this]() { stacked_widget_->setCurrentWidget(menu_widget_); });
 }

@@ -4,6 +4,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
+#include <QString>
 #include <QTimer>
 #include <QWidget>
 #include <array>
@@ -63,12 +64,17 @@ private slots:
     /// @brief 棋盘点击的唯一入口，含取消选中、走子、换选、选中四个动作。
     /// @param pos 被点击的格；Pos.x 是行号，Pos.y 是列号
     void on_cell_clicked(core::Pos pos);
-    /// @brief 返回主页按钮，只发 exit_to_menu，不动对局状态。
+    /// @brief 返回主页：先停掉尚未执行的延迟动作，再发 exit_to_menu。
+    /// @note 不清空 game_，也不把异常中止态复位；下次开新局/读档统一覆盖。
     void on_exit_clicked();
     /// @brief 保存按钮：弹保存对话框，确认后写库到 storage::kDefaultDbPath。
     void on_save_clicked();
 
 private:
+    /// @brief 中止当前对局：停表、记录原因、禁用棋盘与掷骰，等待玩家返回主页。
+    /// @param reason 展示给玩家的失败原因
+    /// @note 只改界面状态，不改 core::Game 的局面；异常不能被翻译成一次合法走子。
+    void abort_game(const QString& reason);
     /// @brief 按当前 GameState 统一刷新棋盘高亮、骰子、状态文案与掷骰按钮可用性。
     /// @note 状态文案与按钮可用性是一组联动，改一边必须同步改另一边。
     void update_ui();
@@ -96,6 +102,8 @@ private:
 
     core::Game game_;                        ///< 唯一的对局对象，所有规则进出的门
     ai::Level ai_level_ = ai::kDefaultLevel;  ///< 本局电脑强度；开新局/读档时写入，之后不再变
+    bool game_aborted_ = false;              ///< true 时对局因电脑回合异常而中止，禁止继续操作
+    QString abort_reason_;                   ///< 中止原因，仅在 game_aborted_ 为 true 时有效
     BoardWidget* board_widget_;              ///< 棋盘绘制者，也是 cell_clicked 的来源
     DiceWidget* dice_widget_;                ///< 骰子点数展示，nullopt 表示未掷
     QLabel* status_label_;                   ///< 顶部状态文案

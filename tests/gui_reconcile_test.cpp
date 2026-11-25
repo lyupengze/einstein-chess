@@ -2,8 +2,8 @@
 // BUG-09（AI 走子异常后界面停在"正在思考"）。
 //
 // 修复后 GameWidget::handle_ai_turn 按 phase 分派，可以从中断处继续推进；
-// 走子失败则把回合判给人类，而不是把状态机留在 AI 侧。
-// 这里直接载入两份人工构造的存档式快照，跑真实事件循环，观察界面是否回到人类回合。
+// 走子失败则进入"对局异常"中止态，保留原始局面并禁用操作，而不是伪造一次
+// 规则外的"放弃回合"。返回主页会停掉尚未触发的 AI 定时器。
 //
 // 时序不写死：先把 GameWidget 的三段延迟压到毫秒级，再用 qt_wait.h 轮询
 // 真实状态。慢机器上只是多转几圈事件循环，不会因为 sleep 不够而假失败。
@@ -11,9 +11,12 @@
 #include <QApplication>
 #include <QLabel>
 #include <QListWidget>
+#include <QPushButton>
 #include <iostream>
 #include <string_view>
 #include <vector>
+
+#include "components/board_widget.h"
 
 #include "ai/ai.h"
 #include "core/game.h"
@@ -41,6 +44,15 @@ bool any_contains(const std::vector<QString>& texts, const QString& needle) {
         }
     }
     return false;
+}
+
+QPushButton* find_button(ui::GameWidget& widget, const QString& text) {
+    for (auto* button : widget.findChildren<QPushButton*>()) {
+        if (button->text() == text) {
+            return button;
+        }
+    }
+    return nullptr;
 }
 
 // 造出"轮到蓝方(AI)思考"的真实局面：红先走一步，蓝掷骰后停在 Player2Thinking。
@@ -91,7 +103,6 @@ int main(int argc, char** argv) {
         // 不能再用“清空蓝方全部棋子”的残缺局面：load_game_state 现在会先做
         // 局面校验，缺子/已满足胜利条件的快照会在入口被拒绝，测不到 handle_ai_turn
         // 的异常兜底。非法枚举值能通过局面校验，但会让 decide_move 抛异常。
-        // 旧行为：只打印 qDebug，阶段停在 Player2Thinking，界面永久卡住。
         ui::GameWidget widget;
         widget.set_action_delays(1, 1, 1);
         widget.resize(900, 700);
@@ -99,21 +110,38 @@ int main(int argc, char** argv) {
         app.processEvents();
 
         auto* history = widget.findChild<QListWidget*>();
+        auto* board = widget.findChild<ui::BoardWidget*>();
+        auto* roll = find_button(widget, "掷骰子");
         expect(history != nullptr, "game widget exposes its history list");
+        expect(board != nullptr, "game widget exposes its board");
+        expect(roll != nullptr, "game widget exposes its roll button");
         widget.load_game_state(thinking, static_cast<ai::Level>(99));
 
         expect(test_support::wait_until(
                    [&] {
-                       return any_contains(label_texts(widget), QString::fromUtf8("本回合判为放弃"));
+                       return any_contains(label_texts(widget), QString::fromUtf8("对局异常"));
                    },
-                   3000, "AI failure surfaces a visible message"),
-               "AI failure surfaces a visible message");
+                   3000, "AI failure aborts the game"),
+               "AI failure aborts the game instead of forfeiting the turn");
         expect(history != nullptr && history->count() == 0,
                "AI that throws before choosing a move does not make a move");
+        expect(!any_contains(label_texts(widget), QString::fromUtf8("轮到你了")),
+               "aborted game does not hand the turn to the human");
+        expect(board != nullptr && !board->isEnabled(), "aborted game disables the board");
+        expect(roll != nullptr && !roll->isEnabled(), "aborted game disables the dice button");
+
+        // 中止态必须能被下一次读档清除，否则玩家只能重启程序。
+        widget.load_game_state(thinking, ai::kDefaultLevel);
+        expect(test_support::wait_until(
+                   [&] { return history != nullptr && history->count() == 1; }, 3000,
+                   "AI finishes a turn after recovering from abort"),
+               "loading a valid save clears the aborted state");
         expect(test_support::wait_until(
                    [&] { return any_contains(label_texts(widget), QString::fromUtf8("轮到你了")); },
-                   3000, "status text returns to the human turn"),
-               "AI failure forfeits the turn instead of hanging in thinking");
+                   3000, "status text returns to the human turn after recovery"),
+               "recovered game returns to the human turn");
+        expect(board != nullptr && board->isEnabled(), "recovered game re-enables the board");
+        expect(roll != nullptr && roll->isEnabled(), "recovered game enables the dice button");
     }
 
     {
@@ -149,6 +177,28 @@ int main(int argc, char** argv) {
                    [&] { return history != nullptr && history->count() > 1; }, 250,
                    "a second AI move in the same human turn"),
                "the new game does not queue an extra AI turn");
+    }
+
+    {
+        // 返回主页必须停掉已经排队的 AI 动作：否则玩家切回菜单后，AI 仍在后台
+        // 修改一个既看不到、也没有“继续对局”入口的局面。
+        ui::GameWidget widget;
+        widget.set_action_delays(1, 150, 150);
+        widget.resize(900, 700);
+        widget.show();
+        app.processEvents();
+
+        auto* history = widget.findChild<QListWidget*>();
+        auto* exit = find_button(widget, "返回主页");
+        expect(history != nullptr, "game widget exposes its history list");
+        expect(exit != nullptr, "game widget exposes its exit button");
+        widget.load_game_state(thinking, ai::kDefaultLevel);  // 排一个 150ms 的 AI 回调
+        exit->click();
+
+        expect(test_support::expect_remains_false(
+                   [&] { return history != nullptr && history->count() > 0; }, 300,
+                   "an AI move after returning to the menu"),
+               "returning to the menu cancels the queued AI action");
     }
 
     return test_support::finish();

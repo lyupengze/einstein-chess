@@ -85,6 +85,10 @@ void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>&
     // 先清掉上一局排队的延迟动作，否则旧的对局意图会落到新局上。
     cancel_pending_actions();
 
+    // 新局是全新的开始：上一次异常中止的提示与禁用状态都到此为止。
+    game_aborted_ = false;
+    abort_reason_.clear();
+
     // 强度属于整局配置：开新局时写入一次，之后所有 AI 回合都读同一个值。
     ai_level_ = ai_level;
 
@@ -116,7 +120,11 @@ void GameWidget::load_game_state(const core::GameState& state, ai::Level ai_leve
     ai_level_ = ai_level;
 
     // load_game 是整体覆盖，不做增量合并；存档里的 player1_side 决定谁是“人类”。
+    // 它可能因局面不合法而抛异常；只有真正载入成功后才清除中止态，
+    // 避免失败的读档把旧局从“异常禁用”误恢复成可操作。
     game_.load_game(state);
+    game_aborted_ = false;
+    abort_reason_.clear();
     selected_pos_ = std::nullopt;
 
     history_list_->clear();
@@ -135,11 +143,17 @@ void GameWidget::set_action_delays(int roll_ms, int after_move_ms, int think_ms)
 }
 
 void GameWidget::on_exit_clicked() {
-    // 只发信号，切页由 MainWindow 做；对局对象原样保留，返回主页不会清空 game_。
+    // 返回主页等于停止推进本局：先取消尚未触发的掷骰/AI 回调，避免后台继续
+    // 修改一个玩家暂时看不到、且没有“继续对局”入口的局面。
+    // 这里不清空 game_：状态仍留在内存里，下次开新局/读档会整体覆盖。
+    cancel_pending_actions();
     emit exit_to_menu();
 }
 
 void GameWidget::on_roll_dice_clicked() {
+    if (game_aborted_) {
+        return;
+    }
     // 立刻禁用按钮，防止这段延迟里被连点第二次而触发重复掷骰。
     roll_btn_->setEnabled(false);
     status_label_->setText("🎲 正在掷骰子...");
@@ -195,6 +209,9 @@ void GameWidget::add_history_log(const QString& text) {
 }
 
 void GameWidget::on_cell_clicked(core::Pos pos) {
+    if (game_aborted_) {
+        return;
+    }
     // 先取一份快照：后面所有分支都用它做只读判断，不必每步重新 get_state()。
     auto state = game_.get_state();
     // 防御性边界检查：坐标换算一旦有误（board_widget 的整除余量历史上就会产生
@@ -298,6 +315,10 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
 }
 
 void GameWidget::trigger_ai_if_needed() {
+    // 中止态下任何一方都不再推进；等待玩家返回主页后开新局/读档。
+    if (game_aborted_) {
+        return;
+    }
     auto state = game_.get_state();
 
     // 已分胜负就没人该动了，否则会对着 GameOver 再掷一次骰子而抛异常。
@@ -320,7 +341,21 @@ void GameWidget::cancel_pending_actions() {
     ai_timer_.stop();
 }
 
+void GameWidget::abort_game(const QString& reason) {
+    // 异常不是规则允许的“过一手”：不能清骰/换边/写回假局面，否则会掩盖 AI 或 core
+    // 的真实缺陷。这里只冻结界面，保留原始局面供玩家返回主页后重新开局或读档。
+    cancel_pending_actions();
+    game_aborted_ = true;
+    abort_reason_ = reason;
+    selected_pos_ = std::nullopt;
+    update_ui();
+}
+
 void GameWidget::handle_ai_turn() {
+    // 已经中止或玩家已返回主页：不再让排队的回调继续推进对局。
+    if (game_aborted_) {
+        return;
+    }
     // 定时器回调期间局面可能已经变了（玩家返回主页、重开一局、读档、或已分出胜负），
     // 所以每次进来都重新读局面，按“阶段 + 当前方”决定下一步，而不是依赖调用时的快照。
     // 这也让本函数成为 AI 回合的统一驱动器：任何一次进入都会把回合推进到人类回合，
@@ -340,7 +375,7 @@ void GameWidget::handle_ai_turn() {
                 game_.roll_dice();
             } catch (const std::exception& e) {
                 qDebug() << "电脑掷骰失败:" << e.what();
-                show_message(QString("电脑掷骰失败: ") + e.what());
+                abort_game(QString("电脑掷骰失败: %1").arg(e.what()));
                 return;
             }
             update_ui();
@@ -354,12 +389,13 @@ void GameWidget::handle_ai_turn() {
             return;  // 开头已判过，这里只为让 switch 覆盖全部枚举值
     }
 
-    // Player2Thinking：选点走子。失败时不能只记日志——阶段会停在 Player2Thinking，
-    // 界面永久卡住；这里让电脑放弃本回合，把局面推回可继续的状态。
+    // Player2Thinking：选点走子。AI 或 core 抛异常说明局面/搜索出了问题，
+    // 不能把它翻译成一次规则外的“放弃回合”；中止本局并保留原始局面，让玩家重开或读档。
     try {
         auto move = ai::decide_move(game_.get_state(), ai_level_);
 
-        // 先记日志再落子：落子后终点已是己方棋子，就读不到被吃掉的是谁了。
+        // 落子前先把日志文本算好：落子后终点已是己方棋子，就读不到被吃掉的是谁了。
+        // 但先不写入列表，避免 make_move 失败时留下一条不存在的走子记录。
         auto target_piece = game_.get_state().board.at(move.to);
         QString log = QString("电脑: (%1,%2)->(%3,%4)")
                           .arg(move.from.x)
@@ -371,22 +407,14 @@ void GameWidget::handle_ai_turn() {
                        .arg(target_piece.side == core::Side::Red ? "R" : "B")
                        .arg(target_piece.id);
         }
-        add_history_log(log);
 
         game_.make_move(move.from, move.to);
+        add_history_log(log);
         update_ui();
     } catch (const std::exception& e) {
         qDebug() << "AI 异常:" << e.what();
-        show_message(QString("电脑走子失败，本回合判为放弃: ") + e.what());
-        // 放弃本回合：清骰子、把行动权交给对面并回到掷骰阶段。
-        // Game 只暴露 load_game 这一种整份写入接口，这里写入的字段本身是自洽的。
-        auto recovery = game_.get_state();
-        recovery.current_dice = std::nullopt;
-        recovery.current_side =
-            (recovery.current_side == core::Side::Red) ? core::Side::Blue : core::Side::Red;
-        recovery.phase = core::Phase::ThrowingDice;
-        game_.load_game(recovery);
-        update_ui();
+        abort_game(QString("电脑走子失败: %1").arg(e.what()));
+        return;
     }
 
     // 统一再检查一次是否仍该由电脑行动，保证没有任何分支会漏触发。
@@ -396,11 +424,15 @@ void GameWidget::handle_ai_turn() {
 void GameWidget::update_ui() {
     auto state = game_.get_state();
 
+    // 中止态下棋盘只负责显示最后的局面，不能再接收点击；新局/读档会重新启用。
+    board_widget_->setEnabled(!game_aborted_);
+
     // 高亮数据只在“人类可操作”时才计算：AI 回合喂空数组，棋盘上就不会闪出可动圈。
     std::vector<core::Pos> selectable_pos;
     std::vector<core::Pos> reachable_pos;
 
-    if (state.current_side == state.player1_side && state.phase == core::Phase::Player1Thinking) {
+    if (!game_aborted_ && state.current_side == state.player1_side &&
+        state.phase == core::Phase::Player1Thinking) {
         if (!selected_pos_) {
             // 还没选：提示哪些棋子本回合能动。
             selectable_pos = get_selectable_positions();
@@ -412,6 +444,14 @@ void GameWidget::update_ui() {
 
     board_widget_->update_state(state, selected_pos_, selectable_pos, reachable_pos);
     dice_widget_->set_dice(state.current_dice);
+
+    // 异常中止是最高优先级的状态：不再显示“轮到你了/电脑思考中”，也不允许掷骰。
+    if (game_aborted_) {
+        status_label_->setText(
+            QString("⚠️ 对局异常：%1；请返回主页后重新开局或读档。").arg(abort_reason_));
+        roll_btn_->setEnabled(false);
+        return;
+    }
 
     // 下面是一张“状态文案 + 掷骰按钮”的联动表，两者必须成对修改，
     // 否则会出现文案写着“请掷骰子”而按钮是灰的这种自相矛盾的界面。
