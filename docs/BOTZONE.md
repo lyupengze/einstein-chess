@@ -82,10 +82,12 @@ Windows 下可执行文件为 `einstein_botzone.exe`，管道与 JSON 内容不�
 走子：
 
 ```json
-{"response":{"x0":3,"y0":4,"x1":3,"y1":3}}
+{"response":{"x0":3,"x1":3,"y0":4,"y1":3}}
 ```
 
 `layout` 是 1–6 的排列；`x0/y0` 是起点，`x1/y1` 是终点。适配层不检查平台最终是否会接受该着法，只保证返回的是当前局面下的合法着法之一；具体落点由 Expectiminimax 搜索决定，示例输出可能不同。
+
+JSON 对象成员没有顺序语义；当前实现使用 `nlohmann::json`，其底层按 key 排序，因此实际输出为 `x0, x1, y0, y1`。调用方应按字段名读取，不应依赖打印顺序。
 
 ## 完整示例
 
@@ -98,12 +100,12 @@ echo '{"requests":[{"phase":"layout","color":1,"region":[[4,4],[4,3],[4,2],[3,4]
 # 走子：蓝方掷出 4 点
 echo '{"requests":[{"phase":"move","color":1,"dice":4,"board":[[1,2,3,0,0],[4,5,0,0,0],[6,0,0,0,-6],[0,0,0,-5,-4],[0,0,-3,-2,-1]]}],"responses":[]}' \
   | ./build/bin/einstein_botzone
-# {"response":{"x0":3,"y0":4,"x1":3,"y1":3}}
+# {"response":{"x0":3,"x1":3,"y0":4,"y1":3}}
 
 # 骰点降级：红方掷出 3 点但 3 号不在场，按规则降级为可选 1 号
 echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,-1]]}],"responses":[]}' \
   | ./build/bin/einstein_botzone
-# {"response":{"x0":0,"y0":0,"x1":1,"y1":1}}
+# {"response":{"x0":0,"x1":1,"y0":0,"y1":1}}
 ```
 
 ## 错误处理
