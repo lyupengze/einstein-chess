@@ -20,7 +20,8 @@ public:
     Game();
 
     /// @brief 重置为全新对局并记录发起方阵营。
-    /// @param player1_side 发起方（CLI/GUI 中即人类）的阵营，不能为 None
+    /// @param player1_side 发起方（CLI/GUI 中即人类）的阵营，必须是红方或蓝方
+    /// @throws std::invalid_argument player1_side 不是红方或蓝方
     /// @note player1_side 只表示"哪一方是我方"，不代表先手；先手固定是红方，
     ///       由 check_both_ready 在双方布阵完成后设置。
     void prepare_new_game(Side player1_side);
