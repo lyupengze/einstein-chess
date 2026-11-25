@@ -162,10 +162,9 @@ std::vector<StateIssue> validate_state(const GameState& state) {
     const int blue_count = state.board.count_pieces(Side::Blue);
 
     // 6. 棋盘与阶段/胜负的一致性。
-    if (state.phase == Phase::LayOut) {
-        // 布阵阶段允许空棋盘、部分棋子；此时 check_winner 对"双方都 0 子"会误判，
-        // 所以不能在这里调用它。
-    } else if (state.phase == Phase::GameOver) {
+    // LayOut 允许空棋盘和部分棋子；check_winner 对"双方都 0 子"会误判，
+    // 因此只对 GameOver 和真正进行中的阶段做交叉校验。
+    if (state.phase == Phase::GameOver) {
         if (red_count == 0 && blue_count == 0) {
             add_issue(issues, "board", "终局不能双方都没有棋子");
         }
@@ -173,7 +172,7 @@ std::vector<StateIssue> validate_state(const GameState& state) {
         if (is_playable_side(state.winner) && actual != state.winner) {
             add_issue(issues, "winner", "记录的胜者与棋盘上的胜负条件不一致");
         }
-    } else {
+    } else if (state.phase != Phase::LayOut) {
         if (red_count == 0 || blue_count == 0) {
             add_issue(issues, "board", "非终局阶段双方都必须至少有一枚棋子");
         }
