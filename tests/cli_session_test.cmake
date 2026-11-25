@@ -90,19 +90,22 @@ if(stdout_length GREATER 20000)
         "this looks like a prompt loop.")
 endif()
 
-# 7. 参数校验：--seed 后接非数字必须在打开数据库前以退出码 2 拒绝。
-execute_process(
-    COMMAND "${EXE}" --seed not-a-number
-    OUTPUT_VARIABLE seed_stdout
-    ERROR_VARIABLE seed_stderr
-    RESULT_VARIABLE seed_result
-    TIMEOUT 20
-    ENCODING UTF-8
-)
-if(NOT seed_result STREQUAL "2")
-    message(FATAL_ERROR
-        "CLI accepted an invalid --seed value (result='${seed_result}').\n"
-        "stdout:\n${seed_stdout}\nstderr:\n${seed_stderr}")
-endif()
+# 7. 参数校验：--seed 必须是非负十进制整数，负数/带符号/溢出/非数字
+#    都应在打开数据库前以退出码 2 拒绝。
+foreach(bad_seed -1 +1 4294967296 not-a-number)
+    execute_process(
+        COMMAND "${EXE}" --seed "${bad_seed}"
+        OUTPUT_VARIABLE seed_stdout
+        ERROR_VARIABLE seed_stderr
+        RESULT_VARIABLE seed_result
+        TIMEOUT 20
+        ENCODING UTF-8
+    )
+    if(NOT seed_result STREQUAL "2")
+        message(FATAL_ERROR
+            "CLI accepted an invalid --seed value '${bad_seed}' (result='${seed_result}').\n"
+            "stdout:\n${seed_stdout}\nstderr:\n${seed_stderr}")
+    endif()
+endforeach()
 
 message(STATUS "cli_session: rejected invalid input and exited cleanly on mid-game EOF")

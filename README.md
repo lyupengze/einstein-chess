@@ -82,6 +82,7 @@ ctest --test-dir build --output-on-failure
 1. 在终端运行 `./build/bin/einstein_cli`（Windows 下为 `einstein_cli.exe`）；启动参数支持 `--db <路径>` 指定存档库、`--seed <整数>` 固定 AI 随机种子。
 2. 按菜单提示输入指令（1 开始游戏 / 2 读档 / 3 退出）；开新局时会先选择电脑强度（直接回车取默认的最新版），走法格式如 `0 2 1 2`。
 3. CLI 默认在当前工作目录读写 `einstein_save.db`，启动时会打印绝对路径；想和 GUI 共用存档时，`cd build/bin` 后运行，或使用 `--db` 指向 GUI 的存档文件。
+4. 数值输入要求严格：`--seed` 只接受 `0..4294967295` 的十进制数字；布阵必须恰好 6 个整数，走法必须恰好 4 个整数，尾部多余内容会按格式错误拒绝。
 
 ### Botzone 版本 (对战平台)
 
@@ -151,7 +152,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 - **AI 提供两档强度**：公共接口用 `ai::Level` 选择版本，`ai::kDefaultLevel` 当前指向最新版 `Level::kSearch`，因此 `ai::decide_move(state)` 就是搜索版。`Level::kRandom` 复用第一版随机基线（在合法着法中均匀随机），用于最低难度或对照；显式指定时写作 `ai::decide_move(state, ai::Level::kRandom)`。搜索版使用固定深度的 Expectiminimax（默认 4 回合），叶节点用 46656 个单方竞速状态预计算出的到达时间分布合成胜率，**不设材料价值项**——吃对方子、送己方子都只通过竞速分布影响胜率；不含 alpha-beta、置换表与时间预算。同分时先按“走完后离终点更近”过滤，再优先斜向，最后才随机，避免无进展的轴向着法。`decide_layout()` 两版共用同一套随机打乱，因此不接受 Level。GUI 的布阵对话框与 CLI 的开新局流程都会让玩家选择档位（默认最新版）；选中的档位随存档写入 SQLite，读档时原样恢复，因此同一局无论读多少次、中途开过什么强度的新局，电脑强度都保持一致；旧存档没有档位字段，按 `kDefaultLevel`（最新版）恢复。Botzone 不接 UI，始终调用无版本参数的接口，即固定使用最新版。
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证；CI 目前也只覆盖 Windows + MSYS2 UCRT64，`-Werror` 下其他编译器的告警差异可能带来额外修改。
-- **测试覆盖仍有限**：默认构建注册 17 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（选子、走法、胜负、布阵与对局生命周期）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`botzone_protocol`（协议库的布阵/走子/严格输入校验）、`save_level`（存档档位往返、旧档兼容与损坏拒绝）、`storage_roundtrip`（局面完整往返与语义校验）、`state_validation`（局面状态校验）、`game_state_guard`（core 状态机守卫）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`gui_dialogs`（布阵与存档对话框、同名覆盖确认）、`cli_eof`（EOF 处理）、`cli_exit`（退出菜单）、`cli_session`（菜单交互与中途 EOF）、`cli_broken_db`（坏存档库错误边界）。`-DEINSTEIN_BUILD_GUI=OFF` 时四个 GUI 用例不注册，其余 13 个仍可运行；GUI 的完整分支仍未全部覆盖。
+- **测试覆盖仍有限**：默认构建注册 18 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（选子、走法、胜负、布阵与对局生命周期）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`botzone_protocol`（协议库的布阵/走子/严格输入校验）、`save_level`（存档档位往返、旧档兼容与损坏拒绝）、`storage_roundtrip`（局面完整往返与语义校验）、`state_validation`（局面状态校验）、`game_state_guard`（core 状态机守卫）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`gui_dialogs`（布阵与存档对话框、同名覆盖确认）、`cli_input`（CLI 参数与整行数字解析边界）、`cli_eof`（EOF 处理）、`cli_exit`（退出菜单）、`cli_session`（菜单交互与中途 EOF）、`cli_broken_db`（坏存档库错误边界）。`-DEINSTEIN_BUILD_GUI=OFF` 时四个 GUI 用例不注册，其余 14 个仍可运行；GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
 - **Windows 下 GUI 附带控制台窗口**：`einstein_gui` 未标记 `WIN32` 子系统，启动时会多出一个控制台窗口，不影响功能。
 

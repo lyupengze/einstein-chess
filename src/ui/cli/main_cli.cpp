@@ -11,12 +11,13 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <vector>
 
+#include "cli_input.h"
 #include "ai/ai.h"
 #include "core/game.h"
 #include "core/game_state.h"
@@ -73,11 +74,10 @@ std::optional<ai::Level> choose_ai_level() {
             return ai::kDefaultLevel;
         }
 
-        std::istringstream iss_level(level_input);
-        int index = 0;
-        if (iss_level >> index && index >= 1 &&
-            index <= static_cast<int>(ai::kAllLevels.size())) {
-            return ai::kAllLevels[static_cast<std::size_t>(index - 1)];
+        const auto index = cli::parse_level_index(
+            level_input, static_cast<int>(ai::kAllLevels.size()));
+        if (index) {
+            return ai::kAllLevels[static_cast<std::size_t>(*index - 1)];
         }
         std::cout << "命令不合法\n\n";
     }
@@ -153,14 +153,15 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                     return;
                 }
 
-                // 先整行解析出 4 个整数，格式不对就直接重输。
-                std::istringstream iss_move(move_input);
-                int x1, y1, x2, y2;
-                if (iss_move >> x1 >> y1 >> x2 >> y2) {
+                // 先整行解析出 4 个整数；必须恰好 4 个，多余 token 也视为格式错误。
+                std::array<int, 4> move_values{};
+                if (cli::parse_int_array(move_input, move_values)) {
                     try {
                         game.make_move(
-                            {static_cast<std::size_t>(x1), static_cast<std::size_t>(y1)},
-                            {static_cast<std::size_t>(x2), static_cast<std::size_t>(y2)});
+                            {static_cast<std::size_t>(move_values[0]),
+                             static_cast<std::size_t>(move_values[1])},
+                            {static_cast<std::size_t>(move_values[2]),
+                             static_cast<std::size_t>(move_values[3])});
                     } catch (const std::exception& e) {
                         std::cout << "移动失败: " << e.what() << "\n\n";
                         continue;
@@ -236,17 +237,20 @@ int main(int argc, char* argv[]) {
         const std::string arg = argv[i];
         if (arg == "--seed") {
             if (i + 1 >= argc) {
-                std::cerr << "--seed 需要一个非负整数\n";
+                std::cerr << "--seed 需要一个 0.."
+                          << std::numeric_limits<unsigned int>::max()
+                          << " 的整数\n";
                 return 2;
             }
-            const char* text = argv[++i];
-            char* end = nullptr;
-            const unsigned long value = std::strtoul(text, &end, 10);
-            if (end == text || *end != '\0') {
-                std::cerr << "--seed 需要一个非负整数，收到: " << text << "\n";
+            const std::string seed_text = argv[++i];
+            const auto seed = cli::parse_seed(seed_text);
+            if (!seed) {
+                std::cerr << "--seed 需要一个 0.."
+                          << std::numeric_limits<unsigned int>::max()
+                          << " 的整数，收到: " << seed_text << "\n";
                 return 2;
             }
-            ai::set_random_seed(static_cast<unsigned int>(value));
+            ai::set_random_seed(*seed);
         } else if (arg == "--db") {
             if (i + 1 >= argc) {
                 std::cerr << "--db 需要一个存档文件路径\n";
@@ -414,24 +418,15 @@ int main(int argc, char* argv[]) {
             std::cout << "请输入 " << core::side_name(player1_side)
                       << " 1~6 号棋子的排列 (例如 1 2 3 4 5 6) : \n";
 
-            // 整行读入后按空白切出 6 个整数；不足 6 个视为格式错误，
-            // 多余的部分忽略。
+            // 整行读入后按空白切出 6 个整数；必须恰好 6 个，
+            // 不足或多出 token 都视为格式错误。
             std::string layout_input;
             if (!read_line(layout_input)) {
                 std::cout << "\n输入已结束，退出。\n";
                 return 0;
             }
-            std::istringstream iss_layout(layout_input);
-            std::array<int, 6> player_layout;
-            bool parse_success = true;
-            for (int i = 0; i < 6; ++i) {
-                if (!(iss_layout >> player_layout[i])) {
-                    parse_success = false;
-                    break;
-                }
-            }
-
-            if (!parse_success) {
+            std::array<int, 6> player_layout{};
+            if (!cli::parse_int_array(layout_input, player_layout)) {
                 std::cout << "命令不合法\n\n";
                 continue;
             }

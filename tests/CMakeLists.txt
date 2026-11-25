@@ -188,3 +188,9 @@ add_test(NAME cli_broken_db
 )
 set_tests_properties(cli_broken_db PROPERTIES
                      TIMEOUT 30 LABELS cli WORKING_DIRECTORY ${CLI_BROKEN_DB_WORK_DIR})
+
+# CLI 纯解析单测：不启动进程、不依赖 Qt/SQLite，专门覆盖参数与整行数字的边界。
+add_executable(test_cli_input cli_input_test.cpp)
+target_include_directories(test_cli_input PRIVATE ${CMAKE_SOURCE_DIR}/src/ui/cli)
+target_link_libraries(test_cli_input PRIVATE einstein_warnings)
+einstein_add_test(cli_input test_cli_input TIMEOUT 30 LABEL cli)
