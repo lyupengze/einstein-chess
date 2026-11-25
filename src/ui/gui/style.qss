@@ -7,6 +7,11 @@ QMainWindow, QWidget {
     background-color: #2c3e50;
 }
 
+/* 文字标签默认透明：否则全局 QWidget 背景会在渐变菜单上留下深色矩形 */
+QLabel {
+    background: transparent;
+}
+
 /* 对局页顶部的状态提示文字：亮白、加粗、稍大 */
 QLabel#statusLabel {
     color: #ecf0f1;
