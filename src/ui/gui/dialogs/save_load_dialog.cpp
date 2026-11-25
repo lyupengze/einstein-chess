@@ -3,6 +3,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QString>
 #include <QVBoxLayout>
 #include <string>
 
@@ -10,7 +11,8 @@
 
 // 存档对话框实现：两种形态共用一套控件，只在构造时按 mode_ 分支。
 // 打开即查库（list_saves），所以新存或删除后必须重新打开才能看到最新列表。
-// 校验集中在 on_confirm_clicked：名称非空 / 必须选中一项，不满足就留在对话框里。
+// 校验集中在 on_confirm_clicked：名称非空 / 必须选中一项 / 同名覆盖需二次确认，
+// 不满足就留在对话框里；只有全部通过才 accept()。
 namespace ui {
 
 SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(parent), mode_(mode) {
@@ -66,10 +68,21 @@ void SaveLoadDialog::on_confirm_clicked() {
     // 两种模式的合格条件不同，但处理方式一致：不合格就 warning 并 return，
     // 合格才 accept()，让 exec() 返回 QDialog::Accepted 交给调用方继续。
     if (mode_ == DialogMode::Save) {
-        // 只判空，不判重名：同名由 SaveManager 的 INSERT OR REPLACE 覆盖，属于预期行为。
-        if (name_input_->text().trimmed().isEmpty()) {
+        const QString name = name_input_->text().trimmed();
+        if (name.isEmpty()) {
             QMessageBox::warning(this, "错误", "存档名不能为空！");
             return;
+        }
+
+        // 同名保存最终由 SaveManager 的 INSERT OR REPLACE 覆盖；覆盖会丢失旧档，
+        // 所以先让用户确认一次，默认按钮选 No，避免回车误覆盖。
+        if (!list_widget_->findItems(name, Qt::MatchExactly).isEmpty()) {
+            const auto answer =
+                QMessageBox::question(this, "覆盖存档", "已存在同名存档，确定要覆盖吗？",
+                                      QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+            if (answer != QMessageBox::Yes) {
+                return;
+            }
         }
         accept();
     } else {

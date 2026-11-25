@@ -1,13 +1,15 @@
 // GUI 对话框回归：直接构造对话框、操作控件并调用私有槽，
 // 不进入模态事件循环，因此可以在 offscreen 平台上稳定运行。
 //
-// 覆盖两件事：
+// 覆盖三件事：
 // 1. 布阵对话框的默认编号、点击循环、换边清空与合法确认；
-// 2. 存档对话框的列表读取、默认选中、名称 trim 与确认路径。
+// 2. 存档对话框的列表读取、默认选中、名称 trim 与确认路径；
+// 3. 同名覆盖确认（No 保持对话框、Yes 才接受）。
 //
 // 注意：重复编号 / 空名称会弹出模态 QMessageBox，本用例刻意不触发这些分支，
-// 避免测试进程卡在无人关闭的对话框上；这些校验由代码审查与手工验证覆盖。
+// 避免测试进程卡在无人关闭的对话框上；同名覆盖确认则用 QTimer 自动点击按钮来覆盖。
 
+#include <QAbstractButton>
 #include <QApplication>
 #include <QComboBox>
 #include <QDialog>
@@ -15,10 +17,12 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QMetaObject>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QString>
+#include <QTimer>
 #include <QWidget>
 
 #include <array>
@@ -68,6 +72,20 @@ bool has_label(QWidget& root, const QString& needle) {
         }
     }
     return false;
+}
+
+/// @brief 下一个模态 QMessageBox 出现时点击指定标准按钮，避免测试卡在 exec()。
+void click_next_message_box(QMessageBox::StandardButton button) {
+    QTimer::singleShot(0, [button]() {
+        auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+        if (box == nullptr) {
+            return;
+        }
+        QAbstractButton* target = box->button(button);
+        if (target != nullptr) {
+            target->click();
+        }
+    });
 }
 
 /// @brief 构造一个可序列化的最小局面，仅用于填充存档列表。
@@ -214,6 +232,34 @@ int main(int argc, char* argv[]) {
         expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"),
                "save confirm slot is invokable");
         expect(dialog.result() == QDialog::Accepted, "save dialog accepts a non-empty name");
+    }
+
+    // 8. 同名保存必须二次确认：选 No 保持对话框，选 Yes 才接受。
+    {
+        ui::SaveLoadDialog dialog(ui::DialogMode::Save);
+        QLineEdit* input = dialog.findChild<QLineEdit*>();
+        expect(input != nullptr, "overwrite test has a name input");
+        if (input != nullptr) {
+            input->setText("alpha");
+        }
+        click_next_message_box(QMessageBox::No);
+        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"),
+               "overwrite confirm slot is invokable");
+        expect(dialog.result() != QDialog::Accepted,
+               "declining overwrite keeps the save dialog open");
+    }
+    {
+        ui::SaveLoadDialog dialog(ui::DialogMode::Save);
+        QLineEdit* input = dialog.findChild<QLineEdit*>();
+        expect(input != nullptr, "overwrite accept test has a name input");
+        if (input != nullptr) {
+            input->setText("alpha");
+        }
+        click_next_message_box(QMessageBox::Yes);
+        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"),
+               "overwrite accept slot is invokable");
+        expect(dialog.result() == QDialog::Accepted,
+               "confirming overwrite accepts the save dialog");
     }
 
     std::remove(storage::kDefaultDbPath);

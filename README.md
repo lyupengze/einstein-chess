@@ -25,7 +25,7 @@
   - `SQLite3`：已集成 amalgamation 源码（3.54.1），无需外部安装
   - `nlohmann/json`：单头文件（3.12.0），已内置，仅 Botzone 适配层使用
 
-**平台支持**：源码不含任何平台特定 API，唯一的平台分支是 CLI 启动时把 Windows 控制台切到 UTF-8 代码页（`src/ui/cli/main_cli.cpp` 中的 `#ifdef _WIN32`）；SQLite 与 JSON 均为可移植的 amalgamation/单头文件源码。因此工程在源码层面不排斥 Linux、macOS 或 MSVC，任何满足 C++17 的编译器与 Qt6 环境都可尝试构建。需要说明的是，当前仓库只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，其他平台尚未验证，也没有 CI。
+**平台支持**：源码不含任何平台特定 API，唯一的平台分支是 CLI 启动时把 Windows 控制台切到 UTF-8 代码页（`src/ui/cli/main_cli.cpp` 中的 `#ifdef _WIN32`）；SQLite 与 JSON 均为可移植的 amalgamation/单头文件源码。因此工程在源码层面不排斥 Linux、macOS 或 MSVC，任何满足 C++17 的编译器与 Qt6 环境都可尝试构建。需要说明的是，当前仓库只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，其他平台尚未验证；GitHub Actions 也只在同一环境上跑完整与无 GUI 两套构建。
 
 ### 编译方法
 
@@ -65,13 +65,15 @@ ctest --test-dir build --output-on-failure
   - macOS：用 `macdeployqt` 打包，或设置 `DYLD_LIBRARY_PATH`。
 - `einstein_cli` 与 `einstein_botzone` 不依赖 Qt。若在 Windows 上以 MinGW 动态运行时构建，需保证 `libstdc++-6.dll`、`libgcc_s_seh-1.dll` 可被加载（把工具链的 `bin` 加入 `PATH`，或用 `-static-libgcc -static-libstdc++` 静态链接）；Linux/macOS 通常无需额外处理。
 - 存档写入 `einstein_save.db`（相对路径，见 `storage::kDefaultDbPath`）。GUI 启动时会执行 `QDir::setCurrent(applicationDirPath())`，把工作目录切到可执行文件所在目录，存档因此与之同目录；CLI 不切换工作目录，存档跟随启动目录。两者工作目录相同时才会共用同一份存档。
+- 这是为“课程作业/便携运行”设计的自包含布局：请从**可写目录**运行，不要把程序安装到 `Program Files` 等只读位置；否则 SQLite 无法创建 `einstein_save.db`，保存会失败。
+- **同一时间只允许一个窗口/进程操作存档库**。代码没有加 `busy_timeout` 去等待并发写锁：同时打开多个 GUI/CLI 属于异常操作，应当立即报错而不是静默等待。
 
 ### GUI 版本 (推荐)
 
 1. 启动 `./build/bin/einstein_gui`（Windows 下为 `einstein_gui.exe`）。
 2. 点击“开始新游戏”，在弹窗中选择阵营（红方先手）与电脑强度（默认最新版），再点击格子循环切换 1~6 号棋子完成布阵。
 3. 掷骰后，可选棋子会以绿色虚线框标出；点击选中后边框变为金色实线，同时显示所有可达落点。
-4. 对局中可随时点击“保存”，输入存档名后存档；保存成功等提示会以淡入淡出的浮层短暂显示。
+4. 对局中可随时点击“保存”，输入存档名后存档；如果名称已存在，会先弹出覆盖确认（默认“否”），确认后才覆盖。保存成功等提示会以淡入淡出的浮层短暂显示。
 
 ### CLI 版本 (备用)
 
@@ -101,8 +103,8 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 # {"response":{"x0":0,"x1":1,"y0":0,"y1":1}}        ← 由 Expectiminimax 搜索选择，合法落点之一
 ```
 
-- 输入：`requests` 为完整历史，适配层只取最后一条。平台不会给 Bot 下发顶层 `initdata`；本方阵营来自该条 request 的 `color` 字段（0 = 红方先手，1 = 蓝方）。`requests` 缺失或为空、以及 `phase` 为 `layout` 时返回布阵（布阵与颜色无关，按裁判 `region` 顺序落位，与 core 的初始区逐格一致）；`phase` 为 `move` 时，依据 `dice` 与 5×5 `board`（外层行 x、内层列 y，正数红方 1~6、负数蓝方 1~6、0 空格）返回走法；`board` 不足 5×5 时，缺失格按空位处理；其他 `phase` 返回空 `response`。
-- 输出：`response.layout`（6 个编号）或 `response.x0/y0/x1/y1`。请求非法时（JSON 解析失败、`dice` 缺失或不在 1~6、`board` 缺失或类型错误、`color` 不是 0/1、棋子编号越界或重复），stderr 打印 `Bot error: ...`，stdout 输出 `{"response":{}}`，进程退出码仍为 0。
+- 输入：`requests` 必须是数组，且每个元素都是对象；适配层只取最后一条。平台不会给 Bot 下发顶层 `initdata`；本方阵营来自该条 request 的 `color` 字段（0 = 红方先手，1 = 蓝方）。`requests` 缺失或为空、以及 `phase` 为 `layout` 时返回布阵（布阵与颜色无关，按裁判 `region` 顺序落位，与 core 的初始区逐格一致）；`phase` 为 `move` 时，依据 `dice` 与严格 5×5 的整数 `board`（外层行 x、内层列 y，正数红方 1~6、负数蓝方 1~6、0 空格）返回走法；缺行、缺列、非整数或越界都会被拒绝，不会再把残缺棋盘按空位补全；其他 `phase` 返回空 `response`。
+- 输出：`response.layout`（6 个编号）或 `response.x0/y0/x1/y1`。请求非法时（JSON 解析失败、`requests`/`phase` 类型错误、`dice` 缺失或不在 1~6、`board` 缺失或不是严格 5×5 整数矩阵、`color` 不是 0/1、棋子编号越界或重复），stderr 打印 `Bot protocol error: ...`；AI 内部异常打印 `Bot internal error: ...`。两种情况 stdout 都输出 `{"response":{}}`，进程退出码仍为 0。
 
 ## 📂 项目结构
 
@@ -145,8 +147,8 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 ## ⚠️ 当前限制
 
 - **AI 提供两档强度**：公共接口用 `ai::Level` 选择版本，`ai::kDefaultLevel` 当前指向最新版 `Level::kSearch`，因此 `ai::decide_move(state)` 就是搜索版。`Level::kRandom` 复用第一版随机基线（在合法着法中均匀随机），用于最低难度或对照；显式指定时写作 `ai::decide_move(state, ai::Level::kRandom)`。搜索版使用固定深度的 Expectiminimax（默认 4 回合），叶节点用 46656 个单方竞速状态预计算出的到达时间分布合成胜率，**不设材料价值项**——吃对方子、送己方子都只通过竞速分布影响胜率；不含 alpha-beta、置换表与时间预算。同分时先按“走完后离终点更近”过滤，再优先斜向，最后才随机，避免无进展的轴向着法。`decide_layout()` 两版共用同一套随机打乱，因此不接受 Level。GUI 的布阵对话框与 CLI 的开新局流程都会让玩家选择档位（默认最新版）；选中的档位随存档写入 SQLite，读档时原样恢复，因此同一局无论读多少次、中途开过什么强度的新局，电脑强度都保持一致；旧存档没有档位字段，按 `kDefaultLevel`（最新版）恢复。Botzone 不接 UI，始终调用无版本参数的接口，即固定使用最新版。
-- **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证，也没有 CI，`-Werror` 下其他编译器的告警差异可能带来额外修改。
-- **测试覆盖仍有限**：默认构建注册 14 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（选子、走法、胜负、布阵与对局生命周期）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`botzone_protocol`（协议库的布阵/走子/非法输入）、`save_level`（存档档位往返、旧档兼容与损坏拒绝）、`storage_roundtrip`（局面完整往返与语义校验）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`gui_dialogs`（布阵与存档对话框）、`cli_eof`（EOF 处理）、`cli_exit`（退出菜单）、`cli_session`（菜单交互与中途 EOF）。`-DEINSTEIN_BUILD_GUI=OFF` 时四个 GUI 用例不注册，其余 10 个仍可运行；GUI 的完整分支仍未全部覆盖。
+- **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证；CI 目前也只覆盖 Windows + MSYS2 UCRT64，`-Werror` 下其他编译器的告警差异可能带来额外修改。
+- **测试覆盖仍有限**：默认构建注册 17 个用例——`board_geometry`（棋盘几何）、`ai_random`（AI 随机下限）、`core_rules`（选子、走法、胜负、布阵与对局生命周期）、`ai_search`（搜索合法性、战术与确定性）、`ai_level`（版本选择、默认最新版与随机版可复现）、`botzone_protocol`（协议库的布阵/走子/严格输入校验）、`save_level`（存档档位往返、旧档兼容与损坏拒绝）、`storage_roundtrip`（局面完整往返与语义校验）、`state_validation`（局面状态校验）、`game_state_guard`（core 状态机守卫）、`gui_reconcile`（GUI 状态收敛与旧定时器不落到新局）、`toast_fade`（Toast 淡入淡出）、`gui_dialogs`（布阵与存档对话框、同名覆盖确认）、`cli_eof`（EOF 处理）、`cli_exit`（退出菜单）、`cli_session`（菜单交互与中途 EOF）、`cli_broken_db`（坏存档库错误边界）。`-DEINSTEIN_BUILD_GUI=OFF` 时四个 GUI 用例不注册，其余 13 个仍可运行；GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
 - **Windows 下 GUI 附带控制台窗口**：`einstein_gui` 未标记 `WIN32` 子系统，启动时会多出一个控制台窗口，不影响功能。
 
