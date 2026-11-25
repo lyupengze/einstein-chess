@@ -179,8 +179,9 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 ├── third_party/
 │   ├── sqlite/           # amalgamation 3.54.1（sqlite3.c 随仓库提供）
 │   └── nlohmann/         # json.hpp 单头文件 3.12.0
-├── CMakeLists.txt        # C++17、统一启用 -Werror，产物输出到 build/bin
-├── LICENSE               # MIT
+├── CMakeLists.txt         # C++17、统一启用 -Werror，产物输出到 build/bin
+├── LICENSE                # MIT
+├── THIRD_PARTY_NOTICES.md # 第三方组件、版本与许可证说明
 └── README.md
 ```
 
@@ -211,7 +212,9 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 本项目以 **MIT License** 发布，完整文本见 [LICENSE](LICENSE)。
 
-第三方组件仍受其原始许可证约束：Qt6 通过动态链接使用（LGPLv3），SQLite amalgamation 为 public domain，nlohmann/json 为 MIT。分发二进制时请保留相应的许可证与版权声明。
+第三方组件的版本、许可证与分发方式详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。当前仓库只分发源码，**不包含 Qt 的源码或二进制**；GUI 在构建时动态链接 Qt6（LGPLv3）。SQLite amalgamation 为 public domain，nlohmann/json 为 MIT。
+
+如果以后发布包含 Qt DLL 的便携包，请按 notices 中的清单附上 LGPLv3/GPLv3 文本与 Qt 版权声明，并保留用户替换 Qt 动态库的能力；仅发布本仓库源码时不需要把 LGPLv3 全文放进仓库。
 
 ## 👥 作者与分工
 
