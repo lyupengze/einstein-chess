@@ -20,7 +20,6 @@
 #include "core/game_state.h"
 #include "core/types.h"
 #include "core/validation.h"
-
 #include "test_support.h"
 
 using test_support::expect;
@@ -198,7 +197,13 @@ int main() {
         state.board = core::Board{};
         // 7 枚红子：1..6 各一枚，再重复一枚 1；坐标必须都在棋盘内。
         constexpr std::array<core::Pos, 7> positions{{
-            {0, 0}, {0, 1}, {0, 2}, {0, 3}, {1, 0}, {1, 1}, {1, 2},
+            {0, 0},
+            {0, 1},
+            {0, 2},
+            {0, 3},
+            {1, 0},
+            {1, 1},
+            {1, 2},
         }};
         for (std::size_t i = 0; i < positions.size(); ++i) {
             const int id = (i < 6) ? static_cast<int>(i + 1) : 1;

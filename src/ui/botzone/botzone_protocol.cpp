@@ -177,9 +177,8 @@ json handle_request(const json& input) {
     // decide_move 的前置检查。
     core::GameState state;
     state.player1_side = core::Side::Red;
-    state.current_side = (resolve_color(latest_req, input) == kBotzoneRedPlayer)
-                             ? core::Side::Red
-                             : core::Side::Blue;
+    state.current_side = (resolve_color(latest_req, input) == kBotzoneRedPlayer) ? core::Side::Red
+                                                                                 : core::Side::Blue;
     state.phase = core::Phase::Player1Thinking;
 
     // 骰子必须显式给出且为 1~6 的整数；缺失、非整数、越界都按协议错误处理。

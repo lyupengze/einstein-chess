@@ -19,7 +19,6 @@
 #include "core/game_state.h"
 #include "core/rules.h"
 #include "core/types.h"
-
 #include "test_support.h"
 
 using test_support::expect;
@@ -58,8 +57,7 @@ std::vector<core::Move> brute_force_moves(const core::GameState& state) {
                     }
                     const int nx = static_cast<int>(x) + dx;
                     const int ny = static_cast<int>(y) + dy;
-                    const core::Pos to{static_cast<std::size_t>(nx),
-                                       static_cast<std::size_t>(ny)};
+                    const core::Pos to{static_cast<std::size_t>(nx), static_cast<std::size_t>(ny)};
                     if (core::rules::check_move(state, from, to).empty()) {
                         moves.push_back({from, to});
                     }
@@ -74,8 +72,8 @@ core::GameState base_state(core::Side current, int dice) {
     core::GameState state;
     state.player1_side = core::Side::Red;
     state.current_side = current;
-    state.phase = (current == core::Side::Red) ? core::Phase::Player1Thinking
-                                               : core::Phase::Player2Thinking;
+    state.phase =
+        (current == core::Side::Red) ? core::Phase::Player1Thinking : core::Phase::Player2Thinking;
     state.current_dice = dice;
     return state;
 }
@@ -93,11 +91,10 @@ void expect_movegen_matches(const core::GameState& state, std::string_view what)
 }
 
 bool same_state(const core::GameState& a, const core::GameState& b) {
-    return a.board.to_string() == b.board.to_string() &&
-           a.player1_side == b.player1_side && a.current_side == b.current_side &&
-           a.phase == b.phase && a.current_dice == b.current_dice &&
-           a.winner == b.winner && a.player1_ready == b.player1_ready &&
-           a.player2_ready == b.player2_ready;
+    return a.board.to_string() == b.board.to_string() && a.player1_side == b.player1_side &&
+           a.current_side == b.current_side && a.phase == b.phase &&
+           a.current_dice == b.current_dice && a.winner == b.winner &&
+           a.player1_ready == b.player1_ready && a.player2_ready == b.player2_ready;
 }
 
 }  // namespace
@@ -178,8 +175,7 @@ int main() {
         const std::vector<core::Move> moves = core::rules::generate_legal_moves(state);
         expect(!moves.empty(), "settle fixture has legal moves");
         for (const core::Move& move : moves) {
-            const core::GameState expected =
-                core::apply_move_and_settle(state, move.from, move.to);
+            const core::GameState expected = core::apply_move_and_settle(state, move.from, move.to);
             core::Game game;
             game.load_game(state);
             game.make_move(move.from, move.to);
@@ -193,8 +189,7 @@ int main() {
         core::GameState red_win = base_state(core::Side::Red, 1);
         put(red_win, {3, 3}, core::Side::Red, 1);
         put(red_win, {0, 4}, core::Side::Blue, 1);
-        const core::GameState next =
-            core::apply_move_and_settle(red_win, {3, 3}, {4, 4});
+        const core::GameState next = core::apply_move_and_settle(red_win, {3, 3}, {4, 4});
         expect(next.winner == core::Side::Red && next.phase == core::Phase::GameOver &&
                    !next.current_dice,
                "red reaching (4,4) wins and clears dice");
@@ -202,10 +197,8 @@ int main() {
         core::GameState blue_win = base_state(core::Side::Blue, 1);
         put(blue_win, {1, 1}, core::Side::Blue, 1);
         put(blue_win, {0, 4}, core::Side::Red, 1);
-        const core::GameState next_blue =
-            core::apply_move_and_settle(blue_win, {1, 1}, {0, 0});
-        expect(next_blue.winner == core::Side::Blue &&
-                   next_blue.phase == core::Phase::GameOver,
+        const core::GameState next_blue = core::apply_move_and_settle(blue_win, {1, 1}, {0, 0});
+        expect(next_blue.winner == core::Side::Blue && next_blue.phase == core::Phase::GameOver,
                "blue reaching (0,0) wins");
     }
 
@@ -274,13 +267,10 @@ int main() {
                "check_move rejects an out-of-bounds destination");
         expect(core::rules::check_move(state, {4, 4}, {3, 3}) == "起点不是己方棋子",
                "check_move reports the wrong starting side");
-        expect(core::rules::check_move(state, {2, 2}, {3, 2}).empty(),
-               "red forward step is legal");
-        expect(core::rules::check_move(state, {2, 2}, {1, 2}) ==
-                   "红方只能向下、向右、向右下移动",
+        expect(core::rules::check_move(state, {2, 2}, {3, 2}).empty(), "red forward step is legal");
+        expect(core::rules::check_move(state, {2, 2}, {1, 2}) == "红方只能向下、向右、向右下移动",
                "red cannot step backwards");
-        expect(core::rules::check_move(state, {2, 2}, {2, 2}) ==
-                   "红方只能向下、向右、向右下移动",
+        expect(core::rules::check_move(state, {2, 2}, {2, 2}) == "红方只能向下、向右、向右下移动",
                "red cannot stay in place");
     }
     {
@@ -289,8 +279,7 @@ int main() {
         put(state, {0, 0}, core::Side::Red, 1);
         expect(core::rules::check_move(state, {2, 2}, {1, 2}).empty(),
                "blue forward step is legal");
-        expect(core::rules::check_move(state, {2, 2}, {3, 2}) ==
-                   "蓝方只能向上、向左、向左上移动",
+        expect(core::rules::check_move(state, {2, 2}, {3, 2}) == "蓝方只能向上、向左、向左上移动",
                "blue cannot step backwards");
     }
     {
@@ -314,8 +303,7 @@ int main() {
                "pieces on the wrong corners do not win");
         put(state, {4, 4}, core::Side::Red, 1);
         put(state, {0, 4}, core::Side::Blue, 2);
-        expect(core::rules::check_winner(state) == core::Side::Red,
-               "red wins by occupying (4,4)");
+        expect(core::rules::check_winner(state) == core::Side::Red, "red wins by occupying (4,4)");
     }
     {
         core::GameState state = base_state(core::Side::Blue, 1);
@@ -331,9 +319,8 @@ int main() {
         put(state, {0, 0}, core::Side::Red, 1);
         put(state, {4, 4}, core::Side::Blue, 1);
         const core::GameState next = core::apply_move_and_settle(state, {0, 0}, {0, 1});
-        expect(next.current_side == core::Side::Blue &&
-                   next.phase == core::Phase::ThrowingDice && !next.current_dice &&
-                   next.winner == core::Side::None,
+        expect(next.current_side == core::Side::Blue && next.phase == core::Phase::ThrowingDice &&
+                   !next.current_dice && next.winner == core::Side::None,
                "non-winning move switches side, returns to dice, clears dice");
     }
 
@@ -348,9 +335,8 @@ int main() {
 
         core::Board blue;
         blue.setup_custom(core::Side::Blue, {1, 2, 3, 4, 5, 6});
-        expect(blue.at({4, 4}).id == 1 && blue.at({4, 3}).id == 2 &&
-                   blue.at({4, 2}).id == 3 && blue.at({3, 4}).id == 4 &&
-                   blue.at({3, 3}).id == 5 && blue.at({2, 4}).id == 6,
+        expect(blue.at({4, 4}).id == 1 && blue.at({4, 3}).id == 2 && blue.at({4, 2}).id == 3 &&
+                   blue.at({3, 4}).id == 4 && blue.at({3, 3}).id == 5 && blue.at({2, 4}).id == 6,
                "blue layout mirrors the red region order");
 
         core::Board untouched;
@@ -380,15 +366,13 @@ int main() {
         core::Game game;
         game.prepare_new_game(core::Side::Blue);
         core::GameState state = game.get_state();
-        expect(state.phase == core::Phase::LayOut &&
-                   state.player1_side == core::Side::Blue &&
+        expect(state.phase == core::Phase::LayOut && state.player1_side == core::Side::Blue &&
                    state.board.count_pieces(core::Side::Red) == 0,
                "prepare_new_game resets to an empty LayOut state");
 
         game.submit_layout(core::Side::Blue, {1, 2, 3, 4, 5, 6});
         state = game.get_state();
-        expect(state.player1_ready && !state.player2_ready &&
-                   state.phase == core::Phase::LayOut,
+        expect(state.player1_ready && !state.player2_ready && state.phase == core::Phase::LayOut,
                "one submitted layout keeps the game in LayOut");
 
         game.submit_layout(core::Side::Red, {6, 5, 4, 3, 2, 1});

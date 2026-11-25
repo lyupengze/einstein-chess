@@ -18,7 +18,6 @@
 #include "core/types.h"
 #include "storage/save_manager.h"
 #include "storage/sqlite_wrapper.h"
-
 #include "test_support.h"
 
 using test_support::expect;

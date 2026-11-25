@@ -115,19 +115,19 @@ private:
     /// @return 由 core::rules::check_move 逐格试出的结果，含己方棋子所在格
     std::vector<core::Pos> get_reachable_positions(core::Pos from) const;
 
-    core::Game game_;                        ///< 唯一的对局对象，所有规则进出的门
+    core::Game game_;                         ///< 唯一的对局对象，所有规则进出的门
     ai::Level ai_level_ = ai::kDefaultLevel;  ///< 本局电脑强度；开新局/读档时写入，之后不再变
-    bool game_aborted_ = false;              ///< true 时对局因电脑回合异常而中止，禁止继续操作
-    QString abort_reason_;                   ///< 中止原因，仅在 game_aborted_ 为 true 时有效
-    BoardWidget* board_widget_;              ///< 棋盘绘制者，也是 cell_clicked 的来源
-    DiceWidget* dice_widget_;                ///< 骰子点数展示，nullopt 表示未掷
-    QLabel* status_label_;                   ///< 顶部状态文案
-    ToastWidget* toast_;                     ///< 悬浮提示，构造末尾创建并先隐藏
-    QPushButton* roll_btn_;                  ///< 掷骰子，可用性完全由 update_ui() 决定
-    QPushButton* exit_btn_;                  ///< 返回主页，任何时候都可用
-    QPushButton* save_btn_;                  ///< 保存；未开局/中止时禁用，其余时刻可点
-    QListWidget* history_list_;              ///< 走子历史，按发生顺序追加
-    std::optional<core::Pos> selected_pos_;  ///< 人类已选起点；nullopt 表示未选
+    bool game_aborted_ = false;               ///< true 时对局因电脑回合异常而中止，禁止继续操作
+    QString abort_reason_;                    ///< 中止原因，仅在 game_aborted_ 为 true 时有效
+    BoardWidget* board_widget_;               ///< 棋盘绘制者，也是 cell_clicked 的来源
+    DiceWidget* dice_widget_;                 ///< 骰子点数展示，nullopt 表示未掷
+    QLabel* status_label_;                    ///< 顶部状态文案
+    ToastWidget* toast_;                      ///< 悬浮提示，构造末尾创建并先隐藏
+    QPushButton* roll_btn_;                   ///< 掷骰子，可用性完全由 update_ui() 决定
+    QPushButton* exit_btn_;                   ///< 返回主页，任何时候都可用
+    QPushButton* save_btn_;                   ///< 保存；未开局/中止时禁用，其余时刻可点
+    QListWidget* history_list_;               ///< 走子历史，按发生顺序追加
+    std::optional<core::Pos> selected_pos_;   ///< 人类已选起点；nullopt 表示未选
 
     /// 延迟动作全部用成员 QTimer 而不是 QTimer::singleShot：
     /// singleShot 没有句柄，开了新局或读了档也取消不掉，旧回调会落到新局上。

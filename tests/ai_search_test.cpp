@@ -18,7 +18,6 @@
 #include "core/game_state.h"
 #include "core/rules.h"
 #include "core/types.h"
-
 #include "test_support.h"
 
 using test_support::expect;
@@ -29,8 +28,8 @@ core::GameState base_state(core::Side current, int dice) {
     core::GameState state;
     state.player1_side = core::Side::Red;
     state.current_side = current;
-    state.phase = (current == core::Side::Red) ? core::Phase::Player1Thinking
-                                               : core::Phase::Player2Thinking;
+    state.phase =
+        (current == core::Side::Red) ? core::Phase::Player1Thinking : core::Phase::Player2Thinking;
     state.current_dice = dice;
     return state;
 }
@@ -57,8 +56,7 @@ int main() {
         const core::Move move = choose(state, 2);
         const core::Move expected{{3, 3}, {4, 4}};
         expect(move == expected, "AI takes the immediate winning move");
-        expect(core::rules::check_move(state, move.from, move.to).empty(),
-               "winning move is legal");
+        expect(core::rules::check_move(state, move.from, move.to).empty(), "winning move is legal");
     }
 
     // 2. 吃光对方：红方吃掉蓝方最后一枚棋子。
@@ -86,20 +84,17 @@ int main() {
         core::GameState red_fast = base_state(core::Side::Red, 1);
         put(red_fast, {3, 4}, core::Side::Red, 1);   // 红 d1
         put(red_fast, {4, 0}, core::Side::Blue, 1);  // 蓝 d4
-        expect(std::abs(ai::estimate_win_rate(red_fast) - 1.0) < 1e-6,
-               "race: closer side wins");
+        expect(std::abs(ai::estimate_win_rate(red_fast) - 1.0) < 1e-6, "race: closer side wins");
 
         core::GameState red_slow = base_state(core::Side::Red, 1);
         put(red_slow, {1, 4}, core::Side::Red, 1);   // 红 d3
         put(red_slow, {2, 0}, core::Side::Blue, 1);  // 蓝 d2
-        expect(std::abs(ai::estimate_win_rate(red_slow) - 0.0) < 1e-6,
-               "race: farther side loses");
+        expect(std::abs(ai::estimate_win_rate(red_slow) - 0.0) < 1e-6, "race: farther side loses");
 
         core::GameState equal = base_state(core::Side::Red, 1);
         put(equal, {2, 4}, core::Side::Red, 1);   // 红 d2
         put(equal, {2, 0}, core::Side::Blue, 1);  // 蓝 d2
-        expect(std::abs(ai::estimate_win_rate(equal) - 1.0) < 1e-6,
-               "race: first mover wins ties");
+        expect(std::abs(ai::estimate_win_rate(equal) - 1.0) < 1e-6, "race: first mover wins ties");
 
         core::GameState blue_to_move = base_state(core::Side::Blue, 1);
         put(blue_to_move, {3, 4}, core::Side::Red, 1);   // 红 d1
@@ -128,8 +123,7 @@ int main() {
         put(state, {4, 0}, core::Side::Red, 1);
         ai::set_random_seed(123);
         const core::Move move = choose(state, 4);
-        expect(move.to.x == 2 && move.to.y == 2,
-               "equal scores prefer progress then diagonal");
+        expect(move.to.x == 2 && move.to.y == 2, "equal scores prefer progress then diagonal");
     }
 
     // 6. 降级选子：掷 3 且只有 1、6 号，只能从这两个编号出发。

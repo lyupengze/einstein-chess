@@ -31,8 +31,7 @@ inline void spin_events(int milliseconds) {
 /// @return 超时前条件成立返回 true，否则打印 TIMEOUT 并返回 false
 inline bool wait_until(const std::function<bool()>& predicate, int timeout_ms,
                        std::string_view what) {
-    const auto deadline =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     while (true) {
         if (predicate()) {
             return true;
@@ -55,12 +54,10 @@ inline bool wait_until(const std::function<bool()>& predicate, int timeout_ms,
 /// @return 窗口内始终为 false 返回 true；一旦为 true 立即打印并返回 false
 inline bool expect_remains_false(const std::function<bool()>& predicate, int duration_ms,
                                  std::string_view what) {
-    const auto deadline =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(duration_ms);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(duration_ms);
     while (std::chrono::steady_clock::now() < deadline) {
         if (predicate()) {
-            std::cout << "UNEXPECTED: " << what << " happened within " << duration_ms
-                      << " ms\n";
+            std::cout << "UNEXPECTED: " << what << " happened within " << duration_ms << " ms\n";
             return false;
         }
         spin_events(5);

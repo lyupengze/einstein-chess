@@ -16,14 +16,12 @@
 #include <string_view>
 #include <vector>
 
-#include "components/board_widget.h"
-
 #include "ai/ai.h"
+#include "components/board_widget.h"
 #include "core/game.h"
 #include "qt_wait.h"
-#include "views/game_widget.h"
-
 #include "test_support.h"
+#include "views/game_widget.h"
 
 using test_support::expect;
 
@@ -88,9 +86,9 @@ int main(int argc, char** argv) {
         expect(history != nullptr, "game widget exposes its history list");
         widget.load_game_state(thinking, ai::kDefaultLevel);
 
-        expect(test_support::wait_until(
-                   [&] { return history != nullptr && history->count() == 1; }, 3000,
-                   "AI finishes the turn from a loaded Player2Thinking save"),
+        expect(test_support::wait_until([&] { return history != nullptr && history->count() == 1; },
+                                        3000,
+                                        "AI finishes the turn from a loaded Player2Thinking save"),
                "loading a Player2Thinking save lets the AI finish its turn");
         expect(test_support::wait_until(
                    [&] { return any_contains(label_texts(widget), QString::fromUtf8("轮到你了")); },
@@ -120,9 +118,7 @@ int main(int argc, char** argv) {
         widget.load_game_state(thinking, static_cast<ai::Level>(99));
 
         expect(test_support::wait_until(
-                   [&] {
-                       return any_contains(label_texts(widget), QString::fromUtf8("对局异常"));
-                   },
+                   [&] { return any_contains(label_texts(widget), QString::fromUtf8("对局异常")); },
                    3000, "AI failure aborts the game"),
                "AI failure aborts the game instead of forfeiting the turn");
         expect(history != nullptr && history->count() == 0,
@@ -135,9 +131,8 @@ int main(int argc, char** argv) {
 
         // 中止态必须能被下一次读档清除，否则玩家只能重启程序。
         widget.load_game_state(thinking, ai::kDefaultLevel);
-        expect(test_support::wait_until(
-                   [&] { return history != nullptr && history->count() == 1; }, 3000,
-                   "AI finishes a turn after recovering from abort"),
+        expect(test_support::wait_until([&] { return history != nullptr && history->count() == 1; },
+                                        3000, "AI finishes a turn after recovering from abort"),
                "loading a valid save clears the aborted state");
         expect(test_support::wait_until(
                    [&] { return any_contains(label_texts(widget), QString::fromUtf8("轮到你了")); },
@@ -172,9 +167,8 @@ int main(int argc, char** argv) {
                    [&] { return history != nullptr && history->count() > 0; }, 250,
                    "an AI move before the new game's own think delay"),
                "new game cancels the AI action queued by the previous game");
-        expect(test_support::wait_until(
-                   [&] { return history != nullptr && history->count() == 1; }, 3000,
-                   "AI takes its turn in the new game"),
+        expect(test_support::wait_until([&] { return history != nullptr && history->count() == 1; },
+                                        3000, "AI takes its turn in the new game"),
                "AI still takes exactly one turn in the new game");
         // 新局里 AI 只有第一手（红方）该动，之后轮到人类蓝方；再等一个窗口确认没有第二手。
         expect(test_support::expect_remains_false(

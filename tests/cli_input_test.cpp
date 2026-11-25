@@ -4,12 +4,13 @@
 // cli_session 等脚本用例覆盖，这里专门盯住边界值，避免解析规则
 // 在 main_cli.cpp 里被改回去。
 
+#include "cli_input.h"
+
 #include <array>
 #include <limits>
 #include <optional>
 #include <string>
 
-#include "cli_input.h"
 #include "test_support.h"
 
 using test_support::expect;
@@ -23,10 +24,8 @@ void test_parse_seed() {
     const auto normal = cli::parse_seed("42");
     expect(normal.has_value() && *normal == 42U, "parse_seed accepts 42");
 
-    const auto maximum = cli::parse_seed(
-        std::to_string(std::numeric_limits<unsigned int>::max()));
-    expect(maximum.has_value() &&
-               *maximum == std::numeric_limits<unsigned int>::max(),
+    const auto maximum = cli::parse_seed(std::to_string(std::numeric_limits<unsigned int>::max()));
+    expect(maximum.has_value() && *maximum == std::numeric_limits<unsigned int>::max(),
            "parse_seed accepts unsigned int max");
 
     expect(!cli::parse_seed("").has_value(), "parse_seed rejects empty text");
@@ -37,10 +36,8 @@ void test_parse_seed() {
     expect(!cli::parse_seed("1abc").has_value(), "parse_seed rejects trailing chars");
     expect(!cli::parse_seed("abc").has_value(), "parse_seed rejects non-digits");
 
-    const std::string too_large =
-        std::to_string(static_cast<unsigned long long>(
-                           std::numeric_limits<unsigned int>::max()) +
-                       1ULL);
+    const std::string too_large = std::to_string(
+        static_cast<unsigned long long>(std::numeric_limits<unsigned int>::max()) + 1ULL);
     expect(!cli::parse_seed(too_large).has_value(),
            "parse_seed rejects values above unsigned int max");
 }
@@ -51,31 +48,24 @@ void test_parse_int_array_4() {
     expect(values[0] == 0 && values[1] == 2 && values[2] == 1 && values[3] == 2,
            "parse_int_array keeps four values");
 
-    expect(cli::parse_int_array(" 0  2\t1 2 ", values),
-           "parse_int_array accepts extra whitespace");
+    expect(cli::parse_int_array(" 0  2\t1 2 ", values), "parse_int_array accepts extra whitespace");
     expect(cli::parse_int_array("-1 0 0 0", values),
            "parse_int_array lets core reject negative coordinates");
 
-    expect(!cli::parse_int_array("0 2 1", values),
-           "parse_int_array rejects too few ints");
-    expect(!cli::parse_int_array("0 2 1 2 9", values),
-           "parse_int_array rejects trailing token");
-    expect(!cli::parse_int_array("0 2 1 x", values),
-           "parse_int_array rejects non-integer token");
+    expect(!cli::parse_int_array("0 2 1", values), "parse_int_array rejects too few ints");
+    expect(!cli::parse_int_array("0 2 1 2 9", values), "parse_int_array rejects trailing token");
+    expect(!cli::parse_int_array("0 2 1 x", values), "parse_int_array rejects non-integer token");
     expect(!cli::parse_int_array("", values), "parse_int_array rejects empty text");
 }
 
 void test_parse_int_array_6() {
     std::array<int, 6> values{};
-    expect(cli::parse_int_array("1 2 3 4 5 6", values),
-           "parse_int_array accepts six ints");
+    expect(cli::parse_int_array("1 2 3 4 5 6", values), "parse_int_array accepts six ints");
     expect(cli::parse_int_array("1 1 2 3 4 5", values),
            "parse_int_array leaves duplicate detection to setup_custom");
 
-    expect(!cli::parse_int_array("1 2 3 4 5", values),
-           "parse_int_array rejects five ints");
-    expect(!cli::parse_int_array("1 2 3 4 5 6 7", values),
-           "parse_int_array rejects seven ints");
+    expect(!cli::parse_int_array("1 2 3 4 5", values), "parse_int_array rejects five ints");
+    expect(!cli::parse_int_array("1 2 3 4 5 6 7", values), "parse_int_array rejects seven ints");
 }
 
 void test_parse_level_index() {
@@ -85,16 +75,13 @@ void test_parse_level_index() {
     const auto second = cli::parse_level_index(" 2 ", 3);
     expect(second.has_value() && *second == 2, "parse_level_index accepts padded 2");
 
-    expect(!cli::parse_level_index("0", 3).has_value(),
-           "parse_level_index rejects zero");
+    expect(!cli::parse_level_index("0", 3).has_value(), "parse_level_index rejects zero");
     expect(!cli::parse_level_index("4", 3).has_value(),
            "parse_level_index rejects index above count");
     expect(!cli::parse_level_index("1abc", 3).has_value(),
            "parse_level_index rejects trailing chars");
-    expect(!cli::parse_level_index("1 2", 3).has_value(),
-           "parse_level_index rejects extra token");
-    expect(!cli::parse_level_index("", 3).has_value(),
-           "parse_level_index rejects empty text");
+    expect(!cli::parse_level_index("1 2", 3).has_value(), "parse_level_index rejects extra token");
+    expect(!cli::parse_level_index("", 3).has_value(), "parse_level_index rejects empty text");
 }
 
 }  // namespace

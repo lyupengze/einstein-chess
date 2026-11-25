@@ -68,9 +68,7 @@ int main() {
                "prepare_new_game rejects Side::None");
         expect(same_state(game.get_state(), before), "rejected prepare_new_game keeps old state");
 
-        expect(throws_invalid([&] {
-                   game.prepare_new_game(static_cast<core::Side>(99));
-               }),
+        expect(throws_invalid([&] { game.prepare_new_game(static_cast<core::Side>(99)); }),
                "prepare_new_game rejects unknown side");
         expect(same_state(game.get_state(), before),
                "unknown-side prepare_new_game keeps old state");

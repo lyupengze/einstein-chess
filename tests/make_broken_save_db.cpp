@@ -7,10 +7,10 @@
 //
 // 该程序只由 cli_broken_db_test.cmake 调用，不单独注册为 CTest 用例。
 
+#include <sqlite3.h>
+
 #include <iostream>
 #include <string>
-
-#include <sqlite3.h>
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -30,8 +30,8 @@ int main(int argc, char** argv) {
     }
 
     char* error_message = nullptr;
-    const int result = sqlite3_exec(
-        database, "CREATE TABLE saves(x TEXT)", nullptr, nullptr, &error_message);
+    const int result =
+        sqlite3_exec(database, "CREATE TABLE saves(x TEXT)", nullptr, nullptr, &error_message);
     if (result != SQLITE_OK) {
         std::cerr << "无法创建损坏的 saves 表: "
                   << (error_message != nullptr ? error_message : "unknown error") << "\n";

@@ -4,21 +4,20 @@
 // 抽成库之前这些逻辑只能通过“喂一行 JSON 给 exe、再解析 stdout”间接覆盖；
 // 现在可以精确断言返回的 JSON 结构，并复用 core 的合法着法枚举检查 AI 的落点。
 
+#include "botzone_protocol.h"
+
 #include <array>
 #include <cstddef>
 #include <exception>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
 
-#include <nlohmann/json.hpp>
-
 #include "ai/ai.h"
-#include "botzone_protocol.h"
 #include "core/game_state.h"
 #include "core/rules.h"
 #include "core/types.h"
-
 #include "test_support.h"
 
 using json = nlohmann::json;
@@ -239,8 +238,7 @@ int main() {
         const core::GameState state = make_red_state(1);
         const MoveReply reply =
             read_move_reply(botzone::handle_request(make_move_request(state, 1, std::nullopt)));
-        expect(reply.complete && reply.x0 == 0 && reply.y0 == 0,
-               "missing color falls back to red");
+        expect(reply.complete && reply.x0 == 0 && reply.y0 == 0, "missing color falls back to red");
     }
     {
         const core::GameState state = make_blue_state(1);

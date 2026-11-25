@@ -17,8 +17,8 @@
 #include <string>
 #include <vector>
 
-#include "cli_input.h"
 #include "ai/ai.h"
+#include "cli_input.h"
 #include "core/game.h"
 #include "core/game_state.h"
 #include "core/rules.h"
@@ -29,7 +29,9 @@ namespace {
 
 // 读取一整行输入。stdin 到达 EOF（管道读完、Ctrl+D / Ctrl+Z）时返回 false：
 // 调用方必须立刻退出，否则 getline 会持续失败、外层循环拿着空串空转成死循环。
-bool read_line(std::string& line) { return static_cast<bool>(std::getline(std::cin, line)); }
+bool read_line(std::string& line) {
+    return static_cast<bool>(std::getline(std::cin, line));
+}
 
 // 询问存档名并立即保存；直接回车则使用默认名 autosave。
 // level 是本局电脑强度，一并写进存档，读档时原样恢复。
@@ -74,8 +76,8 @@ std::optional<ai::Level> choose_ai_level() {
             return ai::kDefaultLevel;
         }
 
-        const auto index = cli::parse_level_index(
-            level_input, static_cast<int>(ai::kAllLevels.size()));
+        const auto index =
+            cli::parse_level_index(level_input, static_cast<int>(ai::kAllLevels.size()));
         if (index) {
             return ai::kAllLevels[static_cast<std::size_t>(*index - 1)];
         }
@@ -157,11 +159,10 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                 std::array<int, 4> move_values{};
                 if (cli::parse_int_array(move_input, move_values)) {
                     try {
-                        game.make_move(
-                            {static_cast<std::size_t>(move_values[0]),
-                             static_cast<std::size_t>(move_values[1])},
-                            {static_cast<std::size_t>(move_values[2]),
-                             static_cast<std::size_t>(move_values[3])});
+                        game.make_move({static_cast<std::size_t>(move_values[0]),
+                                        static_cast<std::size_t>(move_values[1])},
+                                       {static_cast<std::size_t>(move_values[2]),
+                                        static_cast<std::size_t>(move_values[3])});
                     } catch (const std::exception& e) {
                         std::cout << "移动失败: " << e.what() << "\n\n";
                         continue;
@@ -237,16 +238,14 @@ int main(int argc, char* argv[]) {
         const std::string arg = argv[i];
         if (arg == "--seed") {
             if (i + 1 >= argc) {
-                std::cerr << "--seed 需要一个 0.."
-                          << std::numeric_limits<unsigned int>::max()
+                std::cerr << "--seed 需要一个 0.." << std::numeric_limits<unsigned int>::max()
                           << " 的整数\n";
                 return 2;
             }
             const std::string seed_text = argv[++i];
             const auto seed = cli::parse_seed(seed_text);
             if (!seed) {
-                std::cerr << "--seed 需要一个 0.."
-                          << std::numeric_limits<unsigned int>::max()
+                std::cerr << "--seed 需要一个 0.." << std::numeric_limits<unsigned int>::max()
                           << " 的整数，收到: " << seed_text << "\n";
                 return 2;
             }
@@ -270,8 +269,7 @@ int main(int argc, char* argv[]) {
     // 把即将使用的存档库绝对路径告诉玩家：CLI 默认跟随启动目录，
     // 不打印的话用户很难判断刚才的存档到底落在哪里。
     std::error_code path_error;
-    const std::filesystem::path absolute_db =
-        std::filesystem::absolute(db_path, path_error);
+    const std::filesystem::path absolute_db = std::filesystem::absolute(db_path, path_error);
     const std::string db_display = path_error ? db_path : absolute_db.string();
     std::cout << "存档会保存在: " << db_display << "\n";
 

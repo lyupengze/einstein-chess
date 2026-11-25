@@ -100,8 +100,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     // 若只取 5 个顶点，中间四个点会落在同一条斜线上，实际画成三角形而不是 6 格。
     painter.setBrush(QColor(231, 76, 60, 50));
     QPolygon red_region;
-    red_region << QPoint(offset_x, offset_y)
-               << QPoint(offset_x + 3 * cell_size, offset_y)
+    red_region << QPoint(offset_x, offset_y) << QPoint(offset_x + 3 * cell_size, offset_y)
                << QPoint(offset_x + 3 * cell_size, offset_y + cell_size)
                << QPoint(offset_x + 2 * cell_size, offset_y + cell_size)
                << QPoint(offset_x + 2 * cell_size, offset_y + 2 * cell_size)
@@ -144,7 +143,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
             // 最关键的换算：行号 x 决定屏幕纵坐标，列号 y 决定屏幕横坐标，即按矩阵习惯摆放。
             // 棋子矩形由 piece_rect_at 统一给出，与下面高亮圈使用的是同一份边距。
             const QRect piece_rect = piece_rect_at(offset_x, offset_y, cell_size,
-                                                    static_cast<int>(x), static_cast<int>(y));
+                                                   static_cast<int>(x), static_cast<int>(y));
 
             // 投影：向右下偏移 3 像素的半透明黑圆，先画，大部分随后被实体圆盖住。
             painter.setPen(Qt::NoPen);

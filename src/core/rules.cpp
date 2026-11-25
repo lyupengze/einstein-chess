@@ -53,8 +53,8 @@ std::vector<int> get_selectable_ids(const GameState& state) {
 
     // 选子口径收敛到 selectable_ids_for：同号在场时只动它，否则取
     // 小于点数的最大编号和大于点数的最小编号，两者可以同时存在。
-    const auto ids = selectable_ids_for(
-        dice, [&](int id) { return state.board.has_piece(side, id); });
+    const auto ids =
+        selectable_ids_for(dice, [&](int id) { return state.board.has_piece(side, id); });
     std::vector<int> result;
     for (int id : ids) {
         if (id != -1) {

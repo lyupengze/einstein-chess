@@ -11,7 +11,6 @@
 #include <string_view>
 
 #include "components/board_widget.h"
-
 #include "test_support.h"
 
 using test_support::expect;

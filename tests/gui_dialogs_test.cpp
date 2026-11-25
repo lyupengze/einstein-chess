@@ -25,7 +25,6 @@
 #include <QString>
 #include <QTimer>
 #include <QWidget>
-
 #include <array>
 #include <cstdio>
 #include <string>
@@ -38,9 +37,8 @@
 #include "dialogs/setup_dialog.h"
 #include "qt_wait.h"
 #include "storage/save_manager.h"
-#include "views/game_widget.h"
-
 #include "test_support.h"
+#include "views/game_widget.h"
 
 using test_support::expect;
 
@@ -192,10 +190,8 @@ int main(int argc, char* argv[]) {
         QPushButton* red_first = grid_button_at(grid, 0, 0);
         QPushButton* red_last = grid_button_at(grid, 2, 0);
         QPushButton* inactive = grid_button_at(grid, 2, 2);
-        expect(red_first != nullptr && red_first->text() == "1",
-               "setup red (0,0) shows number 1");
-        expect(red_last != nullptr && red_last->text() == "6",
-               "setup red (2,0) shows number 6");
+        expect(red_first != nullptr && red_first->text() == "1", "setup red (0,0) shows number 1");
+        expect(red_last != nullptr && red_last->text() == "6", "setup red (2,0) shows number 6");
         expect(inactive != nullptr && !inactive->isEnabled() && inactive->text().isEmpty(),
                "setup inactive cells are disabled and empty");
     }
@@ -204,8 +200,7 @@ int main(int argc, char* argv[]) {
     {
         ui::SetupDialog dialog;
         QGridLayout* grid = dialog.findChild<QGridLayout*>();
-        expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 0),
-                                         Q_ARG(int, 0)),
+        expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 0), Q_ARG(int, 0)),
                "setup grid click slot is invokable");
 
         const std::array<int, 6> after_first{2, 2, 3, 4, 5, 6};
@@ -216,8 +211,7 @@ int main(int argc, char* argv[]) {
                "setup clicked button shows the new number");
 
         const std::array<int, 6> before_inactive = dialog.get_layout();
-        expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 2),
-                                         Q_ARG(int, 2)),
+        expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 2), Q_ARG(int, 2)),
                "inactive cell slot can be invoked");
         expect(dialog.get_layout() == before_inactive,
                "setup ignores clicks outside the active region");
@@ -241,11 +235,9 @@ int main(int argc, char* argv[]) {
         QPushButton* red_cell = grid_button_at(grid, 0, 0);
         expect(blue_first != nullptr && blue_first->text() == "1",
                "setup blue (4,4) shows number 1");
-        expect(red_cell != nullptr && !red_cell->isEnabled(),
-               "setup disables the old red region");
+        expect(red_cell != nullptr && !red_cell->isEnabled(), "setup disables the old red region");
 
-        expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 4),
-                                         Q_ARG(int, 4)),
+        expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 4), Q_ARG(int, 4)),
                "blue grid click slot is invokable");
         expect(dialog.get_layout()[0] == 2, "setup blue click cycles 1 to 2");
     }

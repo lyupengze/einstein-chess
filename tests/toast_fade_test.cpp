@@ -17,9 +17,7 @@
 
 using test_support::expect;
 
-namespace {
-
-}  // namespace
+namespace {}  // namespace
 
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
@@ -52,14 +50,12 @@ int main(int argc, char** argv) {
     // 淡出途中再次 show：先等第一次真的开始淡出，再插第二条，
     // 验证新消息把透明度拉回 1，而不是被旧动画继续拉向 0。
     toast.show_message("第一条", 200);
-    expect(test_support::wait_until(
-               [&] { return toast.isVisible() && opacity->opacity() < 0.99; }, 2000,
-               "first toast starts fading out"),
+    expect(test_support::wait_until([&] { return toast.isVisible() && opacity->opacity() < 0.99; },
+                                    2000, "first toast starts fading out"),
            "first toast starts fading out");
     toast.show_message("第二条", 3000);
-    expect(test_support::wait_until(
-               [&] { return toast.isVisible() && opacity->opacity() > 0.99; }, 2000,
-               "re-show fades back to full opacity"),
+    expect(test_support::wait_until([&] { return toast.isVisible() && opacity->opacity() > 0.99; },
+                                    2000, "re-show fades back to full opacity"),
            "re-show during fade-out keeps the toast visible");
     expect(opacity->opacity() > 0.99, "re-show fades back to full opacity");
 

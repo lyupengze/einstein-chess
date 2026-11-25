@@ -21,7 +21,6 @@
 #include "core/types.h"
 #include "storage/save_manager.h"
 #include "storage/sqlite_wrapper.h"
-
 #include "test_support.h"
 
 using test_support::expect;
@@ -189,8 +188,7 @@ int main() {
                "overwritten slot is not duplicated in list_saves");
 
         // 4. 不存在的槽位返回空 optional，而不是抛异常。
-        expect(!manager.load_game("不存在的档位").has_value(),
-               "missing slot returns nullopt");
+        expect(!manager.load_game("不存在的档位").has_value(), "missing slot returns nullopt");
 
         // 5. 保存前也要校验：不能把"能序列化但语义不自洽"的局面写进数据库。
         //    这里复用满盘局面，只把发起方改成 None；若 serialize 没有校验，
@@ -259,18 +257,14 @@ int main() {
 
     {
         storage::SaveManager manager(kDbPath);
-        expect(load_throws(manager, "缺少骰子"),
-               "thinking phase without a dice value is rejected");
+        expect(load_throws(manager, "缺少骰子"), "thinking phase without a dice value is rejected");
         expect(load_throws(manager, "多余骰子"),
                "non-thinking phase with a dice value is rejected");
-        expect(load_throws(manager, "棋盘残缺"),
-               "truncated board data is rejected");
-        expect(load_throws(manager, "思考方错位"),
-               "Player2Thinking on player1 side is rejected");
+        expect(load_throws(manager, "棋盘残缺"), "truncated board data is rejected");
+        expect(load_throws(manager, "思考方错位"), "Player2Thinking on player1 side is rejected");
         expect(load_throws(manager, "当前方缺失"),
                "thinking phase with current_side=None is rejected");
-        expect(load_throws(manager, "终局无胜者"),
-               "GameOver without a winner is rejected");
+        expect(load_throws(manager, "终局无胜者"), "GameOver without a winner is rejected");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。

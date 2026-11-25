@@ -15,7 +15,6 @@
 #include "core/game_state.h"
 #include "core/rules.h"
 #include "core/types.h"
-
 #include "test_support.h"
 
 using test_support::expect;
@@ -55,8 +54,7 @@ int main() {
     const core::GameState state = make_state();
 
     // 1. 默认版本必须是当前最新版（第二版搜索）。
-    expect(ai::kDefaultLevel == ai::Level::kSearch,
-           "default level points at the latest search AI");
+    expect(ai::kDefaultLevel == ai::Level::kSearch, "default level points at the latest search AI");
 
     // 2. 不写版本与显式写默认版本必须走出同一步（固定种子下完全可复现）。
     ai::set_random_seed(2026);

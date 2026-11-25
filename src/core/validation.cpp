@@ -122,8 +122,7 @@ std::vector<StateIssue> validate_state(const GameState& state) {
             }
             break;
         case Phase::Player2Thinking:
-            if (!is_playable_side(state.current_side) ||
-                state.current_side == state.player1_side) {
+            if (!is_playable_side(state.current_side) || state.current_side == state.player1_side) {
                 add_issue(issues, "current_side",
                           "Player2Thinking 阶段必须轮到另一方可实际行棋的阵营");
             }

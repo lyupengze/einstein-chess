@@ -15,10 +15,9 @@
 #ifndef BOTZONE_PROTOCOL_H_
 #define BOTZONE_PROTOCOL_H_
 
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
-
-#include <nlohmann/json.hpp>
 
 namespace botzone {
 
