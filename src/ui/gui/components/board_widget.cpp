@@ -215,6 +215,13 @@ void BoardWidget::paintEvent(QPaintEvent*) {
 }
 
 void BoardWidget::mousePressEvent(QMouseEvent* event) {
+    // 棋盘走子只认左键：右键/中键既不能误触走子，也不能改变当前选中格。
+    // 非左键交还基类，避免吞掉以后可能需要的上下文菜单等事件。
+    if (event->button() != Qt::LeftButton) {
+        QWidget::mousePressEvent(event);
+        return;
+    }
+
     // 屏幕坐标与棋盘坐标刻意分开命名：click_x 是横坐标（对应列），click_y 是纵坐标（对应行）。
     int click_x = event->pos().x();
     int click_y = event->pos().y();

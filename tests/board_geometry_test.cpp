@@ -17,8 +17,10 @@ using test_support::expect;
 
 namespace {
 
-// 发一次左键按下，返回是否产生了 cell_clicked，以及坐标。
-bool click(ui::BoardWidget& widget, int x, int y, core::Pos& out) {
+// 发一次鼠标按下，返回是否产生了 cell_clicked，以及坐标。
+// 默认左键；右键/中键用于验证棋盘只响应左键的回归。
+bool click(ui::BoardWidget& widget, int x, int y, core::Pos& out,
+           Qt::MouseButton button = Qt::LeftButton) {
     bool fired = false;
     const auto connection =
         QObject::connect(&widget, &ui::BoardWidget::cell_clicked, [&](core::Pos pos) {
@@ -27,8 +29,7 @@ bool click(ui::BoardWidget& widget, int x, int y, core::Pos& out) {
         });
 
     const QPointF local(static_cast<double>(x), static_cast<double>(y));
-    QMouseEvent event(QEvent::MouseButtonPress, local, local, Qt::LeftButton, Qt::LeftButton,
-                      Qt::NoModifier);
+    QMouseEvent event(QEvent::MouseButtonPress, local, local, button, button, Qt::NoModifier);
     QApplication::sendEvent(&widget, &event);
 
     QObject::disconnect(connection);
@@ -56,6 +57,12 @@ int main(int argc, char** argv) {
            "right-most board pixel maps to column 4");
     expect(click(widget, 1, 1, pos) && pos.x == 0 && pos.y == 0,
            "top-left board pixel maps to (0,0)");
+
+    // 棋盘走子只响应左键：右键/中键不能误触；随后左键仍能正常工作。
+    expect(!click(widget, 200, 200, pos, Qt::RightButton), "right click is ignored");
+    expect(!click(widget, 200, 200, pos, Qt::MiddleButton), "middle click is ignored");
+    expect(click(widget, 200, 200, pos) && pos.x == 2 && pos.y == 2,
+           "left click still maps to the expected cell");
 
     // 非正方形窗口：留白在左右，判定与网格必须仍然一致。
     widget.resize(500, 402);
