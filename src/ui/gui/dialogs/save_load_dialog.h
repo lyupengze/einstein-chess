@@ -24,12 +24,14 @@ public:
     /// @brief 按模式搭界面并加载已有存档列表。
     /// @param mode 保存还是读取
     /// @param parent 父控件，模态执行时以它为父窗口
+    /// @throws std::runtime_error 数据库无法打开或存档列表查询失败；
+    ///         构造期间就会查库，调用方必须捕获并提示用户
     explicit SaveLoadDialog(DialogMode mode, QWidget* parent = nullptr);
 
     /// @brief 取出输入框里的存档名（已去掉首尾空白）。
-    /// @return Save 模式的存档名；Load 模式没有输入框，调用它没有意义
-    /// @note Load 模式下 name_input_ 不会被创建，也不在初始化列表里置空，
-    ///       误调用会解引用未初始化指针。回调只用 get_selected_name()。
+    /// @return Save 模式的存档名
+    /// @throws std::logic_error 在 Load 模式调用；这是调用方违反契约，
+    ///         不应伪装成合法的空名字
     std::string get_save_name() const;
 
     /// @brief 取出列表里当前选中的存档名。
@@ -41,9 +43,9 @@ private slots:
     void on_confirm_clicked();
 
 private:
-    DialogMode mode_;           ///< 形态标记，所有分支都靠它区分
-    QListWidget* list_widget_;  ///< 已有存档名列表，内容来自 SaveManager::list_saves
-    QLineEdit* name_input_;     ///< 仅 Save 模式创建的名称输入框
+    DialogMode mode_;                  ///< 形态标记，所有分支都靠它区分
+    QListWidget* list_widget_;         ///< 已有存档名列表，内容来自 SaveManager::list_saves
+    QLineEdit* name_input_ = nullptr;  ///< 仅 Save 模式创建的名称输入框
 };
 
 }  // namespace ui

@@ -5,6 +5,7 @@
 #include <QPushButton>
 #include <QString>
 #include <QVBoxLayout>
+#include <stdexcept>
 #include <string>
 
 #include "storage/save_manager.h"
@@ -96,6 +97,11 @@ void SaveLoadDialog::on_confirm_clicked() {
 }
 
 std::string SaveLoadDialog::get_save_name() const {
+    // Load 模式没有名称输入框，调用本方法属于契约违反；抛异常让错误尽早暴露，
+    // 而不是返回空串，把“模式不对”伪装成一个合法的存档名。
+    if (mode_ != DialogMode::Save || name_input_ == nullptr) {
+        throw std::logic_error("SaveLoadDialog::get_save_name() 只能在 Save 模式调用");
+    }
     // 取名字时就地 trim，写库用的就是这份干净的字符串，列表项本身不改。
     return name_input_->text().trimmed().toStdString();
 }

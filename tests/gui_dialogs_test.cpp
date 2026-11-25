@@ -27,6 +27,7 @@
 #include <QWidget>
 #include <array>
 #include <cstdio>
+#include <stdexcept>
 #include <string>
 
 #include "ai/ai.h"
@@ -37,6 +38,7 @@
 #include "dialogs/setup_dialog.h"
 #include "qt_wait.h"
 #include "storage/save_manager.h"
+#include "storage/sqlite_wrapper.h"
 #include "test_support.h"
 #include "views/game_widget.h"
 
@@ -257,6 +259,13 @@ int main(int argc, char* argv[]) {
         QListWidget* list = dialog.findChild<QListWidget*>();
         expect(list != nullptr && list->count() == 0, "load dialog starts with an empty list");
         expect(dialog.get_selected_name().empty(), "load dialog has no selection when empty");
+        bool save_name_threw = false;
+        try {
+            (void)dialog.get_save_name();
+        } catch (const std::logic_error&) {
+            save_name_threw = true;
+        }
+        expect(save_name_threw, "load dialog rejects get_save_name as a contract violation");
         expect(has_label(dialog, QString::fromUtf8("没有任何存档")),
                "load dialog explains an empty database");
     }
@@ -374,6 +383,21 @@ int main(int argc, char* argv[]) {
                "cancelling save restores the pending AI action");
     }
 
+    // 11. 构造即开库：坏 schema 必须把异常抛给调用方，而不是在对话框内部吞掉。
     std::remove(storage::kDefaultDbPath);
+    {
+        storage::Database db(storage::kDefaultDbPath);
+        storage::Statement stmt(db, "CREATE TABLE saves (x TEXT);");
+        stmt.step();
+    }
+    bool constructor_threw = false;
+    try {
+        ui::SaveLoadDialog dialog(ui::DialogMode::Load);
+    } catch (const std::runtime_error&) {
+        constructor_threw = true;
+    }
+    expect(constructor_threw, "save dialog propagates database schema errors");
+    std::remove(storage::kDefaultDbPath);
+
     return test_support::finish();
 }
