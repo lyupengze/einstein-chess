@@ -45,11 +45,11 @@ cmake --build build --parallel 8
 
 `--parallel 8` 的 `8` 只是示例，按机器核数与内存改成 4、2 或更高都可以；不要写成裸 `-j`，GNU Make 会把无参数的 `-j` 解释为不限制并发。
 
-构建完成后可直接启动。需要确认测试环境、Qt6 路径、生成器、Release/Debug 控制台行为或并行度时，见 [构建、测试与环境说明](docs/BUILD.md)。
+构建完成后可直接启动。需要确认测试环境、Qt6 路径、生成器、Release/Debug 控制台行为或并行度时，见 [构建文档](docs/BUILD.md)。
 
 ## 🛠️ 构建与测试
 
-需要 CMake ≥ 3.20 与 C++17 编译器；GUI 还需要 Qt6。完整的依赖说明、Qt6 查找、生成器与构建类型、无 GUI 构建、19 个测试与 CI 配置见 [docs/BUILD.md](docs/BUILD.md)。
+需要 CMake ≥ 3.20 与 C++17 编译器；GUI 还需要 Qt6。完整的依赖说明、Qt6 查找、生成器与构建类型、无 GUI 构建、19 个测试与 CI 配置见 [构建文档](docs/BUILD.md)。
 
 可执行文件统一输出到 `build/bin/`，共三个程序目标：`einstein_gui`、`einstein_cli`、`einstein_botzone`（Windows 下带 `.exe` 后缀）；回归测试的可执行文件也输出到同一目录。
 
@@ -57,7 +57,7 @@ cmake --build build --parallel 8
 
 ### 运行前提
 
-- GUI 依赖 Qt6 运行时，CLI 与 Botzone 不依赖 Qt；Windows 的 Qt/MinGW DLL 部署、Linux/macOS 的动态库路径见 [docs/BUILD.md](docs/BUILD.md) 的“运行环境”一节。
+- GUI 依赖 Qt6 运行时，CLI 与 Botzone 不依赖 Qt；Windows 的 Qt/MinGW DLL 部署、Linux/macOS 的动态库路径见 [构建文档](docs/BUILD.md) 的“运行环境”一节。
 - 存档写入 `einstein_save.db`（相对路径，见 `storage::kDefaultDbPath`）。GUI 启动时会执行 `QDir::setCurrent(applicationDirPath())`，把工作目录切到可执行文件所在目录，存档因此与之同目录；CLI 不切换工作目录，默认存档跟随启动目录。两者工作目录相同时才会共用同一份存档。
 - CLI 启动时会打印实际使用的存档库绝对路径；如果不想依赖启动目录，可以用 `--db <路径>` 显式指定，例如从项目根目录与 GUI 共用存档：
   `./build/bin/einstein_cli --db ./build/bin/einstein_save.db`。
@@ -165,7 +165,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 
 - **AI 提供两档强度**：公共接口用 `ai::Level` 选择版本，`ai::kDefaultLevel` 当前指向最新版 `Level::kSearch`，因此 `ai::decide_move(state)` 就是搜索版。`Level::kRandom` 复用第一版随机基线（在合法着法中均匀随机），用于最低难度或对照；显式指定时写作 `ai::decide_move(state, ai::Level::kRandom)`。搜索版使用固定深度的 Expectiminimax（默认 4 回合），叶节点用 46656 个单方竞速状态预计算出的到达时间分布合成胜率，**不设材料价值项**——吃对方子、送己方子都只通过竞速分布影响胜率；不含 alpha-beta、置换表与时间预算。同分时先按“走完后离终点更近”过滤，再优先斜向，最后才随机，避免无进展的轴向着法。`decide_layout()` 两版共用同一套随机打乱，因此不接受 Level。GUI 的布阵对话框与 CLI 的开新局流程都会让玩家选择档位（默认最新版）；选中的档位随存档写入 SQLite，读档时原样恢复，因此同一局无论读多少次、中途开过什么强度的新局，电脑强度都保持一致；旧存档没有档位字段，按 `kDefaultLevel`（最新版）恢复。Botzone 不接 UI，始终调用无版本参数的接口，即固定使用最新版。
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证；CI 目前也只覆盖 Windows + MSYS2 UCRT64，`-Werror` 下其他编译器的告警差异可能带来额外修改。
-- **测试覆盖仍有限**：默认构建注册 19 个用例，完整清单、标签与无 GUI 数量见 [docs/BUILD.md](docs/BUILD.md) 的“测试”一节；`-DEINSTEIN_BUILD_GUI=OFF` 时 5 个 GUI 用例不注册，其余 14 个仍可运行。GUI 的完整分支仍未全部覆盖。
+- **测试覆盖仍有限**：默认构建注册 19 个用例，完整清单、标签与无 GUI 数量见 [构建文档](docs/BUILD.md) 的“测试”一节；`-DEINSTEIN_BUILD_GUI=OFF` 时 5 个 GUI 用例不注册，其余 14 个仍可运行。GUI 的完整分支仍未全部覆盖。
 - **Toast 是绝对定位的浮层**：位置只在 `show_message()` 时计算一次，父窗口缩放后提示条会停在旧坐标，直到下一次提示；这是有意取舍（提示条短命，不值得为它监听父控件尺寸变化）。
 
 ## 📄 许可证
