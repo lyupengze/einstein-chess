@@ -90,6 +90,8 @@ cmake --build build --parallel 8
 
 完整的请求/响应字段、布阵与走子示例、严格 5×5 棋盘校验，以及 `Bot protocol error` / `Bot internal error` 的处理方式，见 [Botzone 协议文档](docs/BOTZONE.md)。
 
+本地冒烟测试（空 `requests` 会返回随机布阵）：
+
 ```bash
 echo '{"requests":[],"responses":[]}' | ./build/bin/einstein_botzone
 ```
