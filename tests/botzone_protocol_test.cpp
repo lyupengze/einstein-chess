@@ -1,5 +1,5 @@
 // Botzone 协议回归：不启动子进程，直接调用 botzone::handle_request / handle_line，
-// 验证布阵帧、走子帧、颜色兼容回退，以及所有非法输入的拒绝路径。
+// 验证布阵帧、走子帧、严格颜色/整数校验，以及所有非法输入的拒绝路径。
 //
 // 抽成库之前这些逻辑只能通过“喂一行 JSON 给 exe、再解析 stdout”间接覆盖；
 // 现在可以精确断言返回的 JSON 结构，并复用 core 的合法着法枚举检查 AI 的落点。
@@ -233,20 +233,23 @@ int main() {
                "blue move is legal for the decoded board");
     }
 
-    // 6. 请求缺 color 时按红方处理；顶层 initdata.player 是旧兼容入口。
+    // 6. 缺 color 必须拒绝；不再退回红方，也不再看旧 initdata.player。
     {
         const core::GameState state = make_red_state(1);
-        const MoveReply reply =
-            read_move_reply(botzone::handle_request(make_move_request(state, 1, std::nullopt)));
-        expect(reply.complete && reply.x0 == 0 && reply.y0 == 0, "missing color falls back to red");
+        json request = make_move_request(state, 1, std::nullopt);
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
+               "missing color is rejected");
     }
     {
-        const core::GameState state = make_blue_state(1);
+        const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, std::nullopt);
         request["initdata"] = {{"player", 1}};
-        const MoveReply reply = read_move_reply(botzone::handle_request(request));
-        expect(reply.complete && reply.x0 == 4 && reply.y0 == 4,
-               "initdata.player is honored when the request has no color");
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
+               "legacy initdata does not replace a missing color");
     }
 
     // 7. 颜色越界或非整数必须拒绝，不能静默挑一方。
@@ -266,6 +269,25 @@ int main() {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
                "non-integer color is rejected");
+    }
+    {
+        const core::GameState state = make_red_state(1);
+        json request = make_move_request(state, 1, 0);
+        // 2^32 截断成 0 会让请求被误判成红方，必须在转换前拒绝。
+        request["requests"][0]["color"] = 4294967296LL;
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
+               "color above int range is rejected");
+    }
+    {
+        const core::GameState state = make_red_state(1);
+        json request = make_move_request(state, 1, 0);
+        request["requests"][0]["color"] = 4294967297LL;
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
+               "color above int range is not truncated to a valid side");
     }
 
     // 8. 骰子缺失、为 0 或越界都必须拒绝。
@@ -293,6 +315,33 @@ int main() {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
                "out-of-range dice is rejected");
+    }
+    {
+        const core::GameState state = make_red_state(1);
+        json request = make_move_request(state, 1, 0);
+        request["requests"][0]["dice"] = 4294967297LL;
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
+               "dice above int range is rejected instead of truncated");
+    }
+    {
+        const core::GameState state = make_red_state(1);
+        json request = make_move_request(state, 1, 0);
+        request["requests"][0]["dice"] = -1;
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
+               "negative dice is rejected");
+    }
+    {
+        const core::GameState state = make_red_state(1);
+        json request = make_move_request(state, 1, 0);
+        request["requests"][0]["dice"] = 1.5;
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
+               "floating-point dice is rejected");
     }
 
     // 9. 棋盘缺失或不是二维数组必须拒绝。
@@ -464,11 +513,21 @@ int main() {
     }
     {
         json request = make_move_request(board_state, 1, 0);
-        request["requests"][0]["board"][0][0] = 999999999999LL;
+        // 999999999999 截断成非法编号只是“碰巧失败”，这里用 2^32+1：
+        // 截断后会变成合法的红 1 号，必须由严格转换拒绝。
+        request["requests"][0]["board"][0][0] = 4294967297LL;
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "board cell outside int range is rejected");
+               "board cell above int range is not truncated into a valid piece");
+    }
+    {
+        json request = make_move_request(board_state, 1, 0);
+        request["requests"][0]["board"][0][0] = 1.5;
+        expect(throws_protocol_error([&] {
+                   [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
+               }),
+               "floating-point board cell is rejected");
     }
     {
         json request = make_move_request(board_state, 1, 0);

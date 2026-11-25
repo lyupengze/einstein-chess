@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -27,38 +29,54 @@ constexpr int kMaxDice = 6;
 // 棋子编号只有 1~6；超出范围的值不是“强一点的棋子”，而是协议错误。
 constexpr int kMaxPieceId = core::Board::kChessCount;
 
+// 把 JSON 数值严格转换成 int。
+//
+// nlohmann::json::get<int>() 会在 64 位整数超出 int 时静默截断，例如
+// 4294967297 会变成 1，足以让棋子编号/骰子/阵营绕过后续范围检查。
+// 这里先按无符号/有符号 64 位读取，再做一次显式范围检查，确保协议层
+// 不会把一个“外面看起来很大”的值悄悄解释成合法的小整数。
+int checked_json_int(const json& value, std::string_view field_name) {
+    const auto invalid = [field_name]() {
+        return ProtocolError("字段 " + std::string(field_name) + " 必须是 32 位有符号整数");
+    };
+
+    if (value.is_number_unsigned()) {
+        const std::uint64_t raw = value.get<std::uint64_t>();
+        if (raw > static_cast<std::uint64_t>(std::numeric_limits<int>::max())) {
+            throw invalid();
+        }
+        return static_cast<int>(raw);
+    }
+
+    if (value.is_number_integer()) {
+        const std::int64_t raw = value.get<std::int64_t>();
+        if (raw < static_cast<std::int64_t>(std::numeric_limits<int>::min()) ||
+            raw > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+            throw invalid();
+        }
+        return static_cast<int>(raw);
+    }
+
+    throw invalid();
+}
+
 // 校验并返回 0/1 阵营值。非整数或越界都按协议错误抛异常：静默当成某一方
 // 会让整局棋从一开始就走错颜色，反而不如让上层回空 response。
 int check_color(const json& value, std::string_view field_name) {
-    if (!value.is_number_integer()) {
-        throw ProtocolError("Invalid color in " + std::string(field_name));
-    }
-    int color = kNoPiece;
-    try {
-        color = value.get<int>();
-    } catch (const std::exception&) {
-        throw ProtocolError("Invalid color in " + std::string(field_name));
-    }
+    const int color = checked_json_int(value, field_name);
     if (color != kBotzoneRedPlayer && color != kBotzoneBluePlayer) {
         throw ProtocolError("Invalid color in " + std::string(field_name));
     }
     return color;
 }
 
-// 从最新一帧 request 取本方阵营。裁判在每个 request 的 content 里都带
-// color 字段，这是平台上的唯一来源。
-//
-// 顶层 input["initdata"]["player"] 只是早期本地手工用例的写法（平台从不下发
-// 顶层 initdata），保留它仅为兼容旧命令；两者都缺时退回红方，与最早的行为一致。
-int resolve_color(const json& latest_req, const json& input) {
-    if (latest_req.contains("color")) {
-        return check_color(latest_req["color"], "request color");
+// 从最新一帧 request 取本方阵营。裁判在每个 request 里都带 color 字段，
+// 这是平台上的唯一来源；缺字段或类型错误都必须拒绝，不能猜成红方。
+int resolve_color(const json& latest_req) {
+    if (!latest_req.contains("color")) {
+        throw ProtocolError("Missing color");
     }
-    if (input.contains("initdata") && input["initdata"].is_object() &&
-        input["initdata"].contains("player")) {
-        return check_color(input["initdata"]["player"], "initdata.player");
-    }
-    return kBotzoneRedPlayer;
+    return check_color(latest_req["color"], "request color");
 }
 
 // 把平台下发的二维棋盘解码成 core::Board。
@@ -78,16 +96,7 @@ void decode_board(const json& board_json, core::GameState& state) {
 
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
             const json& cell = row[y];
-            if (!cell.is_number_integer()) {
-                throw ProtocolError("Board cells must be integers");
-            }
-
-            int val = kNoPiece;
-            try {
-                val = cell.get<int>();
-            } catch (const std::exception&) {
-                throw ProtocolError("Board cell is out of range");
-            }
+            int val = checked_json_int(cell, "board cell");
 
             // 先做范围检查再取绝对值，避免 INT_MIN 取负溢出。
             if (val < -kMaxPieceId || val > kMaxPieceId) {
@@ -177,7 +186,7 @@ json handle_request(const json& input) {
     // GameState：player1_side 固定写红方（decide_move 并不关心它），
     // current_side 才是真正要决策的一方。phase 必须与当前方一致，不能一律
     // 写成 Player1Thinking，否则蓝方会构造出自相矛盾的思考阶段。
-    const bool is_red = resolve_color(latest_req, input) == kBotzoneRedPlayer;
+    const bool is_red = resolve_color(latest_req) == kBotzoneRedPlayer;
     core::GameState state;
     state.player1_side = core::Side::Red;
     state.current_side = is_red ? core::Side::Red : core::Side::Blue;
@@ -187,15 +196,7 @@ json handle_request(const json& input) {
     if (!latest_req.contains("dice")) {
         throw ProtocolError("Missing dice");
     }
-    if (!latest_req["dice"].is_number_integer()) {
-        throw ProtocolError("dice must be an integer");
-    }
-    int dice = kNoPiece;
-    try {
-        dice = latest_req["dice"].get<int>();
-    } catch (const std::exception&) {
-        throw ProtocolError("dice is out of range");
-    }
+    int dice = checked_json_int(latest_req["dice"], "dice");
     if (dice < kMinDice || dice > kMaxDice) {
         throw ProtocolError("dice must be between 1 and 6");
     }
