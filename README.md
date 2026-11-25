@@ -105,7 +105,8 @@ echo '{"requests":[],"responses":[]}' | ./build/bin/einstein_botzone
 │   └── workflows/ci.yml  # Windows 完整/无 GUI 构建测试 + clang-format 检查
 ├── docs/
 │   ├── BUILD.md          # 环境依赖、构建、测试与 CI 完整说明
-│   └── BOTZONE.md        # Botzone 协议、示例与错误处理
+│   ├── BOTZONE.md        # Botzone 协议、示例与错误处理
+│   └── DESIGN.md         # 设计取舍、代价与何时重新考虑
 ├── src/
 │   ├── core/             # 核心规则（纯 C++，零外部依赖）
 │   │   ├── types.h           # Pos / Side / Piece
@@ -149,6 +150,8 @@ echo '{"requests":[],"responses":[]}' | ./build/bin/einstein_botzone
 各库通过 `target_include_directories(... PUBLIC ..)` 将 `src/` 暴露为公共头文件目录，因此跨模块 include 统一写作 `core/game.h`、`ai/ai.h` 这类限定路径。顶层另定义 INTERFACE 目标 `einstein_warnings`（`-Wall -Wextra -Wpedantic -Wshadow -Werror`），`src/` 下的每个目标都必须链接它。
 
 ## ⚠️ 当前限制
+
+以下只列会影响使用的边界；完整的设计取舍、代价与“何时重新考虑”见 [设计取舍](docs/DESIGN.md)。
 
 - **AI 提供两档强度**：公共接口用 `ai::Level` 选择版本，`ai::kDefaultLevel` 当前指向最新版 `Level::kSearch`，因此 `ai::decide_move(state)` 就是搜索版。`Level::kRandom` 复用第一版随机基线（在合法着法中均匀随机），用于最低难度或对照；显式指定时写作 `ai::decide_move(state, ai::Level::kRandom)`。搜索版使用固定深度的 Expectiminimax（默认 4 回合），叶节点用 46656 个单方竞速状态预计算出的到达时间分布合成胜率，**不设材料价值项**——吃对方子、送己方子都只通过竞速分布影响胜率；不含 alpha-beta、置换表与时间预算。同分时先按“走完后离终点更近”过滤，再优先斜向，最后才随机，避免无进展的轴向着法。`decide_layout()` 两版共用同一套随机打乱，因此不接受 Level。GUI 的布阵对话框与 CLI 的开新局流程都会让玩家选择档位（默认最新版）；选中的档位随存档写入 SQLite，读档时原样恢复，因此同一局无论读多少次、中途开过什么强度的新局，电脑强度都保持一致；旧存档没有档位字段，按 `kDefaultLevel`（最新版）恢复。Botzone 不接 UI，始终调用无版本参数的接口，即固定使用最新版。
 - **验证平台单一**：源码可移植，但构建与运行只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，Linux 与 macOS 未经构建验证；CI 目前也只覆盖 Windows + MSYS2 UCRT64，`-Werror` 下其他编译器的告警差异可能带来额外修改。
