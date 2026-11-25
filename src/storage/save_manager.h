@@ -46,7 +46,7 @@ public:
     /// @note 旧存档缺少 AI 档位字段时，按 kDefaultLevel 恢复，不会拒绝读取。
     [[nodiscard]] std::optional<SavedGame> load_game(const std::string& slot_name);
 
-    /// 列出全部存档名，按保存时间从新到旧。
+    /// 列出全部存档名，按保存时间从新到旧；同一秒按名称升序。
     [[nodiscard]] std::vector<std::string> list_saves();
 
 private:

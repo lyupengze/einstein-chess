@@ -186,9 +186,9 @@ std::optional<SavedGame> SaveManager::load_game(const std::string& slot_name) {
 }
 
 std::vector<std::string> SaveManager::list_saves() {
-    // 按保存时间从新到旧。DATETIME 精度到秒，
-    // 同一秒内保存的多个槽位之间顺序不保证。
-    Statement stmt(db_, "SELECT name FROM saves ORDER BY timestamp DESC;");
+    // 按保存时间从新到旧。DATETIME 精度到秒；同一秒内用名称升序做稳定的
+    // 次级排序键，避免 SQLite 扫描顺序让列表每次打开都不同。
+    Statement stmt(db_, "SELECT name FROM saves ORDER BY timestamp DESC, name ASC;");
     std::vector<std::string> names;
     while (stmt.step()) {
         names.push_back(stmt.column_text(0));

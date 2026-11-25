@@ -29,6 +29,8 @@ namespace {
 
 /// 测试专用临时数据库；工作目录由 CTest 固定到 build/tests/storage_roundtrip。
 constexpr const char* kDbPath = "test_storage_roundtrip.db";
+/// 专门验证同一秒存档排序的临时数据库，避免污染主夹具。
+constexpr const char* kSortDbPath = "test_storage_roundtrip_sort.db";
 
 /// @brief 逐字段比较两个局面，包括 5x5 棋盘的每一格。
 /// @note current_dice 是 optional，直接比较即可同时覆盖“有骰子/无骰子”。
@@ -269,6 +271,27 @@ int main() {
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。
     std::remove(kDbPath);
+
+    // 8. 同一秒保存多个槽位时，名称必须作为稳定的次级排序键。
+    std::remove(kSortDbPath);
+    {
+        storage::SaveManager manager(kSortDbPath);
+        const core::GameState state = make_full_state();
+        manager.save_game("beta", state, ai::kDefaultLevel);
+        manager.save_game("alpha", state, ai::kDefaultLevel);
+    }
+    {
+        storage::Database db(kSortDbPath);
+        storage::Statement stmt(db, "UPDATE saves SET timestamp = '2026-01-01 00:00:00';");
+        stmt.step();
+    }
+    {
+        storage::SaveManager manager(kSortDbPath);
+        const auto names = manager.list_saves();
+        expect(names.size() == 2 && names[0] == "alpha" && names[1] == "beta",
+               "same-second saves are ordered by name");
+    }
+    std::remove(kSortDbPath);
 
     return test_support::finish();
 }
