@@ -9,7 +9,7 @@
 [![CMake](https://img.shields.io/badge/CMake-3.20+-red.svg?style=flat-square&logo=cmake)](https://cmake.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![CI](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml)
-[![Platform: Windows tested](https://img.shields.io/badge/Platform-Windows%20tested-lightgrey.svg?style=flat-square)](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml)
+[![Tested on Windows](https://img.shields.io/badge/Tested%20on-Windows-lightgrey.svg?style=flat-square)](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml)
 
 **基于 C++17 与 Qt6 的 5×5 爱因斯坦棋人机对弈程序**
 
@@ -35,8 +35,8 @@
 ```bash
 # 配置
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-# 构建
-cmake --build build -j
+# 构建（8 为示例，按 CPU 核数和内存调整）
+cmake --build build --parallel 8
 # 运行 19 个回归测试
 ctest --test-dir build --output-on-failure
 # 启动 GUI
@@ -45,14 +45,9 @@ ctest --test-dir build --output-on-failure
 ./build/bin/einstein_cli
 ```
 
-没有 Qt6、只需要 CLI 或 Botzone 时，配置阶段加 `-DEINSTEIN_BUILD_GUI=OFF`：
+`--parallel 8` 的 `8` 只是示例，按机器核数与内存改成 4、2 或更高都可以；不要写成裸 `-j`，GNU Make 会把无参数的 `-j` 解释为不限制并发。
 
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DEINSTEIN_BUILD_GUI=OFF
-cmake --build build -j
-```
-
-Qt6 不在默认搜索路径时，用 `-DCMAKE_PREFIX_PATH=<Qt6 安装前缀>` 指定；更细的生成器、Qt 路径与排错说明见下方“环境依赖与编译说明”。
+没有 Qt6、只需要 CLI 或 Botzone，或者需要指定 Qt6 路径时，见下方“环境依赖与编译说明”中的完整配置方式。
 
 ## 🛠️ 环境依赖与编译说明
 
@@ -63,15 +58,15 @@ Qt6 不在默认搜索路径时，用 `-DCMAKE_PREFIX_PATH=<Qt6 安装前缀>` �
   - `SQLite3`：已集成 amalgamation 源码（3.54.1），无需外部安装
   - `nlohmann/json`：单头文件（3.12.0），已内置，仅 Botzone 适配层使用
 
-**平台支持**：core、AI、storage、CLI 与 Botzone 都是可移植的 C++17 代码；唯一的平台分支在 CLI 启动时把 Windows 控制台切到 UTF-8 代码页（`src/ui/cli/main_cli.cpp` 中的 `#ifdef _WIN32`，使用 `SetConsoleOutputCP` / `SetConsoleCP`）。GUI 依赖 Qt6。SQLite 与 JSON 均为可移植的 amalgamation/单头文件源码，因此工程在源码层面不排斥 Linux、macOS 或 MSVC，任何满足 C++17 的编译器与 Qt6 环境都可尝试构建。需要说明的是，当前仓库只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，其他平台尚未验证；GitHub Actions 也只在同一环境上跑完整与无 GUI 两套构建。
+**平台支持**：core、AI、storage、CLI 与 Botzone 都是可移植的 C++17 代码；唯一的平台分支在 CLI 启动时把 Windows 控制台切到 UTF-8 代码页（`src/ui/cli/main_cli.cpp` 中的 `#ifdef _WIN32`，使用 `SetConsoleOutputCP` / `SetConsoleCP`）。GUI 依赖 Qt6。SQLite 与 JSON 均为可移植的 amalgamation/单头文件源码，因此工程在源码层面不排斥 Linux、macOS 或 MSVC，任何满足 C++17 的编译器与 Qt6 环境都可尝试构建。需要说明的是，当前仓库只在 Windows + MSYS2 UCRT64（GCC 16.2.0 / Qt 6.11.2）上实测过，其他平台尚未验证；GitHub Actions 也只在同一环境上跑完整与无 GUI 两套构建，并额外跑 clang-format 检查。
 
 ### 编译方法
 
 ```bash
 # 1. 配置（单配置生成器用 -DCMAKE_BUILD_TYPE；VS / Xcode 等多配置生成器改用 --config）
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-# 2. 构建
-cmake --build build -j
+# 2. 构建（并发数按机器核数/内存调整）
+cmake --build build --parallel 8
 # 3. 运行回归测试（可选，测试目标默认随构建一起编译）
 ctest --test-dir build --output-on-failure
 ```
@@ -81,6 +76,8 @@ ctest --test-dir build --output-on-failure
 > ```bash
 > cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DEINSTEIN_BUILD_GUI=OFF
 > ```
+>
+> 配好后仍用上面的 `cmake --build` 与 `ctest` 命令构建、测试。
 
 > 可执行文件统一输出到 `build/bin/`，共三个可执行程序目标：`einstein_gui`、`einstein_cli`、`einstein_botzone`（Windows 下带 `.exe` 后缀）；回归测试的可执行文件也输出到同一目录。
 
