@@ -13,6 +13,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "ai/ai.h"
 #include "core/game.h"
@@ -112,7 +113,15 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                     return;  // 放弃本局，回到主菜单
                 }
 
-                game.roll_dice();
+                try {
+                    game.roll_dice();
+                } catch (const std::exception& e) {
+                    // 正常流程不应走到这里；一旦阶段/行棋方异常，继续同一局只会
+                    // 反复失败，因此直接中止本局回主菜单，让玩家重新开局或读档。
+                    std::cout << "掷骰失败: " << e.what() << "\n";
+                    std::cout << "本局已中止，返回主菜单。\n";
+                    return;
+                }
                 // roll_dice 成功返回后 current_dice 必定有值，可以安全解引用。
                 std::cout << "你掷出了: " << *game.get_state().current_dice << "\n";
             }
@@ -161,21 +170,30 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                 break;  // 走子成功，结束输入循环
             }
         } else {
-            // AI 回合：补上掷骰这一步，与人类回合保持相同的阶段流转。
-            if (game.get_state().phase == core::Phase::ThrowingDice) {
-                game.roll_dice();
+            // AI 回合：掷骰、搜索、落子都在同一段异常边界内。任何一步失败都
+            // 不再“判为放弃”继续对局，而是中止本局回主菜单，避免在可疑状态上
+            // 继续操作；Game 的失败路径都保证原状态不被部分修改。
+            try {
+                // 补上掷骰这一步，与人类回合保持相同的阶段流转。
+                if (game.get_state().phase == core::Phase::ThrowingDice) {
+                    game.roll_dice();
+                }
+
+                // make_move 结束时会把 current_dice 复位为空 optional，所以必须在走子
+                // 之前先把点数存到局部变量；走子之后再解引用 *current_dice 是未定义行为
+                // （Release 下只是恰好能从残留存储里读到旧点数，看起来“正常”）。
+                const int ai_dice = game.get_state().current_dice.value_or(0);
+
+                core::Move move = ai::decide_move(game.get_state(), ai_level);
+                game.make_move(move.from, move.to);
+
+                std::cout << "电脑掷出了: " << ai_dice << "，从 (" << move.from.x << ","
+                          << move.from.y << ") 走到了 (" << move.to.x << "," << move.to.y << ")\n";
+            } catch (const std::exception& e) {
+                std::cout << "电脑回合失败: " << e.what() << "\n";
+                std::cout << "本局已中止，返回主菜单。\n";
+                return;
             }
-
-            // make_move 结束时会把 current_dice 复位为空 optional，所以必须在走子
-            // 之前先把点数存到局部变量；走子之后再解引用 *current_dice 是未定义行为
-            // （Release 下只是恰好能从残留存储里读到旧点数，看起来“正常”）。
-            const int ai_dice = game.get_state().current_dice.value_or(0);
-
-            core::Move move = ai::decide_move(game.get_state(), ai_level);
-            game.make_move(move.from, move.to);
-
-            std::cout << "电脑掷出了: " << ai_dice << "，从 (" << move.from.x << ","
-                      << move.from.y << ") 走到了 (" << move.to.x << "," << move.to.y << ")\n";
 
             // 停一下，让玩家看清 AI 这一手再进入下一轮。
             std::cout << "按回车继续...";
@@ -261,7 +279,15 @@ int main(int argc, char* argv[]) {
         // 无论走"读档"还是"新局"，后续逻辑都只操作这个实例。
         core::Game game;
         if (choice_str == "2") {
-            auto saves = save_manager->list_saves();
+            // 列存档只依赖数据库；表结构损坏、被锁或 IO 失败都不应终止进程，
+            // 打印原因后回到主菜单，玩家仍可开新局或退出。
+            std::vector<std::string> saves;
+            try {
+                saves = save_manager->list_saves();
+            } catch (const std::exception& e) {
+                std::cout << "读取存档列表失败: " << e.what() << "\n\n";
+                continue;
+            }
             if (saves.empty()) {
                 std::cout << "没有找到任何存档！\n";
                 continue;

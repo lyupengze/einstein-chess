@@ -169,3 +169,21 @@ add_test(NAME cli_session
 )
 set_tests_properties(cli_session PROPERTIES
                      TIMEOUT 30 LABELS cli WORKING_DIRECTORY ${CLI_SESSION_WORK_DIR})
+
+# CLI 异常边界：先生成一个 saves 表结构损坏的数据库，再让 CLI 选择“读档”。
+# 辅助程序只负责造库，不注册为独立用例；它直接链接 sqlite3，避免 SaveManager
+# 在构造时把表修好。
+add_executable(make_broken_save_db make_broken_save_db.cpp)
+target_link_libraries(make_broken_save_db PRIVATE sqlite3 einstein_warnings)
+set(CLI_BROKEN_DB_WORK_DIR ${CMAKE_CURRENT_BINARY_DIR}/cli_broken_db)
+file(MAKE_DIRECTORY ${CLI_BROKEN_DB_WORK_DIR})
+add_test(NAME cli_broken_db
+         COMMAND ${CMAKE_COMMAND}
+                 -DEXE=$<TARGET_FILE:einstein_cli>
+                 -DHELPER=$<TARGET_FILE:make_broken_save_db>
+                 -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/data/cli_broken_db_input.txt
+                 -DWORKDIR=${CLI_BROKEN_DB_WORK_DIR}
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cli_broken_db_test.cmake
+)
+set_tests_properties(cli_broken_db PROPERTIES
+                     TIMEOUT 30 LABELS cli WORKING_DIRECTORY ${CLI_BROKEN_DB_WORK_DIR})
