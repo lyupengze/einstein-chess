@@ -33,6 +33,8 @@ endif()
 # 可执行目标最后加入，其中 GUI 由 EINSTEIN_BUILD_GUI 控制。
 add_subdirectory(src/core)
 add_subdirectory(src/ai)
+# AI 基准只依赖 core/ai，随正常构建编译以保持接口有效，但不注册为 CTest。
+add_subdirectory(benchmarks)
 add_subdirectory(src/storage)
 
 add_subdirectory(src/ui/cli)

@@ -112,6 +112,7 @@ echo '{"requests":[],"responses":[]}' | ./build/bin/einstein_botzone
 ├── docs/
 │   ├── BUILD.md          # 环境依赖、构建、测试与 CI 完整说明
 │   ├── BOTZONE.md        # Botzone 协议、示例与错误处理
+│   ├── BENCHMARK.md      # AI 单步延迟与随机基线胜率
 │   ├── DESIGN.md         # 设计取舍、代价与何时重新考虑
 │   └── images/           # README 界面预览截图
 ├── src/
@@ -132,6 +133,7 @@ echo '{"requests":[],"responses":[]}' | ./build/bin/einstein_botzone
 │   ├── CMakeLists.txt
 │   ├── data/                 # CLI/EOF 等固定输入
 │   └── *_test.cpp / *.cmake  # 19 个用例，默认随构建一起编译
+├── benchmarks/           # AI 单步延迟与随机基线胜率基准，不注册 CTest
 ├── third_party/
 │   ├── sqlite/           # amalgamation 3.54.1（sqlite3.c 随仓库提供）
 │   └── nlohmann/         # json.hpp 单头文件 3.12.0
@@ -153,8 +155,13 @@ echo '{"requests":[],"responses":[]}' | ./build/bin/einstein_botzone
 | `einstein_gui`     | 可执行 | `einstein_gui_lib`、`Qt6::Widgets`、`resources.qrc`（仅 `EINSTEIN_BUILD_GUI=ON`） |
 | `einstein_botzone_protocol` | 静态库 | core、ai + `nlohmann/json`；协议解析与响应组装，供 exe 与测试共享 |
 | `einstein_botzone` | 可执行 | `einstein_botzone_protocol`（不接存档，保持无状态）           |
+| `einstein_benchmark` | 可执行 | core、ai；手动运行的单步延迟与随机基线基准，不注册 CTest |
 
 各库通过 `target_include_directories(... PUBLIC ..)` 将 `src/` 暴露为公共头文件目录，因此跨模块 include 统一写作 `core/game.h`、`ai/ai.h` 这类限定路径。顶层另定义 INTERFACE 目标 `einstein_warnings`（`-Wall -Wextra -Wpedantic -Wshadow -Werror`），`src/` 下的每个目标都必须链接它。
+
+### AI 性能基准
+
+搜索版（深度 4、Release、`-O2`）在本机 i9-14900HX 上的单步中位数：残局约 0.8 ms，常规开局/中局约 8 ms，分支最多的降级选子约 24 ms，最坏 p95 约 28.7 ms；对随机基线 40 局胜 38 局（95%）。完整环境、测量方法与局限见 [AI 性能基准](docs/BENCHMARK.md)。`einstein_benchmark` 随正常构建编译，但不注册 CTest，避免把计时噪声带进 CI。
 
 ## ⚠️ 当前限制
 
