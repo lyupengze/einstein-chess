@@ -1,13 +1,13 @@
-#include "menu_widget.h"
-
-#include <QLabel>
-#include <QVBoxLayout>
-
 /// @file src/ui/gui/views/menu_widget.cpp
 /// @brief 搭主菜单页：标题、两个入口按钮与页脚版本号。
 ///
 /// 纯界面搭建，没有状态机也不持有对局数据；背景渐变用 "#menuBackground" 限定在本页，
 /// 按钮尺寸与页脚留白就地写死，style.qss 加载失败时版式也不会塌。
+
+#include "menu_widget.h"
+
+#include <QLabel>
+#include <QVBoxLayout>
 
 namespace gui {
 

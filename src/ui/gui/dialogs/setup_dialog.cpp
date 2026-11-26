@@ -1,3 +1,10 @@
+/// @file src/ui/gui/dialogs/setup_dialog.cpp
+/// @brief 布阵对话框的界面搭建与三角区坐标换算。
+///
+/// 三个坐标查询函数是核心：三角区坐标表必须与 Board::setup_custom 的
+/// kRedPos / kBluePos 逐项一致，get_index_in_region 返回的下标就是 layout 的下标，
+/// 错一位就会把编号摆到别的格子上。点击只在 (v % 6) + 1 上循环，重复编号留到确认时校验。
+
 #include "setup_dialog.h"
 
 #include <QGridLayout>
@@ -6,13 +13,6 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <array>
-
-/// @file src/ui/gui/dialogs/setup_dialog.cpp
-/// @brief 布阵对话框的界面搭建与三角区坐标换算。
-///
-/// 三个坐标查询函数是核心：三角区坐标表必须与 Board::setup_custom 的
-/// kRedPos / kBluePos 逐项一致，get_index_in_region 返回的下标就是 layout 的下标，
-/// 错一位就会把编号摆到别的格子上。点击只在 (v % 6) + 1 上循环，重复编号留到确认时校验。
 
 namespace gui {
 
