@@ -251,6 +251,26 @@ int main() {
         return cells;
     }();
 
+    //    棋盘格写成溢出 32 位的整数：必须按损坏拒绝，不能截断、也不能当成缺失。
+    const std::string overflow_cell_board = [] {
+        const int cell_count = static_cast<int>(core::Board::kSize * core::Board::kSize);
+        std::string cells = "99999999999999999999 ";
+        for (int i = 1; i < cell_count; ++i) {
+            cells += "0 ";
+        }
+        return cells;
+    }();
+
+    //    棋盘格把空格写成 -0：值与 0 相同，但写入端只产出 0。
+    const std::string negative_zero_board = [] {
+        const int cell_count = static_cast<int>(core::Board::kSize * core::Board::kSize);
+        std::string cells = "-0 ";
+        for (int i = 1; i < cell_count; ++i) {
+            cells += "0 ";
+        }
+        return cells;
+    }();
+
     //    思考阶段却写 -1（无骰子）。
     write_raw("缺少骰子", "0 0 2 -1 0 1 1 " + empty_board + "1\n");
     //    掷骰阶段却带着点数 3。
@@ -265,6 +285,13 @@ int main() {
     write_raw("终局无胜者", "1 0 4 -1 0 1 1 " + two_piece_board + "1\n");
     //    布阵阶段局面本身合法，但读档后没有可恢复的界面流程，必须在边界拒绝。
     write_raw("布阵阶段", "1 0 0 -1 0 0 1 " + two_piece_board + "1\n");
+    //    整数格式越界：元数据溢出、棋盘格溢出、棋盘格写成 -0、档位写成 -0。
+    write_raw("元数据溢出", "99999999999999999999 1 3 1 0 1 1 " + two_piece_board + "1\n");
+    write_raw("格子溢出", "1 1 3 1 0 1 1 " + overflow_cell_board + "1\n");
+    write_raw("格子负数零", "1 1 3 1 0 1 1 " + negative_zero_board + "1\n");
+    write_raw("档位负数零", "1 1 3 1 0 1 1 " + two_piece_board + "-0\n");
+    //    档位之后还有第三行：数据只有两行，多出来的行按损坏拒绝。
+    write_raw("档位后多出内容", "1 1 3 1 0 1 1 " + two_piece_board + "1\n0\n");
 
     {
         storage::SaveManager manager(kDbPath);
@@ -275,6 +302,11 @@ int main() {
         expect(load_throws(manager, "当前方缺失"), "思考阶段当前方为 None 被拒绝");
         expect(load_throws(manager, "终局无胜者"), "终局缺胜者被拒绝");
         expect(load_throws(manager, "布阵阶段"), "布阵阶段存档被拒绝");
+        expect(load_throws(manager, "元数据溢出"), "元数据溢出 32 位被拒绝");
+        expect(load_throws(manager, "格子溢出"), "棋盘格溢出 32 位被拒绝");
+        expect(load_throws(manager, "格子负数零"), "棋盘格写成 -0 被拒绝");
+        expect(load_throws(manager, "档位负数零"), "档位写成 -0 被拒绝");
+        expect(load_throws(manager, "档位后多出内容"), "档位之后多出内容被拒绝");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。

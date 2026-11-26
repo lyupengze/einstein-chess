@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "core/board.h"
@@ -27,6 +28,49 @@ namespace {
 
 /// @brief “当前无骰子”的占位值；-1 与合法点数 1~6 不重叠。
 constexpr int kNoDice = -1;
+
+/// @brief 整数 token 的解析结果；区分“不是整数”与“溢出 32 位”两种拒绝原因。
+enum class IntParse { Ok, NotInteger, Overflow };
+
+/// @brief 把整段文本解析成 32 位有符号整数，成功时写回 value。
+///
+/// 比 `operator>>` 严格：必须完整消费整段文本，不接受前导 `+`。失败时流状态
+/// 不受影响，调用方可以给出带字段名的错误消息。
+[[nodiscard]] IntParse parse_token(std::string_view token, int& value) {
+    const auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (ec == std::errc::result_out_of_range) {
+        return IntParse::Overflow;
+    }
+    if (ec != std::errc{} || ptr != token.data() + token.size()) {
+        return IntParse::NotInteger;
+    }
+    return IntParse::Ok;
+}
+
+/// @brief 判断 token 是否把 0 写成了负数（`-0`、`-00`）。
+///
+/// 值上等价于 `0`，但写入端只产出 `0`，出现别的写法说明数据被手改过。
+[[nodiscard]] bool is_negative_zero(std::string_view token) {
+    return token.size() > 1 && token.front() == '-' &&
+           token.find_first_not_of('0', 1) == std::string_view::npos;
+}
+
+/// @brief 解析一个整数 token，失败按数据损坏抛出；label 用来定位字段或坐标。
+int parse_checked(const std::string& token, const std::string& label) {
+    if (is_negative_zero(token)) {
+        throw std::runtime_error("反序列化失败: " + label + " 不能写成 -0");
+    }
+    int value{};
+    switch (parse_token(token, value)) {
+        case IntParse::Overflow:
+            throw std::runtime_error("反序列化失败: " + label + " 溢出 32 位整数");
+        case IntParse::NotInteger:
+            throw std::runtime_error("反序列化失败: " + label + " 不是整数");
+        case IntParse::Ok:
+            break;
+    }
+    return value;
+}
 
 // 格式的准确定义见 `docs/SAVE_FORMAT.md`：7 个元数据、25 个棋盘格，最后追加
 // 必填的 AI 档位。枚举按底层整数值写出，dice 无值写 kNoDice，棋盘格正数红、
@@ -74,24 +118,50 @@ constexpr int kNoDice = -1;
 }
 
 // 只负责把文本安全地还原成字段，领域合法性交给 core::validate_state，避免两处漂移；
-// 这里只守住 validate_state 看不到的格式边界：棋盘格范围（防止 -INT_MIN 溢出）、
-// ready 的窄化、档位必填与范围、尾部不能有额外内容。
+// 这里只守住 validate_state 看不到的格式边界：整数 token 的格式（溢出、负数零）、
+// 棋盘格范围（防止 -INT_MIN 溢出）、ready 的窄化、档位必填与范围、尾部不能有额外内容。
 SavedGame deserialize(const std::string& data) {
     std::istringstream iss(data);
     core::GameState state;
 
-    // 第一步：7 个元数据必须全部读到，缺任何一个都视为数据损坏。
-    int p1_side, cur_side, phase, dice, winner, p1_ready, p2_ready;
-    if (!(iss >> p1_side >> cur_side >> phase >> dice >> winner >> p1_ready >> p2_ready)) {
-        throw std::runtime_error("反序列化失败: 元数据缺失或损坏");
+    // 第一步：7 个元数据必须全部落在第一行，且每个都是完整的 32 位整数。按行取
+    // token，缺字段不会吃掉第二行的棋盘格，多出来的字段也能单独报出来。
+    constexpr std::array<const char*, 7> kMetadataNames{
+        "player1_side", "current_side",  "phase",        "dice",
+        "winner",       "player1_ready", "player2_ready"};
+    std::string metadata_line;
+    if (!std::getline(iss, metadata_line)) {
+        throw std::runtime_error("反序列化失败: 缺少元数据行");
     }
+    std::istringstream metadata_stream(metadata_line);
+    std::array<std::string, kMetadataNames.size()> metadata_tokens;
+    for (auto& token : metadata_tokens) {
+        if (!(metadata_stream >> token)) {
+            throw std::runtime_error("反序列化失败: 元数据不足 7 个");
+        }
+    }
+    if (std::string extra; metadata_stream >> extra) {
+        throw std::runtime_error("反序列化失败: 元数据之后还有额外内容");
+    }
+    std::array<int, kMetadataNames.size()> metadata{};
+    for (std::size_t i = 0; i < metadata.size(); ++i) {
+        metadata[i] =
+            parse_checked(metadata_tokens[i], std::string("元数据字段 ") + kMetadataNames[i]);
+    }
+    const int p1_side = metadata[0];
+    const int cur_side = metadata[1];
+    const int phase = metadata[2];
+    const int dice = metadata[3];
+    const int winner = metadata[4];
+    const int p1_ready = metadata[5];
+    const int p2_ready = metadata[6];
 
     constexpr int kMaxChessId = core::Board::kChessCount;
 
     // ready 只接受 0/1。其他整数转 bool 虽然"能转"（非零即真），
     // 但出现这类值本身就说明数据已经损坏。
     if ((p1_ready != 0 && p1_ready != 1) || (p2_ready != 0 && p2_ready != 1)) {
-        throw std::runtime_error("反序列化失败: 非法 ready 状态");
+        throw std::runtime_error("反序列化失败: ready 字段不是 0 或 1");
     }
 
     state.player1_side = static_cast<core::Side>(p1_side);
@@ -110,12 +180,17 @@ SavedGame deserialize(const std::string& data) {
     // 重复编号、非法棋子等语义问题统一由 validate_state 报告。
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
-            int val{};
-            if (!(iss >> val)) {
-                throw std::runtime_error("反序列化失败: 棋盘数据缺失");
+            const std::string label =
+                "棋盘格 (" + std::to_string(x) + ", " + std::to_string(y) + ")";
+            std::string token;
+            if (!(iss >> token)) {
+                throw std::runtime_error("反序列化失败: " + label + " 缺失");
             }
+            const int val = parse_checked(token, label);
             if (val < -kMaxChessId || val > kMaxChessId) {
-                throw std::runtime_error("反序列化失败: 非法的棋子编号");
+                throw std::runtime_error("反序列化失败: " + label + " 的编号超出 -" +
+                                         std::to_string(kMaxChessId) + ".." +
+                                         std::to_string(kMaxChessId));
             }
 
             if (val > 0) {
@@ -129,8 +204,7 @@ SavedGame deserialize(const std::string& data) {
         }
     }
 
-    // 第八个字段（AI 档位）必填。取走尾部后交给 from_chars 完整消费：operator>>
-    // 在溢出时会同时置 failbit 与 eofbit，半截数字会被误当成 EOF。
+    // 第八个字段（AI 档位）必填。先取走尾部再整段解析，避免把半截数字当成 EOF。
     std::string tail;
     if (!std::getline(iss, tail)) {
         throw std::runtime_error("反序列化失败: 缺少 AI 档位");
@@ -142,14 +216,16 @@ SavedGame deserialize(const std::string& data) {
     const std::size_t last = tail.find_last_not_of(" \t\r\n");
     const std::string_view token(tail.data() + first, last - first + 1);
 
-    int level_int = 0;
-    const auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), level_int);
-    if (ec != std::errc{} || ptr != token.data() + token.size()) {
-        throw std::runtime_error("反序列化失败: 非法 AI 档位");
+    if (token.find_first_of(" \t\r\n") != std::string_view::npos) {
+        throw std::runtime_error("反序列化失败: AI 档位之后还有额外内容");
     }
+    const int level_int = parse_checked(std::string(token), "AI 档位");
     const ai::Level level = static_cast<ai::Level>(level_int);
     if (!ai::is_valid_level(level)) {
-        throw std::runtime_error("反序列化失败: 非法 AI 档位");
+        throw std::runtime_error("反序列化失败: AI 档位超出 0..1");
+    }
+    if (std::string extra; iss >> extra) {
+        throw std::runtime_error("反序列化失败: AI 档位之后还有额外内容");
     }
 
     // 字段都还原后统一交给 validate_state 做状态机校验，这里不重复检查阶段与骰子的关系。
