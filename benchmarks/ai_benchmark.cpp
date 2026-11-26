@@ -242,15 +242,14 @@ int main() {
         core::require_valid_state(midgame);
         core::require_valid_state(endgame);
 
-        std::cout << "AI benchmark: depth=" << kSearchDepth << ", repeats=" << kLatencyRepeats
-                  << "\n";
+        std::cout << "AI 基准: depth=" << kSearchDepth << ", repeats=" << kLatencyRepeats << "\n";
         measure_latency(opening, "opening");
         measure_latency(fallback, "fallback");
         measure_latency(midgame, "midgame");
         measure_latency(endgame, "endgame");
 
-        std::cout << "\nSelf-play: search vs random, games=" << kGameCount
-                  << ", max_plies=" << kMaxPlies << "\n";
+        std::cout << "\n自我对弈: 搜索对随机, games=" << kGameCount << ", max_plies=" << kMaxPlies
+                  << "\n";
         const SelfPlayStats stats = run_self_play();
         const double win_rate =
             100.0 * static_cast<double>(stats.search_wins) / static_cast<double>(kGameCount);
@@ -262,7 +261,7 @@ int main() {
                   << "% avg_plies=" << average_plies << " total_ms=" << stats.elapsed_ms << "\n";
         return stats.errors == 0 ? 0 : 1;
     } catch (const std::exception& error) {
-        std::cerr << "benchmark failed: " << error.what() << "\n";
+        std::cerr << "基准测试失败: " << error.what() << "\n";
         return 1;
     }
 }
