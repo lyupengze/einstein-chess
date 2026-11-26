@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   # 格式检查独立成一个 job：不需要 Qt/MSYS2，失败信息也最直观。
-  # 固定与 .clang-format 基线相同的 clang-format 版本，避免本地/CI 互相打架。
+  # 版本以 .clang-format 顶部的基线注释为准，安装后核对，避免本地/CI 结果不一致。
   format:
     name: clang-format (23.1.1)
     runs-on: ubuntu-latest
@@ -35,9 +35,20 @@ jobs:
 
       - name: Install clang-format
         run: |
-          python -m pip install --disable-pip-version-check --no-cache-dir clang-format==23.1.1
-          clang-format --version
-          clang-format --version | grep -q 'version 23\.1\.1'
+          set -euo pipefail
+          expected="$(grep -oE 'clang-format [0-9]+\.[0-9]+\.[0-9]+' .clang-format | head -n1 | awk '{print $2}')"
+          if [ -z "${expected}" ]; then
+            echo "未在 .clang-format 顶部找到格式基线版本" >&2
+            exit 1
+          fi
+          echo "基线版本：${expected}"
+          python -m pip install --disable-pip-version-check --no-cache-dir "clang-format==${expected}"
+          actual="$(clang-format --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+          echo "实际版本：${actual}"
+          if [ "${actual}" != "${expected}" ]; then
+            echo "clang-format 版本与 .clang-format 基线不一致" >&2
+            exit 1
+          fi
 
       - name: Check formatting
         run: |

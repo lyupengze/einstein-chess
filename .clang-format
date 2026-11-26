@@ -1,3 +1,5 @@
+# 格式基线：clang-format 23.1.1；CI 的 format job 会把这里写明的版本与
+# 实际安装的 clang-format 比对，不一致就失败，避免本地与 CI 结果漂移。
 ---
 Language: Cpp
 BasedOnStyle: Google
