@@ -32,7 +32,7 @@ ctest --test-dir build --output-on-failure
 >
 > 配好后仍用上面的 `cmake --build` 与 `ctest` 命令构建、测试。
 
-> 可执行文件统一输出到 `build/bin/`，共三个可执行程序目标：`einstein_gui`、`einstein_cli`、`einstein_botzone`（Windows 下带 `.exe` 后缀）；回归测试的可执行文件也输出到同一目录。
+> 可执行文件统一输出到 `build/bin/`，共四个可执行程序目标：`einstein_gui`、`einstein_cli`、`einstein_botzone`、`einstein_benchmark`（Windows 下带 `.exe` 后缀）；回归测试的可执行文件也输出到同一目录。
 
 ## 无 GUI 构建
 
@@ -44,7 +44,7 @@ cmake --build build --parallel 8
 ctest --test-dir build --output-on-failure
 ```
 
-此时 `einstein_gui`、GUI 静态库与 5 个 GUI 测试都不会注册，默认运行其余 14 个测试。
+此时 `einstein_gui`、GUI 静态库与 5 个 GUI 用例都不会注册，默认运行其余 14 个；用例清单以 `tests/CMakeLists.txt` 为准。
 
 ## 让 CMake 找到 Qt6
 
@@ -68,37 +68,39 @@ ctest --test-dir build --output-on-failure
   - Linux：使用发行版提供的 Qt6 运行时包，或通过 `LD_LIBRARY_PATH`、rpath 指向 Qt 库目录；
   - macOS：用 `macdeployqt` 打包，或设置 `DYLD_LIBRARY_PATH`。
 - `einstein_cli` 与 `einstein_botzone` 不依赖 Qt。若在 Windows 上以 MinGW 动态运行时构建，需保证 `libstdc++-6.dll`、`libgcc_s_seh-1.dll` 可被加载（把工具链的 `bin` 加入 `PATH`，或用 `-static-libgcc -static-libstdc++` 静态链接）；Linux/macOS 通常无需额外处理。
-- 存档路径、可写目录与单实例限制属于运行行为，见 [使用说明](../README.md) 的“运行前提”一节。
+- 存档路径、可写目录与单实例限制属于运行行为，见 [使用说明](USAGE.md) 的“存档位置”一节。
 
 ## 测试
 
-默认构建注册 19 个用例，测试可执行文件与产品可执行文件一样输出到 `build/bin/`，并由 CTest 在各自的工作目录中运行：
+默认构建注册 19 个用例（清单、标签与超时以 `tests/CMakeLists.txt` 为准），测试可执行文件与产品可执行文件一样输出到 `build/bin/`，并由 CTest 在各自的工作目录中运行：
 
-| 用例 | 覆盖内容 |
-| --- | --- |
-| `board_geometry` | 棋盘几何，右/下余数像素不映射到格子 |
-| `ai_random` | AI 随机下限与固定种子可复现 |
-| `core_rules` | 选子、走法、胜负、布阵与对局生命周期 |
-| `ai_search` | 搜索合法性、战术与确定性 |
-| `ai_level` | 版本选择、默认最新版与随机版可复现 |
-| `botzone_protocol` | 协议库的布阵/走子/严格输入校验 |
-| `save_level` | 存档档位必填、严格解析与损坏拒绝 |
-| `storage_roundtrip` | 局面完整往返与语义校验 |
-| `state_validation` | 局面状态校验 |
-| `game_state_guard` | core 状态机守卫 |
-| `gui_reconcile` | GUI 状态收敛与旧定时器不落到新局 |
-| `toast_fade` | Toast 淡入淡出 |
-| `dice_widget` | 骰子点数绘制与非法值错误标记 |
-| `gui_dialogs` | 布阵与存档对话框、同名覆盖确认 |
-| `cli_input` | CLI 参数与整行数字解析边界 |
-| `cli_eof` | EOF 处理 |
-| `cli_exit` | 退出菜单 |
-| `cli_session` | 菜单交互与中途 EOF |
-| `cli_broken_db` | 坏存档库错误边界 |
+| 用例 | 覆盖内容 | 标签 | 超时（秒） |
+| --- | --- | --- | ---: |
+| `board_geometry` | 棋盘几何，右/下余数像素不映射到格子 | `gui` | 60 |
+| `ai_random` | AI 随机下限与固定种子可复现 | `ai` | 30 |
+| `core_rules` | 选子、走法、胜负、布阵与对局生命周期 | `core` | 60 |
+| `ai_search` | 搜索合法性、战术与确定性 | `ai` | 120 |
+| `ai_level` | 档位选择、默认档与随机档可复现 | `ai` | 30 |
+| `botzone_protocol` | 协议库的布阵/走子/严格输入校验 | `botzone` | 60 |
+| `save_level` | 存档档位必填、严格解析与损坏拒绝 | `storage` | 60 |
+| `storage_roundtrip` | 局面完整往返与语义校验 | `storage` | 60 |
+| `state_validation` | 局面状态校验 | `core` | 30 |
+| `game_state_guard` | core 状态机守卫 | `core` | 30 |
+| `gui_reconcile` | GUI 状态收敛，上一局排队的定时器不落到新局 | `gui` | 60 |
+| `toast_fade` | Toast 淡入淡出 | `gui` | 60 |
+| `dice_widget` | 骰子点数绘制与非法值错误标记 | `gui` | 60 |
+| `gui_dialogs` | 布阵与存档对话框、同名覆盖确认 | `gui` | 60 |
+| `cli_input` | CLI 参数与整行数字解析边界 | `cli` | 30 |
+| `cli_eof` | EOF 处理 | `cli` | 30 |
+| `cli_exit` | 退出菜单 | `cli` | 30 |
+| `cli_session` | 菜单交互与中途 EOF | `cli` | 30 |
+| `cli_broken_db` | 坏存档库错误边界 | `cli` | 30 |
 
+- 超时是防挂死的上限，默认 60 秒；`cli_*` 与 `ai_*` 用例按实际耗时缩短或放宽。
+- `save_level`、`storage_roundtrip`、`gui_dialogs` 与 `cli_*` 各自在独立工作目录中运行，避免互相覆盖存档库。
 - GUI 用例自动使用 `QT_QPA_PLATFORM=offscreen`，不需要真实显示器；`-DEINSTEIN_BUILD_GUI=OFF` 时这 5 个用例不注册，其余 14 个仍可运行。
 - 按标签筛选示例：`ctest --test-dir build -L core`、`ctest --test-dir build -L gui`。
-- GUI 的完整分支仍未全部覆盖；测试覆盖有限的原因与取舍见 [使用说明](../README.md) 的“当前限制”一节。
+- 测试覆盖有限的原因与取舍见 [设计取舍](DESIGN.md) 与 [使用说明](USAGE.md)。
 
 ## CI
 
@@ -106,7 +108,9 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`：
 
 - `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑 19 个测试；
 - `windows-ucrt64-nogui`：同一环境但不装 Qt，`-DEINSTEIN_BUILD_GUI=OFF`，跑 14 个测试；
-- `format`：Ubuntu + Python，固定 `clang-format==23.1.1`，对 `src/`、`tests/` 下受跟踪的 C++ 文件做 `--dry-run --Werror`。
+- `format`：Ubuntu + Python，固定 `clang-format==23.1.1`，对 `src/`、`tests/`、`benchmarks/` 下受跟踪的 C++ 文件做 `--dry-run --Werror`。
+
+测试数量以 `tests/CMakeLists.txt` 为准；CI 的 Qt 版本由 MSYS2 包管理器决定，不固定小版本。
 
 触发条件为推送到 `dev`/`main`、向这两个分支发起 Pull Request，以及手动 `workflow_dispatch`。构建或测试失败时会尝试上传 `build/Testing/Temporary/LastTest.log` 作为 artifact。
 
