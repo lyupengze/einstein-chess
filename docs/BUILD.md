@@ -72,7 +72,7 @@ ctest --test-dir build --output-on-failure
 
 ## 测试
 
-默认构建注册 20 个用例（清单、标签与超时以 `tests/CMakeLists.txt` 为准），测试可执行文件与产品可执行文件一样输出到 `build/bin/`，并由 CTest 在各自的工作目录中运行：
+默认构建注册 22 个用例（清单、标签与超时以 `tests/CMakeLists.txt` 为准），测试可执行文件与产品可执行文件一样输出到 `build/bin/`，并由 CTest 在各自的工作目录中运行：
 
 | 用例                | 覆盖内容                                   | 标签      | 超时（秒） |
 | ------------------- | ------------------------------------------ | --------- | ---------: |
@@ -84,9 +84,11 @@ ctest --test-dir build --output-on-failure
 | `botzone_protocol`  | 协议库的布阵/走子/严格输入校验             | `botzone` |         60 |
 | `save_level`        | 存档档位必填、严格解析与损坏拒绝           | `storage` |         60 |
 | `storage_roundtrip` | 局面完整往返与语义校验                     | `storage` |         60 |
+| `storage_bind`      | 参数绑定失败抛异常且不落库                 | `storage` |         30 |
 | `state_validation`  | 局面状态校验                               | `core`    |         30 |
 | `game_state_guard`  | core 状态机守卫                            | `core`    |         30 |
 | `gui_reconcile`     | GUI 状态收敛，上一局排队的定时器不落到新局 | `gui`     |         60 |
+| `gui_status`        | 空骰文案与掷骰失败后的按钮恢复             | `gui`     |         60 |
 | `toast_fade`        | Toast 淡入淡出                             | `gui`     |         60 |
 | `dice_widget`       | 骰子点数绘制与非法值错误标记               | `gui`     |         60 |
 | `gui_dialogs`       | 布阵与存档对话框、同名覆盖确认             | `gui`     |         60 |
@@ -107,7 +109,7 @@ ctest --test-dir build --output-on-failure
 
 GitHub Actions 工作流位于 `.github/workflows/ci.yml`：
 
-- `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑全部用例（20 个，见 `tests/CMakeLists.txt`）；
+- `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑全部用例（22 个，见 `tests/CMakeLists.txt`）；
 - `windows-ucrt64-nogui`：同一环境但不装 Qt，`-DEINSTEIN_BUILD_GUI=OFF`，跑除 `gui` 标签外的全部用例；
 - `format`：Ubuntu + Python，固定 `clang-format==23.1.1`，对 `src/`、`tests/`、`benchmarks/` 下受跟踪的 C++ 文件做 `--dry-run --Werror`；
 - `docs`：Ubuntu + CMake，运行 `cmake -P tools/check_repo.cmake`，检查文件头、禁词、缺陷锚点、相对链接与测试数口径。

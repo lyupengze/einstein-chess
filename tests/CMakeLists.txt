@@ -102,10 +102,27 @@ einstein_add_test(storage_roundtrip test_storage_roundtrip
                   TIMEOUT 60 LABEL storage
                   WORKING_DIRECTORY ${STORAGE_ROUNDTRIP_WORK_DIR})
 
+# 参数绑定失败要用越界下标触发，测试直接覆盖 storage 的 SQLite 封装。
+add_executable(test_storage_bind storage_bind_test.cpp)
+target_link_libraries(test_storage_bind PRIVATE einstein_storage sqlite3 einstein_warnings)
+set(STORAGE_BIND_WORK_DIR ${CMAKE_CURRENT_BINARY_DIR}/storage_bind)
+file(MAKE_DIRECTORY ${STORAGE_BIND_WORK_DIR})
+einstein_add_test(storage_bind test_storage_bind
+                  TIMEOUT 30 LABEL storage
+                  WORKING_DIRECTORY ${STORAGE_BIND_WORK_DIR})
+
 if(EINSTEIN_BUILD_GUI)
     add_executable(test_gui_reconcile gui_reconcile_test.cpp)
     target_link_libraries(test_gui_reconcile PRIVATE einstein_gui_lib einstein_warnings)
     einstein_add_test(gui_reconcile test_gui_reconcile
+                      TIMEOUT 60 LABEL gui
+                      ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                      RESOURCE_LOCK qt_gui)
+
+    # 状态栏与掷骰按钮的可操作性：无骰子时的文案兜底，以及掷骰失败后的按钮恢复。
+    add_executable(test_gui_status gui_status_test.cpp)
+    target_link_libraries(test_gui_status PRIVATE einstein_gui_lib einstein_warnings)
+    einstein_add_test(gui_status test_gui_status
                       TIMEOUT 60 LABEL gui
                       ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
                       RESOURCE_LOCK qt_gui)
