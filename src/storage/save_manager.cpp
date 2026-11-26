@@ -110,7 +110,7 @@ SavedGame deserialize(const std::string& data) {
     // 重复编号、非法棋子等语义问题统一由 validate_state 报告。
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
-            int val;
+            int val{};
             if (!(iss >> val)) {
                 throw std::runtime_error("反序列化失败: 棋盘数据缺失");
             }
