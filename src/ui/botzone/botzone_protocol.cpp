@@ -71,7 +71,7 @@ int checked_json_int(const json& value, std::string_view field_name) {
 int check_color(const json& value, std::string_view field_name) {
     const int color = checked_json_int(value, field_name);
     if (color != kBotzoneRedPlayer && color != kBotzoneBluePlayer) {
-        throw ProtocolError("Invalid color in " + std::string(field_name));
+        throw ProtocolError("字段 " + std::string(field_name) + " 的阵营取值非法");
     }
     return color;
 }
@@ -80,7 +80,7 @@ int check_color(const json& value, std::string_view field_name) {
 // 这是平台上的唯一来源；缺字段或类型错误都必须拒绝，不能猜成红方。
 int resolve_color(const json& latest_req) {
     if (!latest_req.contains("color")) {
-        throw ProtocolError("Missing color");
+        throw ProtocolError("缺少 color 字段");
     }
     return check_color(latest_req["color"], "request color");
 }
@@ -89,14 +89,14 @@ int resolve_color(const json& latest_req) {
 // 缺行、缺列、非数组、非整数都拒绝，避免 AI 在残缺局面上决策。
 void decode_board(const json& board_json, core::GameState& state) {
     if (!board_json.is_array() || board_json.size() != core::Board::kSize) {
-        throw ProtocolError("Board must contain exactly 5 rows");
+        throw ProtocolError("board 必须恰好有 5 行");
     }
 
     std::array<std::array<bool, kMaxPieceId + 1>, 2> seen{};
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         const json& row = board_json[x];
         if (!row.is_array() || row.size() != core::Board::kSize) {
-            throw ProtocolError("Each board row must contain exactly 5 cells");
+            throw ProtocolError("board 的每一行必须恰好有 5 格");
         }
 
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
@@ -105,14 +105,14 @@ void decode_board(const json& board_json, core::GameState& state) {
 
             // 先做范围检查再取绝对值，避免 INT_MIN 取负溢出。
             if (val < -kMaxPieceId || val > kMaxPieceId) {
-                throw ProtocolError("Invalid piece id on board");
+                throw ProtocolError("board 上的棋子编号非法");
             }
 
             const int piece_id = (val < 0) ? -val : val;
             if (piece_id != kNoPiece) {
                 const std::size_t side_index = (val > 0) ? 0 : 1;
                 if (seen[side_index][static_cast<std::size_t>(piece_id)]) {
-                    throw ProtocolError("Duplicate piece id on board");
+                    throw ProtocolError("board 上出现同方重复编号");
                 }
                 seen[side_index][static_cast<std::size_t>(piece_id)] = true;
             }
@@ -136,7 +136,7 @@ json empty_response() {
 
 json handle_request(const json& input) {
     if (!input.is_object()) {
-        throw ProtocolError("Request must be a JSON object");
+        throw ProtocolError("请求必须是 JSON 对象");
     }
 
     // 先放一个空 response：走任何分支都能保证输出是结构合法的 JSON。
@@ -147,7 +147,7 @@ json handle_request(const json& input) {
     json requests = json::array();
     if (input.contains("requests")) {
         if (!input["requests"].is_array()) {
-            throw ProtocolError("requests must be an array");
+            throw ProtocolError("requests 必须是数组");
         }
         requests = input["requests"];
     }
@@ -163,14 +163,14 @@ json handle_request(const json& input) {
     // 历史里混入非对象会让后续按字段读取的行为不可控，整帧直接拒绝。
     for (const auto& item : requests) {
         if (!item.is_object()) {
-            throw ProtocolError("Each request must be a JSON object");
+            throw ProtocolError("requests 的每个元素必须是 JSON 对象");
         }
     }
 
     // 只看最后一个 request；更早的历史与本步决策无关。
     const json& latest_req = requests.back();
     if (latest_req.contains("phase") && !latest_req["phase"].is_string()) {
-        throw ProtocolError("phase must be a string");
+        throw ProtocolError("phase 必须是字符串");
     }
     // phase 缺失时按空串处理，与无法识别的阶段一样返回空 response。
     const std::string phase = latest_req.value("phase", "");
@@ -197,20 +197,20 @@ json handle_request(const json& input) {
 
     // 骰子必须显式给出且为 1~6 的整数；缺失、非整数、越界都按协议错误处理。
     if (!latest_req.contains("dice")) {
-        throw ProtocolError("Missing dice");
+        throw ProtocolError("缺少 dice 字段");
     }
     int dice = checked_json_int(latest_req["dice"], "dice");
     if (dice < kMinDice || dice > kMaxDice) {
-        throw ProtocolError("dice must be between 1 and 6");
+        throw ProtocolError("dice 必须在 1 到 6 之间");
     }
     state.current_dice = dice;
 
     // board 必须是严格的 5x5 整数矩阵；类型/维度不符直接报错，不做隐式猜测。
     if (!latest_req.contains("board")) {
-        throw ProtocolError("Missing board");
+        throw ProtocolError("缺少 board 字段");
     }
     if (!latest_req["board"].is_array()) {
-        throw ProtocolError("board must be an array");
+        throw ProtocolError("board 必须是数组");
     }
     decode_board(latest_req["board"], state);
 
@@ -244,7 +244,7 @@ json handle_line(const std::string& line) {
     } catch (const ProtocolError&) {
         throw;
     } catch (const json::exception& e) {
-        throw ProtocolError(std::string("Invalid Botzone JSON: ") + e.what());
+        throw ProtocolError(std::string("Botzone JSON 格式非法: ") + e.what());
     }
 }
 

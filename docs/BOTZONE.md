@@ -121,7 +121,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 - `board` 缺失、不是严格 5×5 整数矩阵，或棋子编号越界/同方重复；
 - 构造出的局面不满足 `core::validate_state`。
 
-协议错误会在 stderr 打印 `Bot protocol error: ...`；AI 内部异常打印 `Bot internal error: ...`。两种情况 stdout 都只输出一行：
+协议错误会在 stderr 打印 `Botzone 协议错误: ...`；AI 内部异常打印 `Botzone 内部错误: ...`。两种情况 stdout 都只输出一行：
 
 ```json
 {"response":{}}

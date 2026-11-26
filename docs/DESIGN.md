@@ -56,7 +56,7 @@
 ## Botzone 错误处理
 
 - **选择**：区分 `ProtocolError`（输入或协议问题）与内部异常；stderr 分别打印
-  `Bot protocol error:` / `Bot internal error:`；stdout 始终输出 `{"response":{}}`，退出码 0。
+  `Botzone 协议错误:` / `Botzone 内部错误:`；stdout 始终输出 `{"response":{}}`，退出码 0。
 - **原因**：平台没有明确“非法输入应返回什么”；空 response 表示“本次没有决策”，比伪造一步棋
   或让进程崩溃更安全。
 - **代价与边界**：本地调试时错误不够直观；平台可能把空 response 视为本回合失败。
