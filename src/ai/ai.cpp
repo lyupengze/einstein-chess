@@ -1,3 +1,9 @@
+/// @file src/ai/ai.cpp
+/// @brief 决策实现：竞速分布表、期望胜率评估与两个档位的走子策略。
+///
+/// 竞速表在首次使用时构建一次（46656 个单方状态），之后只读，评估路径因此没有
+/// 额外分配；搜索是纯函数，不改传入局面，CHANCE 节点只改自己的副本。
+
 #include "ai.h"
 
 #include <algorithm>
@@ -34,10 +40,9 @@ constexpr double kTieEpsilon = 1.0e-9;
 using RaceDistribution = std::array<float, kRaceMaxStep + 1>;
 using RaceTable = std::vector<RaceDistribution>;
 
-// 线程局部的随机引擎。原来的写法是函数内 static：只在首次初始化，这一点是对的，
-// 但它是所有线程共享的同一份状态——并发决策会产生数据竞争（std::mt19937 不保证
-// 线程安全），测试里也无法通过固定种子复现。thread_local 让每个线程各持一份，
-// 既保留“只播种一次”，又消除了共享。
+// 随机源用线程局部而不是函数内 static：static 会被所有线程共享，
+// 而 std::mt19937 不保证线程安全，测试也无法用固定种子复现；
+// thread_local 保留“只播种一次”，又消除了共享。
 std::mt19937& engine() {
     thread_local std::mt19937 gen(std::random_device{}());
     return gen;
@@ -86,8 +91,7 @@ int race_state(const core::GameState& state, core::Side side) {
     return code;
 }
 
-// 打表：对每个单方状态，枚举骰子 1~6，选出"期望到达时间最短"的棋子，
-// 把它的时间分布整体后移一回合，再对 6 个点数取平均。
+// 打表：每个状态对 6 个点数各选期望最短的棋子，分布后移一回合再平均。
 RaceTable build_race_table() {
     RaceTable table(kRaceStateCount);
     std::vector<double> expected_time(kRaceStateCount, 0.0);
@@ -272,8 +276,8 @@ core::Move choose_move(const core::GameState& state, const SearchConfig& config)
         }
     }
 
-    // 竞速评估只返回胜率，必胜/必败时大量着法会同分。同分时先选“走完后离终点
-    // 更近”的着法，再优先斜向，避免随机走进无进展的轴向着法。
+    // 竞速评估只返回胜率，必胜/必败时大量着法同分。同分先选走完后离终点更近的，
+    // 再优先斜向，避免随机走进原地打转的轴向着法。
     int best_distance = std::numeric_limits<int>::max();
     for (const core::Move& move : best_moves) {
         best_distance = std::min(best_distance, distance_to_goal(move.to, root));
@@ -296,8 +300,8 @@ core::Move choose_move(const core::GameState& state, const SearchConfig& config)
     return candidates[dist(engine())];
 }
 
-// 所有版本共用的前置检查：走子只在“某一方思考中”的阶段有语义。
-// 放在版本分发之前，保证切换版本不会改变调用方看到的错误行为。
+// 所有档位共用的前置检查：走子只在“某一方思考中”的阶段有语义，放在分发之前，
+// 保证切换档位不改变调用方看到的错误行为。
 void require_thinking_phase(const core::GameState& state) {
     if (state.phase != core::Phase::Player1Thinking &&
         state.phase != core::Phase::Player2Thinking) {
@@ -305,8 +309,7 @@ void require_thinking_phase(const core::GameState& state) {
     }
 }
 
-// 第一版（随机基线）的走子策略：
-// 在全部合法着法中均匀随机挑一步，不考虑吃子、位置或胜负。
+// 随机档的走子策略：在全部合法着法中均匀随机挑一步，不考虑吃子、位置或胜负。
 // 合法着法枚举交给 core::rules，AI 不复制规则，换实现也不会产生非法着法。
 core::Move choose_random_move(const core::GameState& state) {
     const std::vector<core::Move> moves = core::rules::generate_legal_moves(state);
@@ -351,7 +354,7 @@ std::array<int, 6> decide_layout() {
 }
 
 core::Move decide_move(const core::GameState& state, Level level) {
-    // 先统一校验阶段：两个版本对“现在能不能走”的判定必须完全一致。
+    // 先统一校验阶段：两个档位对“现在能不能走”的判定必须完全一致。
     require_thinking_phase(state);
 
     switch (level) {
@@ -360,7 +363,7 @@ core::Move decide_move(const core::GameState& state, Level level) {
         case Level::kSearch:
             return choose_move(state, SearchConfig{});
         default:
-            // 枚举值由调用方 static_cast 伪造时显式报错，而不是静默降级到某个版本。
+            // 枚举值由调用方 static_cast 伪造时显式报错，而不是静默降级到某个档位。
             throw std::invalid_argument("未知的 AI 版本");
     }
 }
