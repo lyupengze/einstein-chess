@@ -149,7 +149,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 | 竞速表项              | 状态                          | 局面、节点        |
 | 存档                  | save 记录（含名字与时间戳）   | 文件、档          |
 | 槽位                  | 存档名                        | 位置、编号        |
-| layout                | 布阵（6 枚棋子的编号排列）    | 布局、阵型        |
+| layout                | 布阵（每方棋子的编号排列）    | 布局、阵型        |
 
 同一段文字里不要混用"手"和"回合"；`SearchConfig::max_depth` 一律按"手"解释。
 
@@ -191,9 +191,9 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 
 | 事实                       | 唯一权威位置                                 | 其他位置怎么写                       |
 | -------------------------- | -------------------------------------------- | ------------------------------------ |
-| 测试清单、数量、标签、超时 | `tests/CMakeLists.txt`                       | "20 个用例，见 tests/CMakeLists.txt"——该数字由 check_repo 交叉校验 |
+| 测试清单、数量、标签、超时 | `tests/CMakeLists.txt`                       | 写"全部用例见 tests/CMakeLists.txt"；README 与 BUILD 里的总数由 check_repo 核对 |
 | AI 档位定义与默认档        | `src/ai/ai.h`                                | 只写档位名，不抄默认值               |
-| GUI 三段延迟 400/500/800   | `game_widget.h` 的默认参数                   | "见 game_widget.h"                   |
+| GUI 三段过渡延迟           | `game_widget.h` 的默认参数                   | 只写"见 game_widget.h"               |
 | 棋盘规则与判定顺序         | `src/core/rules.cpp` + `core_rules_test.cpp` | 一句话摘要 + 链接到 `RULES.md`       |
 | 存档字段与失败模式         | `src/storage/save_manager.h` 的格式说明      | 一句话摘要 + 链接到 `SAVE_FORMAT.md` |
 | 模块分层与状态机           | `docs/ARCHITECTURE.md`                       | 只写模块名，不抄依赖表               |
@@ -204,7 +204,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 
 三条硬规则：
 
-1. 文档里的数字必须带**口径**（"p95 取 20 次重复中的最坏值"），否则无法判断可比性。
+1. 文档里的数字必须带**口径**（"p95 取重复样本中的最坏值"），否则无法判断可比性。
 2. 引用清单时写"见 X"，不复制表格。
 3. 新增事实类别时，先在本表登记权威位置，再动笔。
 
@@ -231,7 +231,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 | 无触发条件的时间词       | 目前、暂时、以后可以、先这样、暂时保留                     | 写清条件与触发时机，或删               |
 | 无出处编号               | `BUG-xx`、`P0-x`                                           | 链接 HISTORY.md 锚点，或删编号只写现象 |
 | 无编号的待办             | `TODO`、`FIXME`                                            | `TODO(#123)` 或删除                    |
-| 未经校验的数字           | 6、14、400/500/800                                        | 链接事实源；脚本校验过的用例数与 BENCHMARK 的测量值除外 |
+| 未经校验的数字           | 散落在文档里的用例数、默认延迟等副本                       | 链接事实源；脚本校验过的用例数与 BENCHMARK 的测量值除外 |
 | 不可验证的评价           | 逻辑健壮、性能很好、应该没问题                             | 可检查的条件或测得的数字               |
 | 复述代码                 | `++i // 自增`                                              | 删，或写"为什么是 i 不是 j"            |
 | 失效的 Markdown 相对链接 | —                                                          | 提交前点开；CI 脚本校验                |
@@ -296,7 +296,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 注释之外，下列写法同样影响可读性。新增代码必须遵守，存量按模块逐步对齐。
 
 1. 命名空间等于模块目录名：`core`、`ai`、`storage`、`cli`、`gui`、`botzone`；测试辅助用 `test_support`。
-2. 棋盘边长与每方棋子数只引用 `core::Board::kSize` / `kChessCount`；`src/` 里需要 `int` 时在本文件派生一个 `constexpr`，不写裸 `5` 与 `6`。
+2. 棋盘边长与每方棋子数只引用 `core::Board::kSize` / `kChessCount`；`src/` 里需要 `int` 时在本文件派生一个 `constexpr`，不写裸的数字。
 3. 容器与棋盘的遍历索引用 `std::size_t`；参与像素扣减、可能为负的算术用 `int`，跨界转换写 `static_cast`。
 4. 类型名写全（`std::size_t`、`std::array`），不写裸 `size_t`，也不写 `using namespace`。
 5. Qt 字符串字面量用 `QStringLiteral`；`const char*` 转 `QString` 走 `QString::fromUtf8`，不使用隐式转换。
