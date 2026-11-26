@@ -1,3 +1,10 @@
+/// @file src/ui/gui/views/game_widget.cpp
+/// @brief 对局页：布局搭建、输入处理、界面刷新与 AI 回合时序。
+///
+/// 规则判定一律委托 core::Game 与 core::rules，本文件不重复实现方向、吃子与胜负。
+/// 三段过渡延迟（掷骰确认 400、走子衔接 500、AI 思考 800）只为人眼可见，不参与规则。
+/// 定时器是成员而非 QTimer::singleShot，开新局或读档时要能取消尚未触发的回调。
+
 #include "game_widget.h"
 
 #include <QDebug>
@@ -19,24 +26,18 @@
 #include "dialogs/save_load_dialog.h"
 #include "storage/save_manager.h"
 
-// 对局页实现：布局搭建、输入处理、界面刷新与 AI 回合时序都在这里。
-// 规则判定一律委托给 core::Game 与 core::rules，本文件不重复实现方向、吃子与胜负逻辑。
-// “掷骰 -> 思考 -> 走子”用两个单发 QTimer 串成 400 / 500 / 800 ms 三段延迟，
-// 目的只是让状态文案在界面上停留可见，规则本身不需要等待。
-// 用成员定时器而不是 QTimer::singleShot：开新局/读档时能 stop() 掉尚未执行的回调。
 namespace ui {
 
 GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai_timer_(this) {
-    // 主布局上下分层：顶层是状态文案与按钮排，下面是棋盘加右侧面板。
     auto* main_layout = new QVBoxLayout(this);
     auto* top_layout = new QHBoxLayout();
     auto* content_layout = new QHBoxLayout();
     auto* right_panel = new QVBoxLayout();
 
+    // 对应 style.qss 里的 QLabel#statusLabel。
     status_label_ = new QLabel("等待开始游戏...", this);
-    status_label_->setObjectName("statusLabel");  // 对应 style.qss 里的 QLabel#statusLabel
+    status_label_->setObjectName("statusLabel");
 
-    // 三个按钮同尺寸，横向排在右上角。
     roll_btn_ = new QPushButton("掷骰子", this);
     exit_btn_ = new QPushButton("返回主页", this);
     save_btn_ = new QPushButton("保存", this);
@@ -44,7 +45,6 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai
     exit_btn_->setFixedSize(100, 40);
     save_btn_->setFixedSize(100, 40);
 
-    // 状态文案靠左、按钮靠右，中间用 stretch 吃掉空隙。
     top_layout->addWidget(status_label_);
     top_layout->addStretch();
     top_layout->addWidget(roll_btn_);
@@ -56,11 +56,11 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai
     dice_widget_ = new DiceWidget(this);
     history_list_ = new QListWidget(this);
     history_list_->setObjectName("historyList");
-    history_list_->setFixedWidth(200);  // 固定侧栏宽度，剩余宽度全部给棋盘
+    history_list_->setFixedWidth(200);
 
     right_panel->addWidget(dice_widget_, 0, Qt::AlignHCenter);
     right_panel->addWidget(history_list_);
-    content_layout->addWidget(board_widget_, 1);  // 拉伸因子 1：棋盘随窗口放大
+    content_layout->addWidget(board_widget_, 1);
     content_layout->addLayout(right_panel);
     main_layout->addLayout(content_layout, 1);
 
@@ -69,86 +69,75 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai
     connect(save_btn_, &QPushButton::clicked, this, &GameWidget::on_save_clicked);
     connect(board_widget_, &BoardWidget::cell_clicked, this, &GameWidget::on_cell_clicked);
 
-    // 两个延迟动作都设为单发：到点执行一次就停，不会周期性重入。
     roll_timer_.setSingleShot(true);
     ai_timer_.setSingleShot(true);
     connect(&roll_timer_, &QTimer::timeout, this, &GameWidget::on_roll_dice_timeout);
     connect(&ai_timer_, &QTimer::timeout, this, &GameWidget::handle_ai_turn);
 
-    // 进页时先禁用掷骰与保存；真正的可用性每次都由 update_ui() 按阶段重新判定。
+    // 初始禁用；之后每次都由 update_ui() 按阶段重判。
     roll_btn_->setEnabled(false);
     save_btn_->setEnabled(false);
 
-    // Toast 最后创建并先隐藏：它是脱离布局的浮层，只在 show_message 时露出。
+    // 浮层不参与布局，只在 show_message 时出现。
     toast_ = new ToastWidget(this);
 }
 
 void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>& human_layout,
                                 ai::Level ai_level) {
-    // 先清掉上一局排队的延迟动作，否则旧的对局意图会落到新局上。
+    // 先取消上一局排队的回调，否则旧的对局意图会落到新局。
     cancel_pending_actions();
-
-    // 新局是全新的开始：上一次异常中止的提示与禁用状态都到此为止。
     game_aborted_ = false;
     abort_reason_.clear();
 
-    // 强度属于整局配置：开新局时写入一次，之后所有 AI 回合都读同一个值。
+    // 档位是整局配置，开新局时写入一次。
     ai_level_ = ai_level;
 
-    // prepare_new_game 会把 GameState 重置成空棋盘，所以同一个控件可以直接开下一局。
     game_.prepare_new_game(human_side);
-
     game_.submit_layout(human_side, human_layout);
 
-    // AI 的布阵由 ai::decide_layout 随机生成；两次 submit 都到位后，
-    // Game::check_both_ready 自动把阶段推进到 ThrowingDice，并把先手固定为红方。
+    // AI 布阵提交后，Game::check_both_ready 自动推进到 ThrowingDice 并固定红方先手。
     core::Side ai_side = (human_side == core::Side::Red) ? core::Side::Blue : core::Side::Red;
     game_.submit_layout(ai_side, ai::decide_layout());
 
-    // 新局不保留上一局的选中格与历史记录，否则界面会残留旧信息。
+    // 清掉上一局的选中格与历史，避免界面残留旧信息。
     selected_pos_ = std::nullopt;
-
     history_list_->clear();
-
     update_ui();
-    // 人类选蓝方时红方先手是电脑，这里必须让它自己开局。
+
+    // 人类执蓝时红方先手是电脑，必须主动启动 AI 回合。
     trigger_ai_if_needed();
 }
 
 void GameWidget::load_game_state(const core::GameState& state, ai::Level ai_level) {
-    // 与开新局同理：先取消排队中的旧动作，再整体覆盖对局。
+    // 先取消排队中的旧动作，再整体覆盖对局。
     cancel_pending_actions();
 
-    // 强度紧跟局面一起恢复，后续 AI 回合才会与存档时保持一致。
+    // 档位随局面一起恢复，后续 AI 回合与存档时一致。
     ai_level_ = ai_level;
 
-    // load_game 是整体覆盖，不做增量合并；存档里的 player1_side 决定谁是“人类”。
-    // 它可能因局面不合法而抛异常；只有真正载入成功后才清除中止态，
-    // 避免失败的读档把旧局从“异常禁用”误恢复成可操作。
+    // load_game 整体覆盖、可能因局面不合法而抛异常；只有成功后才清除中止态，
+    // 否则失败的读档会把中止中的旧局误恢复成可操作。
     game_.load_game(state);
     game_aborted_ = false;
     abort_reason_.clear();
     selected_pos_ = std::nullopt;
-
     history_list_->clear();
-
     update_ui();
-    // 存档可能正停在 AI 回合，所以载入后同样要检查一次是否该轮到电脑。
+
+    // 存档可能停在 AI 回合，载入后同样检查是否该轮到电脑。
     trigger_ai_if_needed();
 }
 
 void GameWidget::set_action_delays(int roll_ms, int after_move_ms, int think_ms) {
-    // 只改延迟，不碰任何对局状态；调用方应在 start_new_game / load_game_state
-    // 之前设置，这样它们排出的第一段定时器就已经用上新值。
+    // 只改延迟，不动对局状态；应在 start_new_game / load_game_state 之前调用。
     roll_delay_ms_ = roll_ms;
     after_move_delay_ms_ = after_move_ms;
     think_delay_ms_ = think_ms;
 }
 
 void GameWidget::on_exit_clicked() {
-    // 返回主页等于停止推进本局：先取消尚未触发的掷骰/AI 回调，避免后台继续
-    // 修改一个玩家暂时看不到、且没有“继续对局”入口的局面。
-    // 这里不清空 game_：状态仍留在内存里，下次开新局/读档会整体覆盖。
+    // 返回主页只停止推进：取消未触发的回调，但不清空 game_——
+    // 这个局面玩家看不到也无法继续，下次开新局或读档会整体覆盖。
     cancel_pending_actions();
     emit exit_to_menu();
 }
@@ -157,13 +146,11 @@ void GameWidget::on_roll_dice_clicked() {
     if (game_aborted_) {
         return;
     }
-    // 立刻禁用按钮，防止这段延迟里被连点第二次而触发重复掷骰。
+    // 立刻禁用，防止延迟期间被连点造成重复掷骰。
     roll_btn_->setEnabled(false);
     status_label_->setText("🎲 正在掷骰子...");
 
-    // 延迟 400ms 才真正掷骰：让“正在掷骰子”这行文案先渲染出来，
-    // 之后再跳到点数，玩家才能看出这是两步而不是瞬间完成。
-    // 用成员定时器，开新局/读档时可以取消这次尚未执行的掷骰。
+    // 400ms 后才真正掷骰，让“正在掷骰”先渲染一帧；成员定时器便于新局或读档取消。
     roll_timer_.start(roll_delay_ms_);
 }
 
@@ -172,8 +159,7 @@ void GameWidget::on_roll_dice_timeout() {
         game_.roll_dice();
         update_ui();
     } catch (const std::exception& e) {
-        // 正常操作到不了这里（按钮已按阶段禁用）。出错时恢复界面而不是只记日志：
-        // update_ui 会按当前阶段重新决定文案与按钮可用性，否则按钮会永久停在禁用态。
+        // 正常路径不可达（按钮按阶段禁用）；失败后也必须 update_ui()，否则按钮停在禁用态。
         qDebug() << "掷骰子失败:" << e.what();
         show_message(QString("掷骰失败: ") + e.what());
         update_ui();
@@ -186,26 +172,21 @@ void GameWidget::on_save_clicked() {
         return;
     }
 
-    // 保存对话框会进入嵌套事件循环；先冻结尚未执行的掷骰/AI 动作，
-    // 否则 400/500/800ms 的定时器会在对话框背后改变局面，最后存下的
-    // 就不是玩家点击“保存”时看到的局面。
+    // 对话框会进入嵌套事件循环，先冻结定时器，否则后台会改掉玩家点“保存”时看到的局面。
     const PendingActions paused = pause_action_timers();
-    // 函数作用域 RAII：确认、取消、异常、错误弹窗结束后都按原剩余时间恢复。
-    // 放在 try 外面，保证 catch 里的 QMessageBox::critical 期间也保持暂停。
+    // 作用域守卫：确认、取消、异常都按剩余时间恢复；放在 try 外，catch 弹窗期间也保持暂停。
     [[maybe_unused]] const auto resume_guard =
         qScopeGuard([this, paused]() { resume_action_timers(paused); });
 
-    // 对话框只收集名字，写库放在调用方；路径是相对名 kDefaultDbPath，
-    // 因为 main_gui.cpp 已把工作目录切到 exe 所在目录，存档就落在 exe 旁边。
-    // 注意: SaveLoadDialog 构造时就会打开数据库，所以连对话框构造一起放进 try，
-    //       否则库打不开时异常会穿出 Qt 事件循环直接终止进程。
+    // 对话框只收集名字，写库在调用方；kDefaultDbPath 是相对名，
+    // 工作目录已切到 exe 所在目录，存档就落在 exe 旁边。
+    // SaveLoadDialog 构造即打开数据库，必须与写库一起放进 try，否则异常会穿出事件循环。
     try {
         SaveLoadDialog dialog(DialogMode::Save, this);
         if (dialog.exec() != QDialog::Accepted) {
             return;
         }
         std::string name = dialog.get_save_name();
-        // 每次新建而不是做成成员：SQLite 连接的生命周期就被限制在这个块里。
         storage::SaveManager save_manager(storage::kDefaultDbPath);
         save_manager.save_game(name, game_.get_state(), ai_level_);
         show_message("游戏已保存！");
@@ -215,12 +196,11 @@ void GameWidget::on_save_clicked() {
 }
 
 void GameWidget::show_message(const QString& msg) {
-    // 转发给浮层；显示时长、淡出等细节由 ToastWidget 自己管。
     toast_->show_message(msg);
 }
 
 void GameWidget::add_history_log(const QString& text) {
-    // 追加而不是前插，列表顺序即发生顺序；滚到底保证最新一手始终可见。
+    // 追加即发生顺序；滚到底保证最新一手可见。
     history_list_->addItem(text);
     history_list_->scrollToBottom();
 }
@@ -229,45 +209,42 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
     if (game_aborted_) {
         return;
     }
-    // 先取一份快照：后面所有分支都用它做只读判断，不必每步重新 get_state()。
+    // 快照：后续分支只读它，避免每步重新 get_state()。
     auto state = game_.get_state();
-    // 防御性边界检查：坐标换算一旦有误（board_widget 的整除余量历史上就会产生
-    // 下标 5），这里直接丢弃，不让越界 Pos 流到 Board::at 抛异常。
+    // 越界点击直接丢弃，不让 Pos 流到 Board::at；
+    // 坐标换算的误差见 `#board-remainder-click`。
     if (pos.x >= core::Board::kSize || pos.y >= core::Board::kSize) {
         return;
     }
-    // 只接受“人类这一方 + 轮到它走子”的点击。阶段名 Player1 指的是发起方（人类），
-    // 不是红方，所以人类执蓝时这个条件同样成立；不在此时点击一律静默忽略。
+    // 只接受“人类 + 轮到人类走子”的点击；Player1 指发起方而非红方，人类执蓝时同样成立。
     if (state.current_side != state.player1_side || state.phase != core::Phase::Player1Thinking) {
         return;
     }
 
-    // 分支一：再次点击已选中的同一格 = 取消选中。
+    // 再点同一格 = 取消选中。
     if (selected_pos_ && *selected_pos_ == pos) {
         selected_pos_ = std::nullopt;
         update_ui();
         return;
     }
 
-    // 分支二：已选中一枚棋子又点了别处，先当成“走子”尝试。
+    // 已选中又点了别处：先当作走子。
     if (selected_pos_) {
         try {
-            // 必须在 make_move 之前把起点拷出来：成功后 selected_pos_ 会被清空，
-            // 日志若再解引用 optional 就是空解引用（未定义行为）。
+            // 先拷出起点：make_move 成功后 selected_pos_ 被清空，再解引用就是空 optional。
             const core::Pos from_pos = *selected_pos_;
 
             game_.make_move(*selected_pos_, pos);
             selected_pos_ = std::nullopt;
 
-            // 用进函数时的快照读终点内容：此刻棋盘已经落子，game_.get_state() 里那格
-            // 已是己方棋子，只有快照还留着被吃掉的棋子，日志才写得出“吃 R3”。
+            // 用快照读终点：落子后棋盘那格已是己方棋子，只有快照还留着被吃的棋子。
             auto target_piece = state.board.at(pos);
             QString log = QString("你: (%1,%2)->(%3,%4)")
                               .arg(from_pos.x)
                               .arg(from_pos.y)
                               .arg(pos.x)
                               .arg(pos.y);
-            // 注意: 终点可能是己方棋子，规则允许吃自己的子，所以“吃”也会带己方编号。
+            // 规则允许吃己方棋子，所以“吃”后面可能是己方编号。
             if (target_piece.side != core::Side::None) {
                 log += QString(" 吃 %1%2")
                            .arg(target_piece.side == core::Side::Red ? "R" : "B")
@@ -277,13 +254,11 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
             add_history_log(log);
             update_ui();
 
-            // 走完这一步可能就轮到电脑了；在这里统一触发，人类分支只有这一个出口。
+            // 人类分支的唯一出口：走完可能轮到电脑。
             trigger_ai_if_needed();
             return;
         } catch (const std::exception& e) {
-            // 走子被 rules 拒绝。此时再判断一次“目标格上是不是己方的可动棋子”：
-            // 是的话说明玩家其实想改选另一枚，按换选处理，不弹错误；
-            // 否则清空选择并提示失败原因（e.what() 是 core::rules 给出的中文文案）。
+            // 走子被拒：若目标格是己方可动棋子，视为改选；否则清空选择并提示 e.what()。
             auto piece = state.board.at(pos);
             if (piece.side == state.player1_side) {
                 auto selectable = core::rules::get_selectable_ids(state);
@@ -306,12 +281,11 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
             show_message(QString("移动失败: ") + e.what());
         }
     } else {
-        // 分支三：没有选中任何棋子，尝试选中点击格上的己方棋子。
-        // 点到空格或敌方棋子直接静默返回，不打扰玩家。
+        // 未选中任何棋子：尝试选中点击格上的己方棋子。
+        // 空格或敌方棋子静默忽略。
         auto piece = state.board.at(pos);
         if (piece.side == state.player1_side) {
-            // 不是所有己方棋子本回合都能动：骰子决定编号，get_selectable_ids 给出
-            // “点数对应棋子，或左右最近的己方棋子”，这里只是查表确认。
+            // 骰子决定可选编号（含降级），查表确认这枚棋子本回合能否动。
             auto selectable = core::rules::get_selectable_ids(state);
             bool is_valid_to_select = false;
             for (int id : selectable) {
@@ -332,31 +306,28 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
 }
 
 void GameWidget::trigger_ai_if_needed() {
-    // 中止态下任何一方都不再推进；等待玩家返回主页后开新局/读档。
+    // 中止态下不再推进任何一方。
     if (game_aborted_) {
         return;
     }
     auto state = game_.get_state();
 
-    // 已分胜负就没人该动了，否则会对着 GameOver 再掷一次骰子而抛异常。
+    // 已分胜负就不能再掷骰，否则对着 GameOver 掷骰会抛异常。
     if (state.phase == core::Phase::GameOver) {
         return;
     }
-    // 人类回合什么都不做，等玩家点棋盘。
     if (state.current_side == state.player1_side) {
         return;
     }
 
-    // 延迟 500ms 而不是直接调用：让人类走子后的棋盘刷新与日志先画完，
-    // 否则“你走完 -> 电脑立刻掷骰”会挤在同一帧里，看不出先后关系。
+    // 500ms 后再启动 AI，让人类走子后的棋盘与日志先画完。
     ai_timer_.start(after_move_delay_ms_);
 }
 
 GameWidget::PendingActions GameWidget::pause_action_timers() {
     PendingActions paused;
-    // 必须先读 remainingTime() 再 stop()：停掉之后计时信息就没了。
-    // 活跃定时器的剩余时间理论上不会为负；这里仍夹到 0，避免 Qt 在
-    // “已经到期但事件尚未派发”的瞬间返回异常值。
+    // 先读 remainingTime() 再 stop()，停掉之后计时信息就没了；
+    // 夹到 0 以防“已到期但事件尚未派发”时返回异常值。
     if (roll_timer_.isActive()) {
         paused.roll_remaining_ms = std::max(0, roll_timer_.remainingTime());
         roll_timer_.stop();
@@ -369,7 +340,7 @@ GameWidget::PendingActions GameWidget::pause_action_timers() {
 }
 
 void GameWidget::resume_action_timers(const PendingActions& paused) {
-    // 只有暂停时确实在运行的定时器才恢复；nullopt 代表本来就没排动作。
+    // 只恢复暂停时真的在运行的定时器；nullopt 表示本来就没排动作。
     if (paused.roll_remaining_ms) {
         roll_timer_.start(*paused.roll_remaining_ms);
     }
@@ -379,14 +350,13 @@ void GameWidget::resume_action_timers(const PendingActions& paused) {
 }
 
 void GameWidget::cancel_pending_actions() {
-    // 两个定时器都停掉：尚未执行的掷骰与 AI 步进都作废，由新局/新存档重新排。
+    // 两个定时器都停：未执行的掷骰与 AI 步进作废。
     roll_timer_.stop();
     ai_timer_.stop();
 }
 
 void GameWidget::abort_game(const QString& reason) {
-    // 异常不是规则允许的“过一手”：不能清骰/换边/写回假局面，否则会掩盖 AI 或 core
-    // 的真实缺陷。这里只冻结界面，保留原始局面供玩家返回主页后重新开局或读档。
+    // 异常不能翻译成“过一手”去清骰/换边，否则掩盖真实缺陷；只冻结界面，保留原局面。
     cancel_pending_actions();
     game_aborted_ = true;
     abort_reason_ = reason;
@@ -395,14 +365,12 @@ void GameWidget::abort_game(const QString& reason) {
 }
 
 void GameWidget::handle_ai_turn() {
-    // 已经中止或玩家已返回主页：不再让排队的回调继续推进对局。
+    // 已中止或已返回主页：不再让排队的回调推进对局。
     if (game_aborted_) {
         return;
     }
-    // 定时器回调期间局面可能已经变了（玩家返回主页、重开一局、读档、或已分出胜负），
-    // 所以每次进来都重新读局面，按“阶段 + 当前方”决定下一步，而不是依赖调用时的快照。
-    // 这也让本函数成为 AI 回合的统一驱动器：任何一次进入都会把回合推进到人类回合，
-    // 包括读档直接落在 Player2Thinking 的情况（过去会永久卡在“正在思考...”）。
+    // 回调期间局面可能已变（返回主页、重开、读档、已分胜负），所以每次重读局面，
+    // 按“阶段 + 当前方”推进；读档直接落在 Player2Thinking 时也靠这里继续。
     auto state = game_.get_state();
     if (state.phase == core::Phase::GameOver || state.current_side == state.player1_side) {
         return;
@@ -411,7 +379,6 @@ void GameWidget::handle_ai_turn() {
     switch (state.phase) {
         case core::Phase::LayOut:
         case core::Phase::Player1Thinking:
-            // 不属于电脑可行动的状态，没有可推进的动作。
             return;
         case core::Phase::ThrowingDice:
             try {
@@ -422,23 +389,22 @@ void GameWidget::handle_ai_turn() {
                 return;
             }
             update_ui();
-            // 掷骰后再等 800ms 才要着法：让“电脑掷出了 X，正在思考...”有可见的停留时间。
-            // 重新进入 handle_ai_turn，这一次会落到 Player2Thinking 分支。
+            // 掷骰后等 800ms 再要着法，让提示可见；重入时落到 Player2Thinking 分支。
             ai_timer_.start(think_delay_ms_);
             return;
         case core::Phase::Player2Thinking:
-            break;  // 骰子已就绪，落到下面走子
+            // 骰子已就绪，落到下面走子。
+            break;
         case core::Phase::GameOver:
-            return;  // 开头已判过，这里只为让 switch 覆盖全部枚举值
+            // 开头已判过，这里只为让 switch 覆盖全部枚举值。
+            return;
     }
 
-    // Player2Thinking：选点走子。AI 或 core 抛异常说明局面/搜索出了问题，
-    // 不能把它翻译成一次规则外的“放弃回合”；中止本局并保留原始局面，让玩家重开或读档。
+    // AI 或 core 抛异常说明局面/搜索有问题，不能当成“放弃回合”；中止本局并保留原局面。
     try {
         auto move = ai::decide_move(game_.get_state(), ai_level_);
 
-        // 落子前先把日志文本算好：落子后终点已是己方棋子，就读不到被吃掉的是谁了。
-        // 但先不写入列表，避免 make_move 失败时留下一条不存在的走子记录。
+        // 落子前算好日志（落子后读不到被吃的棋子），但先不写列表，避免失败时留下假记录。
         auto target_piece = game_.get_state().board.at(move.to);
         QString log = QString("电脑: (%1,%2)->(%3,%4)")
                           .arg(move.from.x)
@@ -460,29 +426,28 @@ void GameWidget::handle_ai_turn() {
         return;
     }
 
-    // 统一再检查一次是否仍该由电脑行动，保证没有任何分支会漏触发。
+    // 所有分支在这里汇合，再检查一次是否仍该由电脑行动。
     trigger_ai_if_needed();
 }
 
 void GameWidget::update_ui() {
     auto state = game_.get_state();
 
-    // 中止态下棋盘只负责显示最后的局面，不能再接收点击；新局/读档会重新启用。
-    // 保存按钮同样禁用：一局无法继续的异常局面不应该再写进存档。
+    // 中止态：棋盘只显示、不接受点击；保存也禁用，异常局面不再写档。
     board_widget_->setEnabled(!game_aborted_);
     save_btn_->setEnabled(!game_aborted_);
 
-    // 高亮数据只在“人类可操作”时才计算：AI 回合喂空数组，棋盘上就不会闪出可动圈。
+    // 只有人类可操作时才计算高亮，AI 回合喂空数组。
     std::vector<core::Pos> selectable_pos;
     std::vector<core::Pos> reachable_pos;
 
     if (!game_aborted_ && state.current_side == state.player1_side &&
         state.phase == core::Phase::Player1Thinking) {
         if (!selected_pos_) {
-            // 还没选：提示哪些棋子本回合能动。
+            // 未选中：标出本回合可动的棋子。
             selectable_pos = get_selectable_positions();
         } else {
-            // 已选中：提示这枚棋子能落到哪里。
+            // 已选中：标出可达格。
             reachable_pos = get_reachable_positions(*selected_pos_);
         }
     }
@@ -490,7 +455,7 @@ void GameWidget::update_ui() {
     board_widget_->update_state(state, selected_pos_, selectable_pos, reachable_pos);
     dice_widget_->set_dice(state.current_dice);
 
-    // 异常中止是最高优先级的状态：不再显示“轮到你了/电脑思考中”，也不允许掷骰。
+    // 中止优先于一切：不显示回合文案，也不允许掷骰。
     if (game_aborted_) {
         status_label_->setText(
             QString("⚠️ 对局异常：%1；请返回主页后重新开局或读档。").arg(abort_reason_));
@@ -498,33 +463,31 @@ void GameWidget::update_ui() {
         return;
     }
 
-    // 下面是一张“状态文案 + 掷骰按钮”的联动表，两者必须成对修改，
-    // 否则会出现文案写着“请掷骰子”而按钮是灰的这种自相矛盾的界面。
+    // 文案与按钮必须成对更新，否则会出现“请掷骰子”却按钮灰的矛盾界面。
     if (state.phase == core::Phase::GameOver) {
-        // 终局：只展示胜者并禁用掷骰，然后直接返回，不再落到下面的回合分支。
+        // 终局：展示胜者并禁用掷骰后直接返回。
         status_label_->setText(
             QString("🏆 %1 获胜！").arg(QString::fromStdString(core::side_name(state.winner))));
         roll_btn_->setEnabled(false);
         return;
     }
 
-    // current_dice 在“思考”阶段理论上必有值，但存档可能不自洽（旧版本会写出
-    // “思考阶段却没有点数”的局面），这里统一安全格式化，不再直接解引用 optional。
+    // 思考阶段理论上必有骰子，但存档可能自相矛盾，用 "?" 兜底而不直接解引用
+    // optional；成因见 `#save-unchecked-state`。
     const QString dice_text =
         state.current_dice ? QString::number(*state.current_dice) : QString("?");
 
     if (state.current_side == state.player1_side) {
         if (state.phase == core::Phase::ThrowingDice) {
-            // 人类回合且尚未掷骰：这是全局唯一允许点亮掷骰按钮的组合。
+            // 全局唯一点亮掷骰按钮的组合。
             status_label_->setText("轮到你了，请掷骰子");
             roll_btn_->setEnabled(true);
         } else {
-            // 人类回合且已掷骰：展示点数，按钮保持禁用。
             status_label_->setText("🎲 你掷出了 " + dice_text + "，请走棋");
             roll_btn_->setEnabled(false);
         }
     } else {
-        // 电脑回合：掷骰与思考都由定时器推进，无论哪个子阶段按钮都禁用。
+        // 电脑回合：两个子阶段都由定时器推进，按钮保持禁用。
         if (state.phase == core::Phase::ThrowingDice) {
             status_label_->setText("🤖 电脑正在掷骰子...");
         } else {
@@ -537,13 +500,12 @@ void GameWidget::update_ui() {
 std::vector<core::Pos> GameWidget::get_selectable_positions() const {
     std::vector<core::Pos> positions;
     auto state = game_.get_state();
-    // LayOut / ThrowingDice 阶段没有“可动棋子”的概念，直接返回空表。
+    // LayOut / ThrowingDice 没有“可动棋子”的概念。
     if (state.phase != core::Phase::Player1Thinking) {
         return positions;
     }
 
-    // 规则给的是编号，棋盘要的是坐标，所以逐枚反查；查不到说明那枚棋子已被吃掉
-    // （或该 id 本来就不属于人类），跳过即可，不必当成错误。
+    // 规则给编号、界面要坐标，逐枚反查；查不到说明已被吃或不属于人类，跳过即可。
     auto selectable_ids = core::rules::get_selectable_ids(state);
     for (int id : selectable_ids) {
         auto pos = state.board.find_piece(state.player1_side, id);
@@ -558,9 +520,8 @@ std::vector<core::Pos> GameWidget::get_reachable_positions(core::Pos from) const
     std::vector<core::Pos> positions;
     auto state = game_.get_state();
 
-    // 25 格全试一遍，用 check_move 返回空串当“合法”判据：这样 UI 不必复制任何
-    // 方向或阶段规则，规则以后改了这里自动跟着变。本函数不校验阶段，由 update_ui 保证。
-    // 注意: check_move 不拦终点占位，己方棋子所在格也会被高亮，这是规则允许的。
+    // 25 格逐个试 check_move：UI 不复制方向或阶段规则；不拦终点占位，己方格也会高亮。
+    // 本函数不校验阶段，由调用方保证。
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
             core::Pos to{x, y};
