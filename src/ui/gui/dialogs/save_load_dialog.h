@@ -6,6 +6,7 @@
 #include <QDialog>
 #include <QLineEdit>
 #include <QListWidget>
+#include <optional>
 #include <string>
 
 namespace gui {
@@ -34,8 +35,8 @@ public:
     [[nodiscard]] std::string get_save_name() const;
 
     /// @brief 取出列表里当前选中的存档名。
-    /// @return 选中的名字；没有选中任何一项时返回空串
-    [[nodiscard]] std::string get_selected_name() const;
+    /// @return 选中的名字；没有选中任何一项时返回 `std::nullopt`
+    [[nodiscard]] std::optional<std::string> get_selected_name() const;
 
 private slots:
     /// @brief 确认按钮：先做“名称非空 / 必须选中一项 / 同名覆盖确认”的校验，通过才 accept()。

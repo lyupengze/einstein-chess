@@ -61,10 +61,13 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
             if (dialog.exec() != QDialog::Accepted) {
                 return;
             }
-            std::string name = dialog.get_selected_name();
+            const auto name = dialog.get_selected_name();
+            if (!name) {
+                return;
+            }
             // 每次新建：数据库连接的生命周期就锁在这个 lambda 里。
             storage::SaveManager save_manager(storage::kDefaultDbPath);
-            auto saved = save_manager.load_game(name);
+            auto saved = save_manager.load_game(*name);
 
             if (saved) {
                 // 档位取自存档本身，而不是当前菜单或上一次新局的选择：

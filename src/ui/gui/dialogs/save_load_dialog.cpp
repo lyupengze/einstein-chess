@@ -108,12 +108,14 @@ std::string SaveLoadDialog::get_save_name() const {
     return name_input_->text().trimmed().toStdString();
 }
 
-std::string SaveLoadDialog::get_selected_name() const {
-    // 没有选中项时返回空串而不是崩溃；调用方（MainWindow）依赖 accept 前已选中的前提。
-    if (list_widget_->currentItem()) {
-        return list_widget_->currentItem()->text().toStdString();
+std::optional<std::string> SaveLoadDialog::get_selected_name() const {
+    // 没有选中项时返回 nullopt；确认按钮已拦住空库，这里的空值只可能来自
+    // 调用方绕过界面直接取值。
+    const auto* item = list_widget_->currentItem();
+    if (item == nullptr) {
+        return std::nullopt;
     }
-    return "";
+    return item->text().toStdString();
 }
 
 }  // namespace gui

@@ -257,7 +257,7 @@ int main(int argc, char* argv[]) {
         gui::SaveLoadDialog dialog(gui::DialogMode::Load);
         QListWidget* list = dialog.findChild<QListWidget*>();
         expect(list != nullptr && list->count() == 0, "读档对话框初始列表为空");
-        expect(dialog.get_selected_name().empty(), "空库时没有选中项");
+        expect(!dialog.get_selected_name().has_value(), "空库时没有选中项");
         bool save_name_threw = false;
         try {
             [[maybe_unused]] const auto& ignored = dialog.get_save_name();
@@ -278,7 +278,8 @@ int main(int argc, char* argv[]) {
         QListWidget* list = dialog.findChild<QListWidget*>();
         expect(list != nullptr && list->count() == 1, "读档对话框列出存档");
         expect(list != nullptr && list->currentRow() == 0, "默认选中第一条");
-        expect(dialog.get_selected_name() == "alpha", "返回选中的槽位名");
+        const auto selected = dialog.get_selected_name();
+        expect(selected && *selected == "alpha", "返回选中的槽位名");
 
         expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"), "读档确认槽可调用");
         expect(dialog.result() == QDialog::Accepted, "读档接受选中槽位");
