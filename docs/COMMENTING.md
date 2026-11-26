@@ -283,6 +283,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 ### 8.3 评审清单
 
 - [ ] 提交前跑过 `cmake -P tools/check_repo.cmake`
+- [ ] `clang-format --dry-run --Werror` 无差异
 - [ ] 新文件有 `@file`，内容与文件名一致
 - [ ] 新增的 CMake 脚本首行写了职责
 - [ ] 公共函数写了 `@param` 与 `@throws`（抛异常的函数）
@@ -306,5 +307,8 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 10. 枚举 `switch` 覆盖全部枚举值时不写 `default`，让编译器报出新增值；确实需要兜底值时才写 `default`，并在注释说明兜底语义。
 11. Qt 信号连接：需要访问成员状态、会被多处复用的槽写 `private slots:`；只在连接点用一次的转发逻辑用 lambda。
 12. 只读且不保存引用的字符串参数用 `std::string_view`；需要保存引用或转交所有权的用 `const std::string&` 或 `std::string`。
-13. C++ 源码每行不超过 100 列（clang-format 统一处理）；CMake 不设硬上限，但控制在 120 列以内，避免横向滚动。
+13. C++ 源码每行不超过 100 列（clang-format 统一处理）；CMake 不设硬上限，但控制在 120 列以内，避免横向滚动。不手动拆分表达式来折行；一行太长时改变量名或提前提取中间结果，折行位置交给 clang-format。
 14. 解析函数用返回值表达失败：能失败的函数返回 `std::optional`，不抛出、也不通过出参回传；菜单编号按 1 起算，函数名用 `number`，调用方取下标时显式减一。
+15. `auto`：能从初始化器直接看出类型、且不隐藏关键信息时用 `auto`（迭代器、`static_cast` 的结果、容器元素、结构化绑定）；公开接口、需要区分 `std::size_t` 与 `int` 的边界处写全类型。
+16. 自增/自减一律前置（`++i`）；确实需要后置值时拆成两行，先保存旧值再自增。
+17. 不用 C 风格转换，按用途选 `static_cast` / `reinterpret_cast`；只在包装 C API 的最小范围内例外，当前只有 `sqlite_wrapper.cpp` 对 `sqlite3*` / `sqlite3_stmt*` 的转换。
