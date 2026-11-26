@@ -304,3 +304,4 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 11. Qt 信号连接：需要访问成员状态、会被多处复用的槽写 `private slots:`；只在连接点用一次的转发逻辑用 lambda。
 12. 只读且不保存引用的字符串参数用 `std::string_view`；需要保存引用或转交所有权的用 `const std::string&` 或 `std::string`。
 13. C++ 源码每行不超过 100 列（clang-format 统一处理）；CMake 不设硬上限，但控制在 120 列以内，避免横向滚动。
+14. 解析函数用返回值表达失败：能失败的函数返回 `std::optional`，不抛出、也不通过出参回传；菜单编号按 1 起算，函数名用 `number`，调用方取下标时显式减一。

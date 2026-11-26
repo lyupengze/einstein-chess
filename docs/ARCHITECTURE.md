@@ -121,6 +121,8 @@ AI 回合：
 - `core`、`ai`、`storage` 的错误一律用异常报告：参数非法抛 `std::invalid_argument`，
   违反对象状态或调用时序抛 `std::logic_error`，外部数据或 I/O 失败抛 `std::runtime_error`，
   坐标越界抛 `std::out_of_range`；`what()` 为中文。
+- 用户输入的格式错误不算异常：`cli::parse_*` 返回 `std::optional`，调用方提示后重新询问；
+  菜单编号按 1 起算，函数返回用户看到的编号，调用方取下标时减一。
 - GUI 在每个用户动作的入口捕获异常：可以恢复的用 Toast 提示，无法继续的进入“对局异常”中止态，
   只改界面、不改局面。
 - Botzone 入口把协议错误与内部错误分开：前者是 `ProtocolError`，后者是其他 `std::exception`，
