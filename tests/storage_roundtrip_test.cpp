@@ -144,24 +144,24 @@ int main() {
         const core::GameState layout = make_layout_state();
         const core::GameState game_over = make_game_over_state();
 
-        manager.save_game("完整对局", full, ai::Level::kRandom);
+        manager.save_game("完整对局", full, ai::Level::Random);
         manager.save_game("终局", game_over, ai::kDefaultLevel);
 
         // 1. 两种可恢复阶段各自完整往返，棋盘每一格与可选骰子都要一致。
         const auto full_saved = manager.load_game("完整对局");
         expect(full_saved.has_value(), "完整存档可读");
         expect(full_saved && same_state(full_saved->state, full), "完整存档的棋盘与骰子逐格往返");
-        expect(full_saved && full_saved->ai_level == ai::Level::kRandom, "完整存档恢复档位");
+        expect(full_saved && full_saved->ai_level == ai::Level::Random, "完整存档恢复档位");
 
         const auto over_saved = manager.load_game("终局");
         expect(over_saved && same_state(over_saved->state, game_over), "终局存档往返胜者与空骰子");
         expect(over_saved && over_saved->ai_level == ai::kDefaultLevel, "终局存档恢复默认档");
 
         // 2. 同名保存必须覆盖旧局面，而不是新增一行或保留旧数据。
-        manager.save_game("完整对局", game_over, ai::Level::kSearch);
+        manager.save_game("完整对局", game_over, ai::Level::Search);
         const auto overwritten = manager.load_game("完整对局");
         expect(overwritten && same_state(overwritten->state, game_over), "同名存档覆盖旧局面");
-        expect(overwritten && overwritten->ai_level == ai::Level::kSearch,
+        expect(overwritten && overwritten->ai_level == ai::Level::Search,
                "覆盖同名存档同时更新档位");
 
         // 3. 列表应恰好有两个槽位；同名覆盖不能产生重复项。
@@ -191,7 +191,7 @@ int main() {
         // 6. 布阵阶段没有可恢复的 UI 流程，必须在写库前拒绝。
         bool layout_save_threw = false;
         try {
-            manager.save_game("布阵阶段", layout, ai::Level::kSearch);
+            manager.save_game("布阵阶段", layout, ai::Level::Search);
         } catch (const std::invalid_argument&) {
             layout_save_threw = true;
         }
@@ -220,7 +220,7 @@ int main() {
         const core::GameState game_over = make_game_over_state();
         const auto saved = reopened.load_game("完整对局");
         expect(saved && same_state(saved->state, game_over), "重开数据库后局面仍在");
-        expect(saved && saved->ai_level == ai::Level::kSearch, "重开数据库后档位仍在");
+        expect(saved && saved->ai_level == ai::Level::Search, "重开数据库后档位仍在");
     }
 
     // 10. 语义不自洽的数据：每个字段单独看都合法，但组合起来不可能出现。

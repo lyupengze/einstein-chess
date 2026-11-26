@@ -324,9 +324,9 @@ core::Move choose_random_move(const core::GameState& state) {
 
 std::string level_name(Level level) {
     switch (level) {
-        case Level::kRandom:
+        case Level::Random:
             return "随机";
-        case Level::kSearch:
+        case Level::Search:
             return "搜索";
         default:
             // 兜住通过 static_cast 传入的越界值，避免界面显示空串。
@@ -358,9 +358,9 @@ core::Move decide_move(const core::GameState& state, Level level) {
     require_thinking_phase(state);
 
     switch (level) {
-        case Level::kRandom:
+        case Level::Random:
             return choose_random_move(state);
-        case Level::kSearch:
+        case Level::Search:
             return choose_move(state, SearchConfig{});
         default:
             // 枚举值由调用方 static_cast 伪造时显式报错，而不是静默降级到某个档位。

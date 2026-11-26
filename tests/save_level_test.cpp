@@ -96,18 +96,16 @@ int main() {
 
     {
         storage::SaveManager manager(kDbPath);
-        manager.save_game("random", state, ai::Level::kRandom);
-        manager.save_game("search", state, ai::Level::kSearch);
+        manager.save_game("random", state, ai::Level::Random);
+        manager.save_game("search", state, ai::Level::Search);
 
         // 1. 档位必须随存档往返，且两种档位各自独立。
         const auto random_saved = manager.load_game("random");
         expect(random_saved.has_value(), "随机档存档可读");
-        expect(random_saved && random_saved->ai_level == ai::Level::kRandom,
-               "随机档存档恢复随机档");
+        expect(random_saved && random_saved->ai_level == ai::Level::Random, "随机档存档恢复随机档");
 
         const auto search_saved = manager.load_game("search");
-        expect(search_saved && search_saved->ai_level == ai::Level::kSearch,
-               "搜索档存档恢复搜索档");
+        expect(search_saved && search_saved->ai_level == ai::Level::Search, "搜索档存档恢复搜索档");
 
         // 2. 局面本身不能被档位字段影响。
         expect(random_saved && random_saved->state.phase == state.phase &&

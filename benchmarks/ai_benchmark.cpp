@@ -203,7 +203,7 @@ SelfPlayStats run_self_play() {
 
             try {
                 const ai::Level level =
-                    (state.current_side == search_side) ? ai::Level::kSearch : ai::Level::kRandom;
+                    (state.current_side == search_side) ? ai::Level::Search : ai::Level::Random;
                 const core::Move move = ai::decide_move(state, level);
                 state = core::apply_move_and_settle(state, move.from, move.to);
             } catch (const std::exception&) {

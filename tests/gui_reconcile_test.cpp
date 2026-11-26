@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
         auto* history = widget.findChild<QListWidget*>();
         expect(history != nullptr, "对局页暴露历史列表");
         widget.load_game_state(thinking, ai::kDefaultLevel);  // 排一个 150ms 的 AI 回调
-        widget.start_new_game(core::Side::Blue, {1, 2, 3, 4, 5, 6}, ai::Level::kSearch);
+        widget.start_new_game(core::Side::Blue, {1, 2, 3, 4, 5, 6}, ai::Level::Search);
 
         expect(test_support::expect_remains_false(
                    [&] { return history != nullptr && history->count() > 0; }, 250,

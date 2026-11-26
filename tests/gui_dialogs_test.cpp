@@ -271,7 +271,7 @@ int main(int argc, char* argv[]) {
     // 6. 预置一个存档后，读取模式应选中最近一条，确认后返回 Accepted。
     {
         storage::SaveManager manager(storage::kDefaultDbPath);
-        manager.save_game("alpha", make_minimal_state(), ai::Level::kSearch);
+        manager.save_game("alpha", make_minimal_state(), ai::Level::Search);
     }
     {
         gui::SaveLoadDialog dialog(gui::DialogMode::Load);
