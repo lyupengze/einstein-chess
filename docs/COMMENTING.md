@@ -1,6 +1,6 @@
 # 注释与文档规范
 
-本文件规定注释与文档的写法，是评审与自查的依据。
+本文件规定注释、文档与代码写法的最小约定，是评审与自查的依据。
 构建与持续集成见 [构建文档](BUILD.md)，运行与操作见 [使用说明](USAGE.md)，
 棋盘规则见 [棋盘规则](RULES.md)，存档字段见 [存档格式](SAVE_FORMAT.md)。
 
@@ -286,3 +286,21 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 - [ ] 没有复制事实源里的数字
 - [ ] 没有无出处编号与历史叙事
 - [ ] 链接点开过
+
+## 9. 代码写法的硬约定
+
+注释之外，下列写法同样影响可读性。新增代码必须遵守，存量按模块逐步对齐。
+
+1. 命名空间等于模块目录名：`core`、`ai`、`storage`、`cli`、`gui`、`botzone`；测试辅助用 `test_support`。
+2. 棋盘边长与每方棋子数只引用 `core::Board::kSize` / `kChessCount`；`src/` 里需要 `int` 时在本文件派生一个 `constexpr`，不写裸 `5` 与 `6`。
+3. 容器与棋盘的遍历索引用 `std::size_t`；参与像素扣减、可能为负的算术用 `int`，跨界转换写 `static_cast`。
+4. 类型名写全（`std::size_t`、`std::array`），不写裸 `size_t`，也不写 `using namespace`。
+5. Qt 字符串字面量用 `QStringLiteral`；`const char*` 转 `QString` 走 `QString::fromUtf8`，不使用隐式转换。
+6. 指针成员在声明处 `= nullptr`；标量与枚举成员用 `{}` 或 `{值}` 初始化，构造函数里只做需要参数的赋值。
+7. 只读查询标 `[[nodiscard]]`，包括返回 `bool`、枚举、容器的 getter。
+8. 每个文件末尾保留一个换行，由 `.clang-format` 的 `InsertNewlineAtEOF` 保证。
+9. 异常类型按 §4.3；消息前缀分层：core 的契约失败写陈述短句，storage 与 UI 写“步骤失败: 原因”。
+10. 枚举 `switch` 覆盖全部枚举值时不写 `default`，让编译器报出新增值；确实需要兜底值时才写 `default`，并在注释说明兜底语义。
+11. Qt 信号连接：需要访问成员状态、会被多处复用的槽写 `private slots:`；只在连接点用一次的转发逻辑用 lambda。
+12. 只读且不保存引用的字符串参数用 `std::string_view`；需要保存引用或转交所有权的用 `const std::string&` 或 `std::string`。
+13. C++ 源码每行不超过 100 列（clang-format 统一处理）；CMake 不设硬上限，但控制在 120 列以内，避免横向滚动。
