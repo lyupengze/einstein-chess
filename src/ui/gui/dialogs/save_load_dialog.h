@@ -1,3 +1,6 @@
+/// @file src/ui/gui/dialogs/save_load_dialog.h
+/// @brief 存档对话框：一个类同时承担保存与读取两种形态。
+
 #pragma once
 
 #include <QDialog>
@@ -5,9 +8,6 @@
 #include <QListWidget>
 #include <string>
 
-// 存档对话框（SaveLoadDialog）的接口声明。
-// 一个类同时承担“保存”和“读取”两种形态，区别只在构造时传入的 DialogMode；
-// 本类只收集“存档名”，真正的读写库由调用方（GameWidget / MainWindow）执行。
 namespace ui {
 
 /// @brief 对话框形态：Save 需要输入名称，Load 必须从列表里选一项。

@@ -1,3 +1,6 @@
+/// @file src/ui/gui/components/toast_widget.h
+/// @brief 自动消失的浮动提示条。
+
 #pragma once
 
 #include <QTimer>
@@ -9,11 +12,10 @@ class QPropertyAnimation;
 
 namespace ui {
 
-// 轻量浮动提示条：外层容器负责定位与淡入淡出，内层 QLabel 负责外观与阴影。
-// 它不以窗口形式独立存在，而是挂在调用方（GameWidget）身上，靠 move() 绝对定位，
-// 因而不会参与父控件的布局；显示位置只在 show_message() 里临时计算。
-
 /// @brief 自动消失的提示条控件（QWidget 子类），外观由样式表中的 QLabel#toast 规则决定。
+///
+/// 它不独立成窗口，而是挂在调用方身上靠 move() 绝对定位，因此不参与父控件布局；
+/// 位置只在 show_message() 里计算一次，父控件之后缩放不会跟随。
 ///
 /// 典型用法：调用 show_message() 显示一句话，先淡入、停留 duration 毫秒、再淡出并隐藏，
 /// 期间不需要调用方再操心任何事。
@@ -29,7 +31,7 @@ public:
 
     /// @brief 显示一条提示，并重新开始倒计时。
     /// @param msg 提示文本，会原样显示（不自动换行，宽度由文本自然撑开）
-    /// @param duration 完全显示的停留毫秒数，默认 2500；淡入淡出各占约 0.2 秒，不计入其中
+    /// @param duration 完全显示的停留毫秒数，默认 2500；淡入 180 ms、淡出 200 ms，不计入其中
     /// @note 重复调用会停掉进行中的动画与计时，从当前透明度重新淡入，不会出现两条提示叠加。
     void show_message(const QString& msg, int duration = 2500);
 

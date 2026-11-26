@@ -1,3 +1,6 @@
+/// @file src/ui/gui/components/board_widget.h
+/// @brief 棋盘绘制控件：只被喂状态、只把点击抛出去，不含任何规则判断。
+
 #pragma once
 
 #include <QMouseEvent>
@@ -9,10 +12,6 @@
 #include "core/types.h"
 
 namespace ui {
-
-// 棋盘控件的对外接口：只声明"怎样被喂状态"和"怎样把点击抛出去"，不暴露任何规则 API。
-// 绘制与换算细节全部留在 .cpp，头部刻意保持精简，以体现它是一个纯展示组件。
-// 状态按整份快照传入：每次刷新都覆盖全部四项，控件不保留任何跨帧的中间状态。
 
 /// @brief 棋盘绘制控件：纯展示组件，所有状态由 update_state() 从外部灌入。
 ///

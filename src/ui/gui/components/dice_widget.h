@@ -1,3 +1,6 @@
+/// @file src/ui/gui/components/dice_widget.h
+/// @brief 骰子图形控件：把本回合点数画成一颗带点阵的骰子。
+
 #pragma once
 
 #include <QWidget>
@@ -5,11 +8,10 @@
 
 namespace ui {
 
-// 骰子点数展示控件：把"本回合掷出的点数"画成一颗带点阵的白色骰子。
-// 纯展示组件——随机数由 core::Game 产生，这里只负责接收 1~6 或 nullopt 并画出对应点阵。
-// 点数为空（尚未掷骰）时 paintEvent 直接返回，界面上看不到骰子，只有右侧面板的空白区域。
-
 /// @brief 骰子图形控件，尺寸被限制在 100~150 像素之间，由右侧面板水平居中摆放。
+///
+/// 随机数由 `core::Game` 产生，本控件只接收 1~6 或 `std::nullopt`：无点数时
+/// 整帧不画，非法点数画红色问号，两者在视觉上可以区分。
 ///
 /// 无输入、无交互：唯一的外部接口是 set_dice()，点阵布局在 paintEvent 里按点数分支绘制。
 class DiceWidget : public QWidget {
@@ -20,7 +22,7 @@ public:
 
     /// @brief 设置要显示的点数并请求重绘。
     /// @param dice 1~6 的合法点数；std::nullopt 表示"本回合还没掷骰"，控件随即变空白
-    /// @note 此处不做范围校验：传入 0 或大于 6 时骰身照画，但点阵一个都不会出现（空白骰面）。
+    /// @note 此处不做范围校验：传入 0 或大于 6 时骰身照画，点阵换成红色问号。
     void set_dice(std::optional<int> dice);
 
 protected:

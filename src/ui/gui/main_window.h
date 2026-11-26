@@ -1,3 +1,6 @@
+/// @file src/ui/gui/main_window.h
+/// @brief 主窗口：用页面栈在菜单页与对局页之间切换，并串起三条流程。
+
 #pragma once
 
 #include <QStackedWidget>
@@ -6,9 +9,6 @@
 #include "views/game_widget.h"
 #include "views/menu_widget.h"
 
-// 主窗口（MainWindow）的接口声明。
-// 它本身只是 QStackedWidget 的容器：第 0 页菜单、第 1 页对局，
-// 并负责串起“菜单信号 -> 弹窗 -> 建局或载局 -> 切页”的流程。
 namespace ui {
 
 /// @brief 应用主窗口，用 QStackedWidget 在菜单页与对局页之间切换。

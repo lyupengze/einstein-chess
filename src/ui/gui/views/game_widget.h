@@ -1,3 +1,6 @@
+/// @file src/ui/gui/views/game_widget.h
+/// @brief 对局页：棋盘、骰子、状态栏、操作按钮与走子历史。
+
 #pragma once
 
 #include <QLabel>
@@ -16,9 +19,6 @@
 #include "components/toast_widget.h"
 #include "core/game.h"
 
-// 对局页（GameWidget）的接口声明：棋盘、骰子、状态栏、操作按钮与走子历史。
-// 类内持有唯一的 core::Game 实例，规则判定全部转交 core::Game 与 core::rules；
-// 本类只负责采集输入、把 GameState 翻译成界面、以及驱动 AI 回合的定时器。
 namespace ui {
 
 /// @brief 对局主界面：左侧棋盘，右侧骰子与历史记录，顶部状态文案与三个操作按钮。
@@ -36,12 +36,12 @@ public:
     /// @brief 开新局：重置对局状态，提交双方布阵后刷新界面。
     /// @param human_side 人类的阵营，另一阵营自动交给 AI
     /// @param human_layout 人类布阵，下标 0~5 对应 Board::setup_custom 的落位顺序
-    /// @param ai_level 本局电脑强度，来自布阵对话框；整局保持不变
+    /// @param ai_level 本局电脑档位，来自布阵对话框；整局保持不变
     void start_new_game(core::Side human_side, const std::array<int, 6>& human_layout,
                         ai::Level ai_level);
     /// @brief 用存档快照覆盖当前对局；若快照停在 AI 回合会立刻把回合交给 AI。
     /// @param state 从 SaveManager 读出的完整状态
-    /// @param ai_level 存档记录的电脑强度，读档后整局沿用，保证与存档时一致
+    /// @param ai_level 存档记录的电脑档位，读档后整局沿用，保证与存档时一致
     void load_game_state(const core::GameState& state, ai::Level ai_level);
     /// @brief 测试专用：覆盖三段界面延迟，默认值保持产品节奏。
     /// @param roll_ms 点击掷骰到真正掷骰的延迟（默认 400）
@@ -115,7 +115,7 @@ private:
     std::vector<core::Pos> get_reachable_positions(core::Pos from) const;
 
     core::Game game_;                         ///< 唯一的对局对象，所有规则进出的门
-    ai::Level ai_level_ = ai::kDefaultLevel;  ///< 本局电脑强度；开新局/读档时写入，之后不再变
+    ai::Level ai_level_ = ai::kDefaultLevel;  ///< 本局电脑档位；开新局/读档时写入，之后不变
     bool game_aborted_ = false;               ///< true 时对局因电脑回合异常而中止，禁止继续操作
     QString abort_reason_;                    ///< 中止原因，仅在 game_aborted_ 为 true 时有效
     BoardWidget* board_widget_;               ///< 棋盘绘制者，也是 cell_clicked 的来源

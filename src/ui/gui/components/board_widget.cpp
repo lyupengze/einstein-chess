@@ -1,3 +1,11 @@
+/// @file src/ui/gui/components/board_widget.cpp
+/// @brief 绘制棋盘快照，并把鼠标点击换算回棋盘坐标。
+///
+/// 绘制严格分层，后画的覆盖先画的：棋盘格 → 红/蓝初始区 → 网格线 →
+/// 棋子（投影 + 径向渐变 + 高光 + 编号）→ 三种高亮圈；高亮放在最后，
+/// 保证它永远压在棋子之上。坐标换算在两处出现且互为逆运算：
+/// paintEvent 由 (行 x, 列 y) 求出屏幕 (纵, 横)，mousePressEvent 再反推。
+
 #include "board_widget.h"
 
 #include <QFont>
@@ -10,10 +18,9 @@ namespace ui {
 
 namespace {
 
-// 棋盘几何参数。绘制与命中判定共用这一份计算：
-// 过去两处各自用 board_size = min(w, h) 和 cell_size = board_size / 5 重复整除，
-// 判定用 board_size 而网格只覆盖 cell_size * 5，最右/最下一小条因此会把点击
-// 换算成下标 5（越界）。现在统一以 cell_size * 5 得到的 span 为准。
+// 棋盘几何参数。绘制与命中判定共用这一份计算，边界一律用 span：
+// span = cell_size * 5 才是棋盘实际覆盖的边长，min(w, h) 的整除余量不算棋盘。
+// 若拿 board_size 判边界，最右/最下一小条会把点击换算成下标 5 并越界。
 struct BoardGeometry {
     int cell_size = 0;  ///< 单格边长。
     int span = 0;       ///< 棋盘实际覆盖的像素边长，恒等于 cell_size * 5。
@@ -44,14 +51,6 @@ QRect piece_rect_at(int offset_x, int offset_y, int cell_size, int row, int col)
 
 }  // namespace
 
-// 棋盘控件实现。本文件只做两件事：把快照画出来、把点击换算回坐标。
-// 绘制严格分层，后画的覆盖先画的：棋盘格 → 红/蓝初始区 → 网格线 →
-// 棋子（投影 + 径向渐变 + 高光 + 编号）→ 三种高亮圈；高亮放在最后，
-// 保证它永远压在棋子之上，不会被棋子挡住。
-// 坐标换算在两处出现：paintEvent 由 (行 x, 列 y) 求出屏幕 (纵, 横)，
-// mousePressEvent 再由屏幕 (横, 纵) 反推 (列, 行)。几何参数统一由
-// compute_geometry 计算一次，两处共用，避免整除余量导致判定与绘制不一致。
-
 BoardWidget::BoardWidget(QWidget* parent) : QWidget(parent) {
     // 最小 400x400：再小格子会挤到看不清编号，布局也会优先保住这个下限。
     setMinimumSize(400, 400);
@@ -74,10 +73,8 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     painter.setRenderHint(QPainter::Antialiasing);
 
     // 取短边作为正方形棋盘边长，剩余空间平分成两侧留白，控件被拉成长方形时棋盘仍然居中。
-    // 几何参数统一由 compute_geometry 给出，绘制与 mousePressEvent 不再各算一遍。
     const BoardGeometry geometry = compute_geometry(width(), height());
     const int cell_size = geometry.cell_size;
-    // 网格与区域填充严格覆盖 5 * cell_size。
     const int board_size = geometry.span;
     const int offset_x = geometry.offset_x;
     const int offset_y = geometry.offset_y;
@@ -141,8 +138,8 @@ void BoardWidget::paintEvent(QPaintEvent*) {
                 continue;
             }
 
-            // 最关键的换算：行号 x 决定屏幕纵坐标，列号 y 决定屏幕横坐标，即按矩阵习惯摆放。
-            // 棋子矩形由 piece_rect_at 统一给出，与下面高亮圈使用的是同一份边距。
+            // 关键换算：行号 x 决定屏幕纵坐标，列号 y 决定屏幕横坐标，即按矩阵习惯摆放。
+            // 棋子矩形与高亮圈共用 piece_rect_at 的边距，两者不会错位。
             const QRect piece_rect = piece_rect_at(offset_x, offset_y, cell_size,
                                                    static_cast<int>(x), static_cast<int>(y));
 
@@ -172,7 +169,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
                 piece_rect.center() - QPoint(piece_rect.width() / 5, piece_rect.height() / 5),
                 piece_rect.width() / 6, piece_rect.height() / 6);
 
-            // 编号：白色加粗，字号取 1/3 格宽，在棋子矩形内居中绘制；空格上面已 continue 跳过。
+            // 编号：白色加粗，字号取 1/3 格宽，在棋子矩形内居中。
             painter.setPen(Qt::white);
             QFont font = painter.font();
             font.setPixelSize(cell_size / 3);
@@ -188,9 +185,8 @@ void BoardWidget::paintEvent(QPaintEvent*) {
                              static_cast<int>(pos.y));
     };
 
-    // 用无填充画刷，圈内保持透明，不遮住底下的棋子。
+    // 无填充画刷让圈内保持透明；绿色虚线、线宽 3 表示本回合可选中的己方棋子。
     painter.setBrush(Qt::NoBrush);
-    // 绿色虚线、线宽 3：本回合规则允许挑选的己方棋子。
     painter.setPen(QPen(QColor("#2ecc71"), 3, Qt::DashLine));
     for (const auto& pos : selectable_pieces_) {
         // 外扩 4 像素，圈住棋子外缘而不压到棋子本体。
@@ -200,7 +196,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
 
     // 可达落点沿用上面那支绿虚线画笔（此处没有再 setPen），所以两者样式天然一致。
     // 注意: 若把上面的 setPen 连同 selectable_pieces_ 循环一起删掉，这里的圈会沿用画
-    //       棋子编号时的白色实线画笔，不再与可动圈样式一致。
+    //       棋子编号时的白色实线画笔，与可动圈样式不一致。
     for (const auto& target : reachable_targets_) {
         QRect rect = rect_for(target).adjusted(-4, -4, 4, 4);
         painter.drawEllipse(rect);
@@ -216,8 +212,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
 }
 
 void BoardWidget::mousePressEvent(QMouseEvent* event) {
-    // 棋盘走子只认左键：右键/中键既不能误触走子，也不能改变当前选中格。
-    // 非左键交还基类，避免吞掉以后可能需要的上下文菜单等事件。
+    // 只认左键：右键/中键不能误触走子或改变选中格，交还基类处理。
     if (event->button() != Qt::LeftButton) {
         QWidget::mousePressEvent(event);
         return;
@@ -227,8 +222,7 @@ void BoardWidget::mousePressEvent(QMouseEvent* event) {
     int click_x = event->pos().x();
     int click_y = event->pos().y();
 
-    // 与 paintEvent 共用同一份几何参数：两边都调用 compute_geometry，
-    // 不会再出现“判定用 board_size、网格只有 cell_size * 5”的余量失配。
+    // 与 paintEvent 共用 compute_geometry，边界与绘制落在同一条边上。
     const BoardGeometry geometry = compute_geometry(width(), height());
     const int cell_size = geometry.cell_size;
     const int offset_x = geometry.offset_x;
@@ -244,7 +238,7 @@ void BoardWidget::mousePressEvent(QMouseEvent* event) {
     const std::size_t col_y = static_cast<std::size_t>((click_x - offset_x) / cell_size);
     const std::size_t row_x = static_cast<std::size_t>((click_y - offset_y) / cell_size);
     // 双保险：span 由 cell_size * 5 推出，理论上必然落在 0..4；
-    // 这里仍防御性拒绝 5，避免以后改动几何参数时又把越界坐标抛给上层。
+    // 这里显式拒绝越界值，避免几何参数改动后把非法坐标抛给上层。
     if (col_y >= core::Board::kSize || row_x >= core::Board::kSize) {
         return;
     }

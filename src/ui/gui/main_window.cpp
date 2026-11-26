@@ -9,9 +9,12 @@
 #include "dialogs/setup_dialog.h"
 #include "storage/save_manager.h"
 
-// 主窗口实现：搭 QStackedWidget，再把菜单的两个信号接到两个 lambda 上。
-// 用 lambda 而不用成员槽，是因为这两段流程都只连接一次，且需要就地捕获 this；
-// 对话框一律以 this 为父，模态执行期间主窗口不响应输入。
+/// @file src/ui/gui/main_window.cpp
+/// @brief 搭页面栈并接好菜单的三条流程：新游戏、读档、返回主页。
+///
+/// 两段菜单流程用 lambda 而非成员槽：只连接一次且需要就地捕获 this。
+/// 对话框一律以 this 为父，模态执行期间主窗口不响应输入。
+
 namespace ui {
 
 MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
@@ -43,7 +46,7 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
             core::Side human_side = (side_int == 1) ? core::Side::Red : core::Side::Blue;
             auto player_layout = dialog.get_layout();
             // start_new_game 内部会同时提交人类与 AI 的布阵，返回时阶段已在 ThrowingDice。
-            // 强度与布阵一起传入：对话框默认选 kDefaultLevel（最新版），整局沿用。
+            // 档位与布阵一起传入：对话框默认选 kDefaultLevel，整局沿用。
             game_widget_->start_new_game(human_side, player_layout, dialog.get_selected_level());
             stacked_widget_->setCurrentWidget(game_widget_);
         }
@@ -64,8 +67,8 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
             auto saved = save_manager.load_game(name);
 
             if (saved) {
-                // 强度取自存档本身，而不是当前菜单/上一次新局的选择：
-                // 同一个存档无论读多少次、中间开过什么强度的新局，电脑强度都不变。
+                // 档位取自存档本身，而不是当前菜单或上一次新局的选择：
+                // 同一个存档无论读多少次、中间开过什么档位的新局，电脑档位都不变。
                 game_widget_->load_game_state(saved->state, saved->ai_level);
                 stacked_widget_->setCurrentWidget(game_widget_);
             } else {

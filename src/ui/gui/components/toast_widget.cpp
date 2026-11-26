@@ -1,3 +1,10 @@
+/// @file src/ui/gui/components/toast_widget.cpp
+/// @brief 提示条的定位、淡入淡出与自动隐藏。
+///
+/// 构造时备好阴影、透明度效果、动画与单发定时器并隐藏；show_message() 换文本、
+/// 按新尺寸重新居中、淡入并重新计时，超时后淡出再隐藏。淡入淡出由
+/// QGraphicsOpacityEffect 的 opacity 属性驱动——子控件上 setWindowOpacity 是空操作。
+
 #include "toast_widget.h"
 
 #include <QGraphicsDropShadowEffect>
@@ -16,11 +23,6 @@ constexpr int kFadeInMs = 180;
 constexpr int kFadeOutMs = 200;
 
 }  // namespace
-
-// 提示条实现：构造时备好阴影、透明度效果、动画与单发定时器并隐藏；
-// show_message() 负责换文本、按新尺寸重新居中、淡入并重新计时，超时后淡出再隐藏。
-// 由于它不进入父控件布局，位置只在每次 show_message() 时算一次，父控件之后缩放并不会跟随。
-// 淡入淡出由 QGraphicsOpacityEffect 的 opacity 属性驱动——子控件上 setWindowOpacity 是空操作。
 
 ToastWidget::ToastWidget(QWidget* parent) : QWidget(parent) {
     // 提示条只是反馈，不该拦住鼠标：真正需要点击的棋盘在它下面。

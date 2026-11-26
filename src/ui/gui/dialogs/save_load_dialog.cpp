@@ -10,10 +10,12 @@
 
 #include "storage/save_manager.h"
 
-// 存档对话框实现：两种形态共用一套控件，只在构造时按 mode_ 分支。
-// 打开即查库（list_saves），所以新存或删除后必须重新打开才能看到最新列表。
-// 校验集中在 on_confirm_clicked：名称非空 / 必须选中一项 / 同名覆盖需二次确认，
-// 不满足就留在对话框里；只有全部通过才 accept()。
+/// @file src/ui/gui/dialogs/save_load_dialog.cpp
+/// @brief 两种形态共用一套控件，按 mode_ 分支搭建与校验。
+///
+/// 打开即查库（list_saves），新存或删档后必须重新打开才能看到新列表；校验集中在
+/// on_confirm_clicked，不满足就留在对话框里，全部通过才 accept()。
+
 namespace ui {
 
 SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(parent), mode_(mode) {
@@ -23,8 +25,8 @@ SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(paren
 
     auto* layout = new QVBoxLayout(this);
 
-    // 临时对象只为拿一次列表；SaveManager 析构时数据库连接随之关闭。
-    // 注意: 这里没有任何 try，数据库打不开时异常会直接从构造函数抛给调用方。
+    // 临时对象只为拿一次列表；数据库打不开时异常从构造函数抛给调用方，
+    // 因此调用方必须把“构造 + exec”整体放进 try。
     storage::SaveManager save_manager(storage::kDefaultDbPath);
     auto saves = save_manager.list_saves();
 

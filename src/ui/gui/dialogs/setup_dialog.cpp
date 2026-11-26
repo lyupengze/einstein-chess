@@ -7,10 +7,13 @@
 #include <QVBoxLayout>
 #include <array>
 
-// 布阵对话框实现：三个坐标查询函数是核心，其余都是搭界面。
-// 三角区坐标表必须与 Board::setup_custom 里的 kRedPos / kBluePos 逐项一致——
-// get_index_in_region 返回的下标就是 layout 的下标，错一位就会把编号摆到别的格子上。
-// 点击只在 (v % 6) + 1 上循环，编号重复留到“确认”时统一校验。
+/// @file src/ui/gui/dialogs/setup_dialog.cpp
+/// @brief 布阵对话框的界面搭建与三角区坐标换算。
+///
+/// 三个坐标查询函数是核心：三角区坐标表必须与 Board::setup_custom 的
+/// kRedPos / kBluePos 逐项一致，get_index_in_region 返回的下标就是 layout 的下标，
+/// 错一位就会把编号摆到别的格子上。点击只在 (v % 6) + 1 上循环，重复编号留到确认时校验。
+
 namespace ui {
 
 SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
@@ -45,7 +48,7 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
         level_combo_->addItem(QString::fromStdString(ai::level_name(level)),
                               static_cast<int>(level));
     }
-    // 默认选中 kDefaultLevel（当前最新版），与“不指定版本就用最新版”的约定一致。
+    // 默认选中 kDefaultLevel，与 ai::decide_move 的默认参数一致。
     level_combo_->setCurrentIndex(level_combo_->findData(static_cast<int>(ai::kDefaultLevel)));
     level_layout->addWidget(level_combo_);
     level_layout->addStretch();
@@ -216,7 +219,8 @@ void SetupDialog::on_confirm_clicked() {
 }
 
 int SetupDialog::get_selected_side() const {
-    // 1/2 是 core::Side 中 Red/Blue 的枚举值，调用方按此映射，不做字符串比较。
+    // 返回 1/2，与本对话框的约定一致；与 core::Side 的枚举数值没有语义关系，
+    // 调用方按 1、2 显式映射，不做字符串比较。
     return red_radio_->isChecked() ? 1 : 2;
 }
 

@@ -1,3 +1,10 @@
+/// @file src/ui/gui/components/dice_widget.cpp
+/// @brief 画骰身、投影与 1~6 的点阵。
+///
+/// 骰面取控件短边减去 20 像素后居中，面板把它拉成什么比例都不会变形；
+/// 点阵由“圆心 + 相对中心的位移 offset”组合而成，半径 r 与 offset 都以
+/// 骰面边长 size 为基准，随控件缩放等比变化。
+
 #include "dice_widget.h"
 
 #include <QFont>
@@ -7,11 +14,6 @@
 #include <optional>
 
 namespace ui {
-
-// 骰子控件的绘制实现：白底圆角骰身 + 投影 + 深红色点阵，纯粹画几何图形，不产生随机数。
-// 骰面取控件短边减去 20 像素（左右各留 10 像素）再居中，所以面板把它拉成什么比例都不会变形。
-// 点阵由"圆心 + 偏移量 offset"组合而成：offset 是点中心相对骰面中心的横纵位移，
-// 半径 r 控制点的大小，两者都以骰面边长 size 为基准，随控件缩放自动等比变化。
 
 DiceWidget::DiceWidget(QWidget* parent) : QWidget(parent) {
     // 下限定 100：最小尺寸下六个点仍能分辨；上限 150：防止布局把它拉成一大块空白。
@@ -64,7 +66,7 @@ void DiceWidget::paintEvent(QPaintEvent*) {
     int cy = dice_rect.center().y();
     int offset = size / 4;
 
-    // 以骰面中心为原点画点，dx/dy 的正负号直接表示"右下 / 左上"。
+    // dx/dy 的正负号直接表示方向：负为左上，正为右下。
     auto draw_dot = [&](int dx, int dy) { painter.drawEllipse(QPoint(cx + dx, cy + dy), r, r); };
 
     // 注意: 合法点数只会是 1~6；default 不是“没有骰子”，而是数据异常。

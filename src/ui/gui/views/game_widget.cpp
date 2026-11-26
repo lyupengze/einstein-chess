@@ -306,7 +306,7 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
 }
 
 void GameWidget::trigger_ai_if_needed() {
-    // 中止态下不再推进任何一方。
+    // 中止态下棋盘与按钮都不推进对局。
     if (game_aborted_) {
         return;
     }
@@ -365,7 +365,7 @@ void GameWidget::abort_game(const QString& reason) {
 }
 
 void GameWidget::handle_ai_turn() {
-    // 已中止或已返回主页：不再让排队的回调推进对局。
+    // 已中止或已返回主页：排队的回调直接返回，不推进对局。
     if (game_aborted_) {
         return;
     }
@@ -433,7 +433,7 @@ void GameWidget::handle_ai_turn() {
 void GameWidget::update_ui() {
     auto state = game_.get_state();
 
-    // 中止态：棋盘只显示、不接受点击；保存也禁用，异常局面不再写档。
+    // 中止态：棋盘只显示、不接受点击；保存也禁用，异常局面不写档。
     board_widget_->setEnabled(!game_aborted_);
     save_btn_->setEnabled(!game_aborted_);
 

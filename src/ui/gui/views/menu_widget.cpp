@@ -3,9 +3,12 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
-// 主菜单页实现：纯界面搭建，没有状态机，也没有对局数据。
-// 背景渐变用 objectName 选择器 "#menuBackground" 限定在本页，不污染其他 QWidget；
-// 按钮尺寸与页脚留白就地写死，所以即使 style.qss 加载失败，本页版式也不会塌。
+/// @file src/ui/gui/views/menu_widget.cpp
+/// @brief 搭主菜单页：标题、两个入口按钮与页脚版本号。
+///
+/// 纯界面搭建，没有状态机也不持有对局数据；背景渐变用 "#menuBackground" 限定在本页，
+/// 按钮尺寸与页脚留白就地写死，style.qss 加载失败时版式也不会塌。
+
 namespace ui {
 
 MenuWidget::MenuWidget(QWidget* parent) : QWidget(parent) {
