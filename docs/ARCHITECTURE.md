@@ -77,19 +77,20 @@ apply_move_and_settle() 有胜者   → GameOver
 
 人类回合：
 
-1. 点击“掷骰子” → 按钮禁用并改文案 → `roll_delay_ms_`（默认 400 ms）后由 `roll_timer_` 调用
+1. 点击“掷骰子” → 按钮禁用并改文案 → `roll_delay_ms_` 后由 `roll_timer_` 调用
    `Game::roll_dice()`；
 2. `update_ui()` 按 `current_dice` 高亮可动棋子，棋盘只接受这两类点击：换选起点、确认落点；
-3. 确认落点 → `Game::make_move()` → 追加历史 → 若未终局，`after_move_delay_ms_`（默认 500 ms）
+3. 确认落点 → `Game::make_move()` → 追加历史 → 若未终局，`after_move_delay_ms_`
    后把回合交给 AI。
 
 AI 回合：
 
-1. `ai_timer_` 到点 → `Game::roll_dice()` → `think_delay_ms_`（默认 800 ms）后调用
+1. `ai_timer_` 到点 → `Game::roll_dice()` → `think_delay_ms_` 后调用
    `ai::decide_move()`；
 2. `Game::make_move()` → `update_ui()`，回合交回人类。
 
-三段延迟都由 `GameWidget` 的成员 `QTimer` 承担，而不是 `QTimer::singleShot`：开新局或读档时
+三段的默认值写在 `GameWidget` 的成员声明处；它们都由成员 `QTimer` 承担，而不是
+`QTimer::singleShot`：开新局或读档时
 必须能取消上一局已经排队的回调。保存对话框打开期间，两个定时器按剩余时间暂停，关闭后恢复，
 保证“点击保存时看到的局面”就是存进库里的局面。
 

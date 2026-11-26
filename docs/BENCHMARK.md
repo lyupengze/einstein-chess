@@ -80,7 +80,7 @@ cmake --build build-bench --target einstein_benchmark --parallel 8
 
 ## 解读
 
-- 当前深度 4 的搜索在最大分支的 fallback 局面上 p95 也不到 30 ms；GUI 另有三段过渡延迟（掷骰确认 400 ms、走子后衔接 500 ms、AI 思考 800 ms，见 `src/ui/gui/views/game_widget.h`），因此当前实现下 AI 计算不是界面卡顿的主要来源。
+- 当前深度 4 的搜索在最大分支的 fallback 局面上 p95 也不到 30 ms；GUI 另有三段过渡延迟（掷骰确认、走子后衔接、AI 思考，默认值见 `src/ui/gui/views/game_widget.h`），因此当前实现下 AI 计算不是界面卡顿的主要来源。
 - 搜索档对随机基线 40 局赢 38 局，说明评估和搜索方向明显优于随机；但 40 局样本有统计噪声，不能外推成“对任何对手 95% 胜率”。
 - 固定种子下多次重复的胜负一致，耗时只在小范围内波动；这说明 benchmark 本身是稳定的，但机器负载、编译器和 CPU 变化仍会影响绝对耗时。
 

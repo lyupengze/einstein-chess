@@ -44,7 +44,7 @@ cmake --build build --parallel 8
 ctest --test-dir build --output-on-failure
 ```
 
-此时 `einstein_gui`、GUI 静态库与 5 个 GUI 用例都不会注册，默认运行其余 14 个；用例清单以 `tests/CMakeLists.txt` 为准。
+此时 `einstein_gui`、GUI 静态库与带 `gui` 标签的用例都不会注册，其余用例照常运行；清单、标签与数量以 `tests/CMakeLists.txt` 为准。
 
 ## 让 CMake 找到 Qt6
 
@@ -98,7 +98,7 @@ ctest --test-dir build --output-on-failure
 
 - 超时是防挂死的上限，默认 60 秒；`cli_*` 与 `ai_*` 用例按实际耗时缩短或放宽。
 - `save_level`、`storage_roundtrip`、`gui_dialogs` 与 `cli_*` 各自在独立工作目录中运行，避免互相覆盖存档库。
-- GUI 用例自动使用 `QT_QPA_PLATFORM=offscreen`，不需要真实显示器；`-DEINSTEIN_BUILD_GUI=OFF` 时这 5 个用例不注册，其余 14 个仍可运行。
+- GUI 用例自动使用 `QT_QPA_PLATFORM=offscreen`，不需要真实显示器；`-DEINSTEIN_BUILD_GUI=OFF` 时带 `gui` 标签的用例不注册，其余仍可运行。
 - 按标签筛选示例：`ctest --test-dir build -L core`、`ctest --test-dir build -L gui`。
 - 测试覆盖有限的原因与取舍见 [设计取舍](DESIGN.md) 与 [使用说明](USAGE.md)。
 
@@ -106,8 +106,8 @@ ctest --test-dir build --output-on-failure
 
 GitHub Actions 工作流位于 `.github/workflows/ci.yml`：
 
-- `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑 19 个测试；
-- `windows-ucrt64-nogui`：同一环境但不装 Qt，`-DEINSTEIN_BUILD_GUI=OFF`，跑 14 个测试；
+- `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑全部用例（19 个，见 `tests/CMakeLists.txt`）；
+- `windows-ucrt64-nogui`：同一环境但不装 Qt，`-DEINSTEIN_BUILD_GUI=OFF`，跑除 `gui` 标签外的全部用例；
 - `format`：Ubuntu + Python，固定 `clang-format==23.1.1`，对 `src/`、`tests/`、`benchmarks/` 下受跟踪的 C++ 文件做 `--dry-run --Werror`；
 - `docs`：Ubuntu + CMake，运行 `cmake -P tools/check_repo.cmake`，检查文件头、禁词、缺陷锚点、相对链接与测试数口径。
 
