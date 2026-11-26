@@ -183,7 +183,7 @@ int main() {
         bool save_threw = false;
         try {
             manager.save_game("非法局面", invalid, ai::kDefaultLevel);
-        } catch (const std::runtime_error&) {
+        } catch (const std::invalid_argument&) {
             save_threw = true;
         }
         expect(save_threw, "save_game 拒绝语义非法的局面");

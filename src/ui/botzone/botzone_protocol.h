@@ -41,7 +41,7 @@ public:
 /// @param input 平台下发的 JSON 对象
 /// @return 形如 {"response": {...}} 的 JSON；未知阶段返回空 response
 /// @throws ProtocolError 请求结构/字段类型/棋盘维度不符合协议
-/// @throws std::runtime_error AI 无合法着法等内部错误
+/// @throws std::invalid_argument AI 无合法着法（局面不自洽，属内部错误）
 [[nodiscard]] nlohmann::json handle_request(const nlohmann::json& input);
 
 /// @brief 解析一行 JSON 文本并处理，便于 main 与测试共用同一条入口。

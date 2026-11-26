@@ -35,16 +35,16 @@ constexpr int kNoDice = -1;
     // 写库前先校验档位与局面：非法档位不能写进数据库，否则会在读档时才暴露，
     // 还可能覆盖掉同名槽位里的好档。
     if (!ai::is_valid_level(level)) {
-        throw std::invalid_argument("保存失败: 非法 AI 档位");
+        throw std::invalid_argument("非法的 AI 档位: " + std::to_string(static_cast<int>(level)));
     }
     if (state.phase == core::Phase::LayOut) {
-        throw std::invalid_argument("保存失败: 布阵阶段的对局不能存档");
+        throw std::invalid_argument("布阵阶段的对局不能存档");
     }
 
     const std::vector<core::StateIssue> issues = core::validate_state(state);
     if (!issues.empty()) {
-        throw std::runtime_error("保存失败: " + issues.front().field + ": " +
-                                 issues.front().message);
+        throw std::invalid_argument("局面状态不合法: " + issues.front().field + ": " +
+                                    issues.front().message);
     }
 
     std::ostringstream oss;

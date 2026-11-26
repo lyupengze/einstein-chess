@@ -34,10 +34,10 @@ void Game::prepare_new_game(Side player1_side) {
 void Game::submit_layout(Side side, const std::array<int, 6>& layout) {
     // 只有布阵阶段可以提交；否则会在对局中途覆盖棋盘，甚至让 GameOver "复活"。
     if (game_state_.phase != Phase::LayOut) {
-        throw std::invalid_argument("现在不能提交布阵");
+        throw std::logic_error("提交布阵要求处于布阵阶段");
     }
     if (game_state_.player1_side != Side::Red && game_state_.player1_side != Side::Blue) {
-        throw std::invalid_argument("发起方尚未设置");
+        throw std::logic_error("player1_side 尚未设置，无法记录布阵方");
     }
     if (side != Side::Red && side != Side::Blue) {
         throw std::invalid_argument("布阵方必须是红方或蓝方");
@@ -47,7 +47,7 @@ void Game::submit_layout(Side side, const std::array<int, 6>& layout) {
     const bool already_ready =
         (side == game_state_.player1_side) ? game_state_.player1_ready : game_state_.player2_ready;
     if (already_ready) {
-        throw std::invalid_argument("该方已经提交过布阵");
+        throw std::logic_error("该方提交过布阵，不能重复提交");
     }
 
     // setup_custom 内部会校验 side 与排列合法性，非法时抛异常且不修改状态。
@@ -72,11 +72,11 @@ void Game::load_game(GameState game_state) {
 void Game::roll_dice() {
     // 只有"等待掷骰"阶段可以掷骰；重复点击按钮或 UI 时序错乱都会走到这里。
     if (game_state_.phase != Phase::ThrowingDice) {
-        throw std::invalid_argument("当前阶段不能掷骰");
+        throw std::logic_error("掷骰要求处于掷骰阶段");
     }
     // 阶段正确不代表当前方有效；None/未知阵营无法决定进入哪一方的思考阶段。
     if (game_state_.current_side != Side::Red && game_state_.current_side != Side::Blue) {
-        throw std::invalid_argument("当前行棋方无效，不能掷骰子");
+        throw std::logic_error("current_side 不是红方或蓝方，无法掷骰");
     }
     // std::uniform_int_distribution 的区间两端都包含，正好覆盖 1~6。
     game_state_.current_dice = std::uniform_int_distribution<int>(1, 6)(gen_);
@@ -115,13 +115,13 @@ void Game::make_move(Pos from, Pos to) {
     // 会绕过"先掷骰再走子"的状态机，甚至终局后继续改棋盘。
     if (game_state_.phase != Phase::Player1Thinking &&
         game_state_.phase != Phase::Player2Thinking) {
-        throw std::invalid_argument("现在不能走子");
+        throw std::logic_error("走子要求处于某一方的思考阶段");
     }
     if (!game_state_.current_dice.has_value()) {
-        throw std::invalid_argument("当前回合没有骰子点数，不能走子");
+        throw std::logic_error("思考阶段缺少骰子点数，不能走子");
     }
     if (game_state_.current_side != Side::Red && game_state_.current_side != Side::Blue) {
-        throw std::invalid_argument("当前行棋方无效，不能走子");
+        throw std::logic_error("current_side 不是红方或蓝方，不能走子");
     }
     // 结算顺序只在 apply_move_and_settle 中维护一份，AI 搜索复用同一函数。
     game_state_ = apply_move_and_settle(game_state_, from, to);

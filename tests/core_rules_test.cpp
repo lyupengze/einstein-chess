@@ -388,7 +388,7 @@ int main() {
         bool roll_threw = false;
         try {
             game.roll_dice();
-        } catch (const std::invalid_argument&) {
+        } catch (const std::logic_error&) {
             roll_threw = true;
         }
         expect(roll_threw, "布阵阶段不能掷骰");

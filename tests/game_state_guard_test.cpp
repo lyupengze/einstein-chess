@@ -1,5 +1,6 @@
 /// @file tests/game_state_guard_test.cpp
-/// @brief Game 与 Board 的运行期守卫：非法调用必须抛 invalid_argument，且失败后状态不变。
+/// @brief Game 与 Board 的运行期守卫：违反调用时序抛 logic_error，非法参数抛
+///        invalid_argument，且失败后状态不变。
 ///
 /// 存档边界由 state_validation_test.cpp 覆盖；这里覆盖调用方绕开界面、直接驱动
 /// core 的路径。每条断言都配一次状态快照比较，避免“抛了异常但状态已被改坏”。
@@ -34,6 +35,21 @@ bool throws_invalid(Fn&& fn) {
     try {
         fn();
     } catch (const std::invalid_argument&) {
+        return true;
+    } catch (...) {
+        return false;
+    }
+    return false;
+}
+
+/// @brief 断言调用抛出不带参数语义的 std::logic_error（状态不允许该操作）。
+template <typename Fn>
+bool throws_logic(Fn&& fn) {
+    try {
+        fn();
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const std::logic_error&) {
         return true;
     } catch (...) {
         return false;
@@ -80,7 +96,7 @@ int main() {
         game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6});
         const core::GameState before = game.get_state();
 
-        expect(throws_invalid([&] { game.submit_layout(core::Side::Red, {6, 5, 4, 3, 2, 1}); }),
+        expect(throws_logic([&] { game.submit_layout(core::Side::Red, {6, 5, 4, 3, 2, 1}); }),
                "重复提交布阵被拒绝");
         expect(same_state(game.get_state(), before), "被拒绝的重复布阵不改动棋盘");
     }
@@ -93,7 +109,7 @@ int main() {
         game.submit_layout(core::Side::Blue, {1, 2, 3, 4, 5, 6});
         const core::GameState before = game.get_state();
 
-        expect(throws_invalid([&] { game.submit_layout(core::Side::Blue, {6, 5, 4, 3, 2, 1}); }),
+        expect(throws_logic([&] { game.submit_layout(core::Side::Blue, {6, 5, 4, 3, 2, 1}); }),
                "开赛后再提交布阵被拒绝");
         expect(same_state(game.get_state(), before), "开赛后提交布阵失败不改动状态");
     }
@@ -102,7 +118,7 @@ int main() {
         game.load_game(make_game_over_state());
         const core::GameState before = game.get_state();
 
-        expect(throws_invalid([&] { game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6}); }),
+        expect(throws_logic([&] { game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6}); }),
                "submit_layout 不能复活终局");
         expect(same_state(game.get_state(), before), "终局提交布阵失败不改动状态");
     }
@@ -143,15 +159,15 @@ int main() {
     {
         core::Game game;
         game.prepare_new_game(core::Side::Red);
-        expect(throws_invalid([&] { game.make_move({0, 0}, {0, 1}); }), "布阵阶段拒绝走子");
+        expect(throws_logic([&] { game.make_move({0, 0}, {0, 1}); }), "布阵阶段拒绝走子");
 
         game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6});
         game.submit_layout(core::Side::Blue, {1, 2, 3, 4, 5, 6});
-        expect(throws_invalid([&] { game.make_move({0, 0}, {0, 1}); }), "掷骰阶段拒绝走子");
+        expect(throws_logic([&] { game.make_move({0, 0}, {0, 1}); }), "掷骰阶段拒绝走子");
 
         core::Game over;
         over.load_game(make_game_over_state());
-        expect(throws_invalid([&] { over.make_move({4, 4}, {3, 4}); }), "终局拒绝走子");
+        expect(throws_logic([&] { over.make_move({4, 4}, {3, 4}); }), "终局拒绝走子");
     }
 
     // 7. roll_dice：LayOut 阶段被拒，且不改状态；正常 ThrowingDice 仍可掷。
@@ -160,7 +176,7 @@ int main() {
         game.prepare_new_game(core::Side::Red);
         const core::GameState before = game.get_state();
 
-        expect(throws_invalid([&] { game.roll_dice(); }), "布阵阶段拒绝掷骰");
+        expect(throws_logic([&] { game.roll_dice(); }), "布阵阶段拒绝掷骰");
         expect(same_state(game.get_state(), before), "被拒绝的掷骰不改动状态");
 
         game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6});

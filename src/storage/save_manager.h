@@ -39,8 +39,8 @@ public:
     /// @param slot_name 槽位名（主键），同名即覆盖旧存档
     /// @param state 要保存的局面
     /// @param level 当局使用的 AI 档位，读档时原样恢复
-    /// @throws std::invalid_argument AI 档位非法，或局面处于布阵阶段
-    /// @throws std::runtime_error 局面不自洽，或数据库写入失败
+    /// @throws std::invalid_argument AI 档位非法、局面处于布阵阶段，或局面不自洽
+    /// @throws std::runtime_error 数据库写入失败
     void save_game(const std::string& slot_name, const core::GameState& state, ai::Level level);
 
     /// 读取指定槽位。

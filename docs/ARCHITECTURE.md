@@ -118,8 +118,9 @@ AI 回合：
 
 - 全部代码在单线程里运行：AI 是同步计算，GUI 只用定时器把同步计算切成三段，避免一次点击
   之内连续做“掷骰 + 思考 + 落子”。
-- `core`、`ai`、`storage` 的错误一律用异常报告，类型只用 `std::invalid_argument`（参数或调用
-  时序不合法）与 `std::runtime_error`（外部数据或 I/O 失败）；`what()` 为中文。
+- `core`、`ai`、`storage` 的错误一律用异常报告：参数非法抛 `std::invalid_argument`，
+  违反对象状态或调用时序抛 `std::logic_error`，外部数据或 I/O 失败抛 `std::runtime_error`，
+  坐标越界抛 `std::out_of_range`；`what()` 为中文。
 - GUI 在每个用户动作的入口捕获异常：可以恢复的用 Toast 提示，无法继续的进入“对局异常”中止态，
   只改界面、不改局面。
 - Botzone 入口把协议错误与内部错误分开：前者是 `ProtocolError`，后者是其他 `std::exception`，

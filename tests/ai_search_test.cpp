@@ -197,7 +197,7 @@ int main() {
         bool no_move_threw = false;
         try {
             [[maybe_unused]] const core::Move ignored = ai::decide_move(no_dice);
-        } catch (const std::runtime_error&) {
+        } catch (const std::invalid_argument&) {
             no_move_threw = true;
         }
         expect(no_move_threw, "缺骰子时报无路可走");

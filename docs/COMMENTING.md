@@ -162,6 +162,19 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 - 数字带单位：`23.98 ms`、`4 手`、`第 3 格`。
 - 统一中文全角标点；半角标点只用于代码标识符内部。
 
+异常类型按“失败来源”选，不要一律用 `std::invalid_argument`：
+
+| 判据 | 类型 | 典型场景 |
+|---|---|---|
+| 参数值不合法（含传入的局面、枚举、字符串） | `std::invalid_argument` | `decide_move` 收到非思考阶段、`save_game` 收到不自洽局面 |
+| 对象自身状态不允许该调用 | `std::logic_error` | 布阵阶段掷骰、重复提交布阵 |
+| 下标或坐标越界 | `std::out_of_range` | `Board::at` |
+| 外部数据或环境在运行期才失败 | `std::runtime_error` | 存档串损坏、数据库打不开 |
+| 外部协议输入不合法 | `ProtocolError`（继承 `std::runtime_error`） | Botzone 请求缺字段 |
+
+`std::invalid_argument` 已继承 `std::logic_error`，两者都表示调用方的 bug；不要直接抛 `std::exception`。
+`@throws` 写清类型，测试按类型断言，而不是只断言“抛了异常”。
+
 ### 4.4 链接写法
 
 链接文字必须说明目标是什么，只写文件名等于让读者盲点：

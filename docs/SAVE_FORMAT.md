@@ -66,7 +66,7 @@
 
 1. `ai_level` 必须属于 `ai::kAllLevels`，否则抛 `std::invalid_argument`；
 2. `phase` 为 `LayOut` 时拒绝保存（布阵阶段没有可恢复的界面流程，读档端同样拒绝，见第 6 节），抛 `std::invalid_argument`；
-3. 整个局面交给 `core::validate_state` 校验，有问题抛 `std::runtime_error`，消息里带首个问题的字段名。
+3. 整个局面交给 `core::validate_state` 校验，有问题抛 `std::invalid_argument`，消息里带首个问题的字段名。
 
 这样数据库里不会出现“写得进、读不回”的存档，同名覆盖也不会破坏原有存档。
 

@@ -14,8 +14,8 @@ namespace core {
 /// @brief 对局门面：持有 GameState 与随机数发生器。
 ///
 /// CLI、GUI、Botzone 都只通过本类驱动对局，不直接改 GameState；阶段约束
-/// （何时能掷骰、何时能走子）因此只有一处实现。非法操作抛 std::invalid_argument，
-/// 由界面捕获并提示。
+/// （何时能掷骰、何时能走子）因此只有一处实现。违反调用时序抛 std::logic_error，
+/// 参数非法抛 std::invalid_argument，由界面捕获并提示。
 class Game {
 public:
     /// @brief 构造一局默认状态：空盘、LayOut 阶段，种子取自 std::random_device。
@@ -30,7 +30,8 @@ public:
 
     /// @brief 提交某一方的布阵结果。
     /// @param layout 1~6 的排列，语义见 Board::setup_custom
-    /// @throws std::invalid_argument 不在 LayOut 阶段、该方已提交过、layout 或 side 非法
+    /// @throws std::logic_error 不在 LayOut 阶段、该方已提交过布阵
+    /// @throws std::invalid_argument side 不是红蓝，或 layout 不是 1~6 的排列
     /// @note 双方都就绪后自动进入 ThrowingDice
     void submit_layout(Side side, const std::array<int, 6>& layout);
 
@@ -40,14 +41,14 @@ public:
     void load_game(GameState game_state);
 
     /// @brief 掷骰子并进入对应方的走子阶段。
-    /// @throws std::invalid_argument 当前不在 ThrowingDice 阶段，或 current_side 无效
+    /// @throws std::logic_error 当前不在 ThrowingDice 阶段，或 current_side 无效
     /// @note 点数在 1~6 均匀分布；进入 Player1Thinking 还是 Player2Thinking 取决于
     ///       current_side 是否等于 player1_side，与红蓝无关
     void roll_dice();
 
     /// @brief 走一步棋，并完成判胜、换手、清骰等结算。
-    /// @throws std::invalid_argument 不在思考阶段、没有骰子、当前方无效，
-    ///         或走法非法（原因来自 rules::check_move）
+    /// @throws std::logic_error 不在思考阶段、没有骰子、当前方无效
+    /// @throws std::invalid_argument 走法非法（原因来自 rules::check_move）
     void make_move(Pos from, Pos to);
 
     /// @brief 只读访问当前状态快照；引用生命周期与 Game 对象一致。

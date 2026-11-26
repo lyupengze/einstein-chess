@@ -88,7 +88,7 @@ void set_random_seed(unsigned int seed);
 /// @return 一步合法走法；具体策略由 level 决定
 /// @throws std::invalid_argument phase 不是 `Player1Thinking` / `Player2Thinking`，
 ///         或 level 不是已定义的档位
-/// @throws std::runtime_error 枚举不到任何合法着法
+/// @throws std::invalid_argument 枚举不到任何合法着法（局面不自洽）
 [[nodiscard]] core::Move decide_move(const core::GameState& state, Level level = kDefaultLevel);
 
 /// @brief 使用搜索版 + 自定义搜索配置选择一步走法。
@@ -96,7 +96,7 @@ void set_random_seed(unsigned int seed);
 /// @param config 搜索深度等参数；max_depth <= 0 时按 1 处理
 /// @return 一步合法走法
 /// @throws std::invalid_argument phase 不是 `Player1Thinking` / `Player2Thinking`
-/// @throws std::runtime_error 枚举不到任何合法着法
+/// @throws std::invalid_argument 枚举不到任何合法着法（局面不自洽）
 /// @note 本重载隐含 `Level::kSearch`；需要随机档时请显式传 `Level`。
 [[nodiscard]] core::Move decide_move(const core::GameState& state, const SearchConfig& config);
 
