@@ -1,23 +1,23 @@
-// SQLite C API 的极简 RAII 封装。
-// 只覆盖本项目实际用到的子集：打开数据库、预编译语句、绑定参数、逐步取行。
-// 目的是把裸指针所有权收进类中（析构时自动 close / finalize），
-// 让业务代码（save_manager）不必关心 C API 的清理细节。
+/// @file src/storage/sqlite_wrapper.h
+/// @brief SQLite C API 的极简 RAII 封装，只覆盖本项目用到的子集。
+///
+/// 把裸句柄的所有权收进类中（析构时自动 close / finalize），业务代码
+/// （`save_manager`）不必关心 C API 的清理细节；失败一律转成
+/// `std::runtime_error`，消息里带上 sqlite3 的错误描述。
 
 #pragma once
 
 #include <string>
 
-// 只前向声明，不包含 <sqlite3.h>：
-// sqlite3.h 由 third_party/ 提供，若在这里 include，会把三方头文件泄漏给
-// 所有依赖 storage 的目标（它们的编译命令行里都会多出三方 include 路径）。
-// 真正需要完整定义的只有 sqlite_wrapper.cpp。
+// 只前向声明，不包含 <sqlite3.h>：否则会把三方头文件泄漏给所有依赖 storage
+// 的目标（编译命令行都要多出三方 include 路径）；需要完整定义的只有 .cpp。
 struct sqlite3;
 struct sqlite3_stmt;
 
 namespace storage {
 
-/// 数据库连接。构造即打开（文件不存在则创建），析构自动关闭。
-/// 拷贝被禁用，只允许移动：连接是独占资源，不应出现两份所有权。
+/// @brief 数据库连接，构造即打开（文件不存在则创建），析构自动关闭。
+/// @note 拷贝被禁用，只允许移动：连接是独占资源，不应出现两份所有权。
 class Database {
 public:
     /// @param db_path 数据库文件路径（SQLite 语义：不存在则新建）
@@ -39,7 +39,7 @@ private:
     sqlite3* db_ = nullptr;
 };
 
-/// 预编译语句。持有 sqlite3_stmt 的所有权，析构自动 finalize。
+/// @brief 预编译语句，持有 sqlite3_stmt 的所有权，析构自动 finalize。
 class Statement {
 public:
     /// 用连接 db 预编译 sql。

@@ -1,8 +1,9 @@
-// 存档模块：把 core::GameState 与当局 AI 档位序列化成一行文本，存进 SQLite。
-// 数据库里只有一张表 saves：一个存档槽一行，name 为主键（同名即覆盖）。
-// 与 core 的分工：core 只管内存中的局面，持久化格式与数据校验都在本模块。
-// 存档会记录当局使用的 AI 档位，读档时原样恢复，保证一局之内电脑强度始终一致，
-// 不会因为之后在“开始游戏”里换了档位而影响同一局的其他存档。
+/// @file src/storage/save_manager.h
+/// @brief 存档读写：把局面与当局 AI 档位序列化进 SQLite。
+///
+/// 数据库里只有一张表 `saves`，一个槽位一行，name 为主键，同名即覆盖。
+/// core 只管内存中的局面，持久化格式与数据校验都在本模块；存档记录当局的
+/// AI 档位并在读档时原样恢复，一局之内电脑强度始终一致。
 
 #pragma once
 
@@ -17,7 +18,7 @@
 
 namespace storage {
 
-/// @brief 一次读档的完整结果：局面 + 该档位记录的 AI 强度。
+/// @brief 一次读档的完整结果：局面 + 存档时记录的 AI 档位。
 struct SavedGame {
     core::GameState state;                   ///< 读出的对局局面，可直接交给 core::Game::load_game
     ai::Level ai_level = ai::kDefaultLevel;  ///< 存档时使用的 AI 档位；读档时必填

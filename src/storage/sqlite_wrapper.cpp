@@ -1,3 +1,9 @@
+/// @file src/storage/sqlite_wrapper.cpp
+/// @brief 句柄生命周期与返回码检查；所有失败路径都转成异常。
+///
+/// C API 的返回码不经调用方逐层传递：打开、预编译、绑定、执行四类失败都在
+/// 发生处抛出，业务代码只处理成功路径。
+
 #include "sqlite_wrapper.h"
 
 #include <sqlite3.h>
@@ -9,9 +15,8 @@ namespace storage {
 
 namespace {
 
-// 统一检查 sqlite3_bind_* 的返回码。绑定失败通常意味着参数下标越界、
-// 内存不足或语句已失效；过去直接丢弃返回码，错误会拖到 step 阶段才暴露，
-// 报错信息也不再指向真正的根因（例如绑错列却报约束冲突）。
+// 统一检查 sqlite3_bind_* 的返回码。绑定失败通常意味着参数下标越界、内存
+// 不足或语句已失效；不在这里暴露，错误会拖到 step 阶段并伪装成别的故障。
 void check_bind(int rc, sqlite3_stmt* stmt) {
     if (rc != SQLITE_OK) {
         throw std::runtime_error("Failed to bind parameter: " +
@@ -39,8 +44,7 @@ Database::~Database() {
     }
 }
 
-// 移动语义都是"接管指针 + 源对象置空"，
-// 这样源对象析构时不会关闭已经转移出去的连接。
+// 移动语义都是“接管指针 + 源对象置空”，源对象析构时不会关闭已转移的连接。
 Database::Database(Database&& other) noexcept : db_(other.db_) {
     other.db_ = nullptr;
 }
