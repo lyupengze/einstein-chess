@@ -35,8 +35,8 @@ enum class Level {
 inline constexpr Level kDefaultLevel = Level::Search;
 
 /// @brief 全部可选档位，按从弱到强排列，供界面生成下拉框与命令行菜单。
-/// @note 漏加新档位不会让 `decide_move()` 拒绝它，只会让界面少一个选项。
-inline constexpr std::array<Level, 2> kAllLevels = {Level::Random, Level::Search};
+/// @note 长度由初始化器推导，新增档位只需改这一行与 `Level` 的枚举定义。
+inline constexpr std::array kAllLevels = {Level::Random, Level::Search};
 
 /// @brief 判断枚举值是否是已定义的 AI 档位。
 /// @param level 待检查的档位

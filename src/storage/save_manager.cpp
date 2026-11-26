@@ -222,7 +222,8 @@ SavedGame deserialize(const std::string& data) {
     const int level_int = parse_checked(std::string(token), "AI 档位");
     const ai::Level level = static_cast<ai::Level>(level_int);
     if (!ai::is_valid_level(level)) {
-        throw std::runtime_error("反序列化失败: AI 档位超出 0..1");
+        throw std::runtime_error("反序列化失败: AI 档位 " + std::to_string(level_int) +
+                                 " 不在可选范围内");
     }
     if (std::string extra; iss >> extra) {
         throw std::runtime_error("反序列化失败: AI 档位之后还有额外内容");
