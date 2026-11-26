@@ -49,8 +49,9 @@ cmake --build build --parallel 8
 ./build/bin/einstein_gui    # 或 ./build/bin/einstein_cli
 ```
 
-`--parallel 8` 的数值按 CPU 核数与内存调整，不要写成裸 `-j`。无 GUI 构建、Qt6 查找、生成器与
-常见构建问题见 [构建与测试](docs/BUILD.md)；启动参数、布阵与存档落点见 [使用说明](docs/USAGE.md)。
+`--parallel 8` 的数值按 CPU 核数与内存调整，不要写成裸 `-j`。构建完成后用 `ctest --test-dir build`
+跑 19 个用例（`EINSTEIN_BUILD_GUI=OFF` 时为 14 个）。无 GUI 构建、Qt6 查找、生成器与常见构建问题见
+[构建与测试](docs/BUILD.md)；启动参数、布阵与存档落点见 [使用说明](docs/USAGE.md)。
 
 ## 📚 文档索引
 

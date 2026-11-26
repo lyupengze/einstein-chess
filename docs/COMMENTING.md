@@ -251,15 +251,20 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 
 | 检查项 | 方式 |
 | --- | --- |
-| 每个 `.h/.cpp` 有 `@file` 且路径存在 | CI 脚本 grep |
-| §6.2 禁词表零命中（含 `docs/*.md` 与 README） | CI 脚本 grep |
-| Markdown 相对链接可达 | CI 脚本 |
-| 文档中的测试数与 `tests/CMakeLists.txt` 一致 | CI 脚本 |
+| 每个 `.h/.cpp` 有 `@file` 且路径存在 | `cmake -P tools/check_repo.cmake` |
+| §6.2 禁词表零命中（含 `docs/*.md` 与 README） | `cmake -P tools/check_repo.cmake` |
+| 源码注释里的 `` `#anchor` `` 在 HISTORY.md 有条目 | `cmake -P tools/check_repo.cmake` |
+| Markdown 相对链接可达 | `cmake -P tools/check_repo.cmake` |
+| 文档中的测试数与 `tests/CMakeLists.txt` 一致 | `cmake -P tools/check_repo.cmake` |
+| 改动文件的 clang-format 无差异 | `clang-format --dry-run --Werror` |
 | `@param` 名与签名一致 | 人工评审 |
 | 注释描述与实现一致 | 人工评审 |
 
+检查脚本只依赖 CMake 本身，本地与 CI 跑的是同一条命令；提交前在仓库根执行即可，报错会带上文件与行号。
+
 ### 8.3 评审清单
 
+- [ ] 提交前跑过 `cmake -P tools/check_repo.cmake`
 - [ ] 新文件有 `@file`，内容与文件名一致
 - [ ] 公共函数写了 `@param` 与 `@throws`（抛异常的函数）
 - [ ] 没有复制事实源里的数字

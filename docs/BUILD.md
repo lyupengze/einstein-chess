@@ -108,11 +108,25 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`：
 
 - `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑 19 个测试；
 - `windows-ucrt64-nogui`：同一环境但不装 Qt，`-DEINSTEIN_BUILD_GUI=OFF`，跑 14 个测试；
-- `format`：Ubuntu + Python，固定 `clang-format==23.1.1`，对 `src/`、`tests/`、`benchmarks/` 下受跟踪的 C++ 文件做 `--dry-run --Werror`。
+- `format`：Ubuntu + Python，固定 `clang-format==23.1.1`，对 `src/`、`tests/`、`benchmarks/` 下受跟踪的 C++ 文件做 `--dry-run --Werror`；
+- `docs`：Ubuntu + CMake，运行 `cmake -P tools/check_repo.cmake`，检查文件头、禁词、缺陷锚点、相对链接与测试数口径。
 
 测试数量以 `tests/CMakeLists.txt` 为准；CI 的 Qt 版本由 MSYS2 包管理器决定，不固定小版本。
 
 触发条件为推送到 `dev`/`main`、向这两个分支发起 Pull Request，以及手动 `workflow_dispatch`。构建或测试失败时会尝试上传 `build/Testing/Temporary/LastTest.log` 作为 artifact。
+
+## 本地自检
+
+提交前在仓库根依次执行：
+
+```bash
+cmake -P tools/check_repo.cmake
+cmake --build build --parallel 8
+ctest --test-dir build --output-on-failure
+clang-format --dry-run --Werror <改动过的 .h/.cpp>
+```
+
+`check_repo.cmake` 只依赖 CMake 本身，与 CI 的 `docs` job 是同一条命令；它不注册 CTest，也不写构建产物。
 
 ## 常见构建问题
 
