@@ -72,7 +72,7 @@ void Game::load_game(GameState game_state) {
 void Game::roll_dice() {
     // 只有"等待掷骰"阶段可以掷骰；重复点击按钮或 UI 时序错乱都会走到这里。
     if (game_state_.phase != Phase::ThrowingDice) {
-        throw std::invalid_argument("现在不能扔骰子！");
+        throw std::invalid_argument("当前阶段不能掷骰");
     }
     // 阶段正确不代表当前方有效；None/未知阵营无法决定进入哪一方的思考阶段。
     if (game_state_.current_side != Side::Red && game_state_.current_side != Side::Blue) {
