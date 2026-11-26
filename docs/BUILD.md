@@ -74,27 +74,27 @@ ctest --test-dir build --output-on-failure
 
 默认构建注册 19 个用例（清单、标签与超时以 `tests/CMakeLists.txt` 为准），测试可执行文件与产品可执行文件一样输出到 `build/bin/`，并由 CTest 在各自的工作目录中运行：
 
-| 用例 | 覆盖内容 | 标签 | 超时（秒） |
-| --- | --- | --- | ---: |
-| `board_geometry` | 棋盘几何，右/下余数像素不映射到格子 | `gui` | 60 |
-| `ai_random` | AI 随机下限与固定种子可复现 | `ai` | 30 |
-| `core_rules` | 选子、走法、胜负、布阵与对局生命周期 | `core` | 60 |
-| `ai_search` | 搜索合法性、战术与确定性 | `ai` | 120 |
-| `ai_level` | 档位选择、默认档与随机档可复现 | `ai` | 30 |
-| `botzone_protocol` | 协议库的布阵/走子/严格输入校验 | `botzone` | 60 |
-| `save_level` | 存档档位必填、严格解析与损坏拒绝 | `storage` | 60 |
-| `storage_roundtrip` | 局面完整往返与语义校验 | `storage` | 60 |
-| `state_validation` | 局面状态校验 | `core` | 30 |
-| `game_state_guard` | core 状态机守卫 | `core` | 30 |
-| `gui_reconcile` | GUI 状态收敛，上一局排队的定时器不落到新局 | `gui` | 60 |
-| `toast_fade` | Toast 淡入淡出 | `gui` | 60 |
-| `dice_widget` | 骰子点数绘制与非法值错误标记 | `gui` | 60 |
-| `gui_dialogs` | 布阵与存档对话框、同名覆盖确认 | `gui` | 60 |
-| `cli_input` | CLI 参数与整行数字解析边界 | `cli` | 30 |
-| `cli_eof` | EOF 处理 | `cli` | 30 |
-| `cli_exit` | 退出菜单 | `cli` | 30 |
-| `cli_session` | 菜单交互与中途 EOF | `cli` | 30 |
-| `cli_broken_db` | 坏存档库错误边界 | `cli` | 30 |
+| 用例                | 覆盖内容                                   | 标签      | 超时（秒） |
+| ------------------- | ------------------------------------------ | --------- | ---------: |
+| `board_geometry`    | 棋盘几何，右/下余数像素不映射到格子        | `gui`     |         60 |
+| `ai_random`         | AI 随机下限与固定种子可复现                | `ai`      |         30 |
+| `core_rules`        | 选子、走法、胜负、布阵与对局生命周期       | `core`    |         60 |
+| `ai_search`         | 搜索合法性、战术与确定性                   | `ai`      |        120 |
+| `ai_level`          | 档位选择、默认档与随机档可复现             | `ai`      |         30 |
+| `botzone_protocol`  | 协议库的布阵/走子/严格输入校验             | `botzone` |         60 |
+| `save_level`        | 存档档位必填、严格解析与损坏拒绝           | `storage` |         60 |
+| `storage_roundtrip` | 局面完整往返与语义校验                     | `storage` |         60 |
+| `state_validation`  | 局面状态校验                               | `core`    |         30 |
+| `game_state_guard`  | core 状态机守卫                            | `core`    |         30 |
+| `gui_reconcile`     | GUI 状态收敛，上一局排队的定时器不落到新局 | `gui`     |         60 |
+| `toast_fade`        | Toast 淡入淡出                             | `gui`     |         60 |
+| `dice_widget`       | 骰子点数绘制与非法值错误标记               | `gui`     |         60 |
+| `gui_dialogs`       | 布阵与存档对话框、同名覆盖确认             | `gui`     |         60 |
+| `cli_input`         | CLI 参数与整行数字解析边界                 | `cli`     |         30 |
+| `cli_eof`           | EOF 处理                                   | `cli`     |         30 |
+| `cli_exit`          | 退出菜单                                   | `cli`     |         30 |
+| `cli_session`       | 菜单交互与中途 EOF                         | `cli`     |         30 |
+| `cli_broken_db`     | 坏存档库错误边界                           | `cli`     |         30 |
 
 - 超时是防挂死的上限，默认 60 秒；`cli_*` 与 `ai_*` 用例按实际耗时缩短或放宽。
 - `save_level`、`storage_roundtrip`、`gui_dialogs` 与 `cli_*` 各自在独立工作目录中运行，避免互相覆盖存档库。

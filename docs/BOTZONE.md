@@ -32,7 +32,14 @@ Windows 下可执行文件为 `einstein_botzone.exe`，管道与 JSON 内容不�
     {
       "phase": "layout",
       "color": 1,
-      "region": [[4, 4], [4, 3], [4, 2], [3, 4], [3, 3], [2, 4]]
+      "region": [
+        [4, 4],
+        [4, 3],
+        [4, 2],
+        [3, 4],
+        [3, 3],
+        [2, 4]
+      ]
     }
   ],
   "responses": []
@@ -77,13 +84,13 @@ Windows 下可执行文件为 `einstein_botzone.exe`，管道与 JSON 内容不�
 布阵：
 
 ```json
-{"response":{"layout":[2,5,1,6,3,4]}}
+{ "response": { "layout": [2, 5, 1, 6, 3, 4] } }
 ```
 
 走子：
 
 ```json
-{"response":{"x0":3,"x1":3,"y0":4,"y1":3}}
+{ "response": { "x0": 3, "x1": 3, "y0": 4, "y1": 3 } }
 ```
 
 `layout` 是 1–6 的排列；`x0/y0` 是起点，`x1/y1` 是终点。适配层不检查平台最终是否会接受该着法，只保证返回的是当前局面下的合法着法之一；具体落点由 Expectiminimax 搜索决定，示例输出可能不同。
@@ -124,7 +131,7 @@ echo '{"requests":[{"phase":"move","color":0,"dice":3,"board":[[1,0,0,0,0],[0,0,
 协议错误会在 stderr 打印 `Botzone 协议错误: ...`；AI 内部异常打印 `Botzone 内部错误: ...`。两种情况 stdout 都只输出一行：
 
 ```json
-{"response":{}}
+{ "response": {} }
 ```
 
 进程退出码仍为 0。适配层无法得知平台对空 `response` 的具体处理，因此这是“让平台看到本次没有决策”的防御性兜底，不会伪造一步棋。

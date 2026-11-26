@@ -55,18 +55,18 @@ cmake --build build --parallel 8
 
 ## 📚 文档索引
 
-| 主题 | 文档 | 内容 |
-| --- | --- | --- |
-| 规则 | [棋盘规则](docs/RULES.md) | 坐标、选子映射、方向、吃子与胜负顺序 |
-| 操作 | [使用说明](docs/USAGE.md) | GUI/CLI/Botzone 的操作流程与常见问题 |
-| 构建 | [构建与测试](docs/BUILD.md) | 依赖、测试清单、CI 与构建故障 |
-| 架构 | [架构说明](docs/ARCHITECTURE.md) | 分层、状态机与回合调用路径 |
-| 存档 | [存档格式](docs/SAVE_FORMAT.md) | 数据串字段、棋盘编码与读写校验 |
-| 取舍 | [设计取舍](docs/DESIGN.md) | 九项有意为之的设计与重新考虑的条件 |
-| 性能 | [AI 性能基准](docs/BENCHMARK.md) | 单步延迟、随机基线胜率与测量局限 |
-| 协议 | [Botzone 协议](docs/BOTZONE.md) | 单行 JSON、严格校验与错误处理 |
-| 缺陷 | [缺陷台账](docs/HISTORY.md) | 已修复缺陷的现象、根因、修复与回归 |
-| 注释 | [注释与文档规范](docs/COMMENTING.md) | 注释层级、术语与措辞要求 |
+| 主题 | 文档                                 | 内容                                 |
+| ---- | ------------------------------------ | ------------------------------------ |
+| 规则 | [棋盘规则](docs/RULES.md)            | 坐标、选子映射、方向、吃子与胜负顺序 |
+| 操作 | [使用说明](docs/USAGE.md)            | GUI/CLI/Botzone 的操作流程与常见问题 |
+| 构建 | [构建与测试](docs/BUILD.md)          | 依赖、测试清单、CI 与构建故障        |
+| 架构 | [架构说明](docs/ARCHITECTURE.md)     | 分层、状态机与回合调用路径           |
+| 存档 | [存档格式](docs/SAVE_FORMAT.md)      | 数据串字段、棋盘编码与读写校验       |
+| 取舍 | [设计取舍](docs/DESIGN.md)           | 九项有意为之的设计与重新考虑的条件   |
+| 性能 | [AI 性能基准](docs/BENCHMARK.md)     | 单步延迟、随机基线胜率与测量局限     |
+| 协议 | [Botzone 协议](docs/BOTZONE.md)      | 单行 JSON、严格校验与错误处理        |
+| 缺陷 | [缺陷台账](docs/HISTORY.md)          | 已修复缺陷的现象、根因、修复与回归   |
+| 注释 | [注释与文档规范](docs/COMMENTING.md) | 注释层级、术语与措辞要求             |
 
 ## 📂 项目结构
 
