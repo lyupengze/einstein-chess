@@ -1,4 +1,4 @@
-# 仓库一致性检查：文件头、禁词、缺陷锚点、相对链接与测试数量。
+# 仓库一致性检查：文件头、脚本头、禁词、缺陷锚点、相对链接与测试数量。
 #
 # 用法（在仓库根或任意目录执行均可，不需要先配置构建目录）：
 #
@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.20)
 # 脚本可能被 target 或 CI 从任意目录调用，仓库根只按脚本位置推算。
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
-# 问题先累积在全局属性里，跑完五项再统一打印，避免漏报。
+# 问题先累积在全局属性里，跑完六项再统一打印，避免漏报。
 function(add_problem text)
     set_property(GLOBAL APPEND PROPERTY check_repo_problems "${text}")
 endfunction()
@@ -114,6 +114,36 @@ foreach(rel IN LISTS tracked)
     endif()
 endforeach()
 report_section("文件头" "${before_headers}")
+
+# 1b. 每个 CMakeLists.txt 与 .cmake 的首行必须是以 # 开头的非空注释。
+# 这类文件没有 Doxygen，脚本头就是唯一的“这是什么文件”说明。
+execute_process(
+    COMMAND git -C "${REPO_ROOT}" ls-files
+    OUTPUT_VARIABLE all_tracked
+    RESULT_VARIABLE git_all_result
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(NOT git_all_result EQUAL 0)
+    message(FATAL_ERROR "无法列出受跟踪文件：请在 git 仓库内运行本脚本。")
+endif()
+string(REPLACE "\n" ";" all_tracked "${all_tracked}")
+problem_count(before_scripts)
+foreach(rel IN LISTS all_tracked)
+    if(NOT rel MATCHES "(^|/)CMakeLists\\.txt$" AND NOT rel MATCHES "\\.cmake$")
+        continue()
+    endif()
+    read_lines("${REPO_ROOT}/${rel}" lines)
+    list(LENGTH lines line_count)
+    if(line_count EQUAL 0)
+        add_problem("${rel}: 文件为空，缺少 # 脚本头")
+        continue()
+    endif()
+    list(GET lines 0 first_line)
+    if(NOT first_line MATCHES "^[ \t]*#[ \t]*[^ \t]")
+        add_problem("${rel}:1: 首行必须是以 # 开头的注释")
+    endif()
+endforeach()
+report_section("脚本头" "${before_scripts}")
 
 # 2. 禁词扫描：源码、脚本与文档；规范本身与缺陷台账按定义要写这些词，跳过。
 set(BANNED_WORDS

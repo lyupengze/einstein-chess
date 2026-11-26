@@ -10,28 +10,28 @@
 
 ## 索引
 
-| 锚点 | 一句话 |
-| --- | --- |
-| [`#board-remainder-click`](#board-remainder-click) | 棋盘余数像素算出越界坐标 |
-| [`#cli-empty-dice`](#cli-empty-dice) | AI 走子后读已清空的骰点 |
-| [`#gui-status-empty-dice`](#gui-status-empty-dice) | 思考阶段无骰点时读空 optional |
-| [`#gui-load-stuck`](#gui-load-stuck) | 载入“电脑思考中”的存档后永久卡住 |
-| [`#gui-ai-error-stuck`](#gui-ai-error-stuck) | 电脑回合异常后停在思考中 |
-| [`#gui-roll-button-stuck`](#gui-roll-button-stuck) | 掷骰异常后按钮永久禁用 |
-| [`#gui-dialog-outside-try`](#gui-dialog-outside-try) | 存档对话框在异常边界之外构造 |
-| [`#gui-stale-timer`](#gui-stale-timer) | 上一局的延迟回调落到新局 |
-| [`#gui-toast-fade`](#gui-toast-fade) | Toast 没有淡入淡出 |
-| [`#storage-bind-ignored`](#storage-bind-ignored) | SQLite 参数绑定失败被忽略 |
-| [`#save-unchecked-state`](#save-unchecked-state) | 存档字段各自合法但组合不可能 |
-| [`#core-invariant-gaps`](#core-invariant-gaps) | 公共 API 不强制阶段顺序 |
-| [`#save-level-overflow`](#save-level-overflow) | 档位溢出被当成缺少档位 |
-| [`#layout-save-unrecoverable`](#layout-save-unrecoverable) | 布阵阶段的存档读不回来 |
-| [`#save-level-unvalidated`](#save-level-unvalidated) | 写入端不校验档位 |
-| [`#cli-db-open-crash`](#cli-db-open-crash) | 存档库打不开时异常穿出 main |
-| [`#cli-eof-loop`](#cli-eof-loop) | stdin 关闭后菜单无限刷屏 |
-| [`#botzone-invalid-piece`](#botzone-invalid-piece) | 非法棋子编号被当作真实棋子 |
-| [`#botzone-int-truncation`](#botzone-int-truncation) | 超大整数被静默截断 |
-| [`#ai-shared-rng`](#ai-shared-rng) | 随机源不可复现且跨线程共享 |
+| 锚点                                                       | 一句话                           |
+| ---------------------------------------------------------- | -------------------------------- |
+| [`#board-remainder-click`](#board-remainder-click)         | 棋盘余数像素算出越界坐标         |
+| [`#cli-empty-dice`](#cli-empty-dice)                       | AI 走子后读已清空的骰点          |
+| [`#gui-status-empty-dice`](#gui-status-empty-dice)         | 思考阶段无骰点时读空 optional    |
+| [`#gui-load-stuck`](#gui-load-stuck)                       | 载入“电脑思考中”的存档后永久卡住 |
+| [`#gui-ai-error-stuck`](#gui-ai-error-stuck)               | 电脑回合异常后停在思考中         |
+| [`#gui-roll-button-stuck`](#gui-roll-button-stuck)         | 掷骰异常后按钮永久禁用           |
+| [`#gui-dialog-outside-try`](#gui-dialog-outside-try)       | 存档对话框在异常边界之外构造     |
+| [`#gui-stale-timer`](#gui-stale-timer)                     | 上一局的延迟回调落到新局         |
+| [`#gui-toast-fade`](#gui-toast-fade)                       | Toast 没有淡入淡出               |
+| [`#storage-bind-ignored`](#storage-bind-ignored)           | SQLite 参数绑定失败被忽略        |
+| [`#save-unchecked-state`](#save-unchecked-state)           | 存档字段各自合法但组合不可能     |
+| [`#core-invariant-gaps`](#core-invariant-gaps)             | 公共 API 不强制阶段顺序          |
+| [`#save-level-overflow`](#save-level-overflow)             | 档位溢出被当成缺少档位           |
+| [`#layout-save-unrecoverable`](#layout-save-unrecoverable) | 布阵阶段的存档读不回来           |
+| [`#save-level-unvalidated`](#save-level-unvalidated)       | 写入端不校验档位                 |
+| [`#cli-db-open-crash`](#cli-db-open-crash)                 | 存档库打不开时异常穿出 main      |
+| [`#cli-eof-loop`](#cli-eof-loop)                           | stdin 关闭后菜单无限刷屏         |
+| [`#botzone-invalid-piece`](#botzone-invalid-piece)         | 非法棋子编号被当作真实棋子       |
+| [`#botzone-int-truncation`](#botzone-int-truncation)       | 超大整数被静默截断               |
+| [`#ai-shared-rng`](#ai-shared-rng)                         | 随机源不可复现且跨线程共享       |
 
 ## 对局与存档
 
@@ -236,13 +236,3 @@
 - **回归**：`ai_random`。
 - **来源**：外部报告（2026-11-15，基线 `f2e8bf5`）第 10 条。
 
-## 注释反例
-
-以下是评审中确认为错误的注释，原文保留在这里作为“注释与实现不一致”的样例。判断标准见
-[注释与文档规范](COMMENTING.md)：注释必须能被当前代码验证，不写无法验证的判断。
-
-| 位置 | 原文 | 与实现不符之处 |
-| --- | --- | --- |
-| `src/ui/gui/components/board_widget.h` | 「控件不保留任何跨帧的中间状态」 | 类内保留了当前局面、选中格、可动集合、可达集合四个缓存成员 |
-| `src/ui/gui/components/dice_widget.h` | 「非法点数时点阵一个都不会出现（空白骰面）」 | 实现用红色问号标出未知点数 |
-| `src/ui/gui/components/toast_widget.h` | 「淡入淡出各占约 0.2 秒」 | 淡入 180 ms、淡出 200 ms |
