@@ -15,10 +15,10 @@ namespace {
 // 判定用 board_size 而网格只覆盖 cell_size * 5，最右/最下一小条因此会把点击
 // 换算成下标 5（越界）。现在统一以 cell_size * 5 得到的 span 为准。
 struct BoardGeometry {
-    int cell_size = 0;  // 单格边长
-    int span = 0;       // 棋盘实际覆盖的像素边长，恒等于 cell_size * 5
-    int offset_x = 0;   // 棋盘左上角横坐标（居中留白）
-    int offset_y = 0;   // 棋盘左上角纵坐标
+    int cell_size = 0;  ///< 单格边长。
+    int span = 0;       ///< 棋盘实际覆盖的像素边长，恒等于 cell_size * 5。
+    int offset_x = 0;   ///< 棋盘左上角横坐标（居中留白）。
+    int offset_y = 0;   ///< 棋盘左上角纵坐标。
 };
 
 BoardGeometry compute_geometry(int widget_width, int widget_height) {
@@ -77,7 +77,8 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     // 几何参数统一由 compute_geometry 给出，绘制与 mousePressEvent 不再各算一遍。
     const BoardGeometry geometry = compute_geometry(width(), height());
     const int cell_size = geometry.cell_size;
-    const int board_size = geometry.span;  // 网格与区域填充严格覆盖 5 * cell_size
+    // 网格与区域填充严格覆盖 5 * cell_size。
+    const int board_size = geometry.span;
     const int offset_x = geometry.offset_x;
     const int offset_y = geometry.offset_y;
 
