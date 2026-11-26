@@ -119,9 +119,11 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                     if (!save(save_manager, game.get_state(), ai_level)) {
                         return;
                     }
-                    continue;  // 回到循环开头重新提示掷骰
+                    // 回到循环开头重新提示掷骰。
+                    continue;
                 } else if (pause == "exit") {
-                    return;  // 放弃本局，回到主菜单
+                    // 放弃本局，回到主菜单。
+                    return;
                 }
 
                 try {
@@ -178,7 +180,8 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                     std::cout << "命令不合法\n\n";
                     continue;
                 }
-                break;  // 走子成功，结束输入循环
+                // 走子成功，结束输入循环。
+                break;
             }
         } else {
             // AI 回合：掷骰、搜索、落子都在同一段异常边界内。任何一步失败都
@@ -223,7 +226,8 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
     std::cout << core::side_name(winner) << " 获胜！\n";
     std::cout << "按回车返回主菜单...";
     std::string pause;
-    read_line(pause);  // EOF 时直接返回主菜单，不会卡住
+    // 忽略返回值：EOF 时直接返回主菜单，不会卡住。
+    read_line(pause);
 }
 
 }  // namespace
@@ -362,7 +366,8 @@ int main(int argc, char* argv[]) {
                     } catch (const std::exception& e) {
                         std::cout << "读档失败: " << e.what() << "\n";
                     }
-                    continue;  // 读档后（无论是否取到数据）都回主菜单，不落入新局流程
+                    // 读档后（无论是否取到数据）都回主菜单，不落入新局流程。
+                    continue;
                 }
             } catch (...) {
                 // std::stoi 失败（非数字、溢出）统一按无效选择处理。
