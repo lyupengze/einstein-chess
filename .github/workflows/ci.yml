@@ -51,6 +51,18 @@ jobs:
           echo "Checking ${#files[@]} C++ files with clang-format 23.1.1"
           clang-format --dry-run --Werror "${files[@]}"
 
+  # 文档与注释检查独立成 job：只依赖 CMake 本身，不依赖 Qt/MSYS2。
+  docs:
+    name: 文档与注释一致性
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check comments and docs
+        run: cmake -P tools/check_repo.cmake
+
   windows-ucrt64:
     name: Windows UCRT64 (Qt GUI)
     runs-on: windows-latest
