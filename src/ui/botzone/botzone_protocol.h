@@ -19,6 +19,7 @@
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace botzone {
 
@@ -45,9 +46,9 @@ public:
 [[nodiscard]] nlohmann::json handle_request(const nlohmann::json& input);
 
 /// @brief 解析一行 JSON 文本并处理，便于 main 与测试共用同一条入口。
-/// @param line 单行 JSON 文本
+/// @param line 单行 JSON 文本，只读不保存
 /// @return 与 handle_request 相同的响应对象
 /// @throws std::exception JSON 语法错误或 handle_request 的任何异常
-[[nodiscard]] nlohmann::json handle_line(const std::string& line);
+[[nodiscard]] nlohmann::json handle_line(std::string_view line);
 
 }  // namespace botzone

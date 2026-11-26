@@ -140,8 +140,6 @@ std::string Board::to_string() const {
                 case Side::Blue:
                     oss << " B" << cell.id;
                     break;
-                default:
-                    break;
             }
         }
         oss << '\n';

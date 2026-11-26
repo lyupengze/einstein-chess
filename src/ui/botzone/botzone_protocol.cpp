@@ -237,10 +237,10 @@ json handle_request(const json& input) {
     return output;
 }
 
-json handle_line(const std::string& line) {
+json handle_line(std::string_view line) {
     // JSON 语法错误属于协议错误，统一转成 ProtocolError；AI 内部错误保持原类型。
     try {
-        return handle_request(json::parse(line));
+        return handle_request(json::parse(line.begin(), line.end()));
     } catch (const ProtocolError&) {
         throw;
     } catch (const json::exception& e) {
