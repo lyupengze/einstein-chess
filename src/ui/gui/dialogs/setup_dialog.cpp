@@ -1,9 +1,9 @@
 /// @file src/ui/gui/dialogs/setup_dialog.cpp
 /// @brief 布阵对话框的界面搭建与三角区坐标换算。
 ///
-/// 三个坐标查询函数是核心：三角区坐标表必须与 Board::setup_custom 的
-/// kRedPos / kBluePos 逐项一致，get_index_in_region 返回的下标就是 layout 的下标，
-/// 错一位就会把编号摆到别的格子上。点击只在 (v % 6) + 1 上循环，重复编号留到确认时校验。
+/// 三角区的形状与落位序号都由 core::Board 的初始区坐标表给出，这里只把网格下标
+/// 转成 Pos 再查询，坐标表只保留 core::Board 一份。点击只在 (v % 6) + 1 上循环，
+/// 重复编号留到确认时校验。
 
 #include "setup_dialog.h"
 
@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <array>
+#include <cstddef>
 
 namespace gui {
 
@@ -22,6 +23,11 @@ namespace {
 constexpr int kSide{static_cast<int>(core::Board::kSize)};
 /// @brief 每方棋子数，取自 core::Board::kChessCount。
 constexpr int kPieces{static_cast<int>(core::Board::kChessCount)};
+
+/// @brief 把网格下标转成棋盘坐标；调用点已保证 x、y 落在 0~4。
+core::Pos to_pos(int x, int y) {
+    return {static_cast<std::size_t>(x), static_cast<std::size_t>(y)};
+}
 
 }  // namespace
 
@@ -102,60 +108,18 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
 }
 
 bool SetupDialog::is_red_region(int x, int y) const {
-    // 红方三角区：左上角三行，逐行缩短为 3 + 2 + 1 格。
-    return (x == 0 && y <= 2) || (x == 1 && y <= 1) || (x == 2 && y == 0);
+    // 形状由 core::Board 的初始区表决定，这里只做一次查询。
+    return core::Board::start_index(core::Side::Red, to_pos(x, y)).has_value();
 }
 
 bool SetupDialog::is_blue_region(int x, int y) const {
-    // 蓝方三角区：右下角三行，同样 3 + 2 + 1 格，与红方关于棋盘中心对称。
-    return (x == 4 && y >= 2) || (x == 3 && y >= 3) || (x == 2 && y == 4);
+    return core::Board::start_index(core::Side::Blue, to_pos(x, y)).has_value();
 }
 
 int SetupDialog::get_index_in_region(int x, int y) const {
-    // 下标顺序即 Board::setup_custom 的落位顺序：从靠近己方底角的格子起，逐行推进。
-    // 红方第 0 项落 (0,0)，蓝方第 0 项落 (4,4)，两者关于中心一一对应。
-    // 注意: 用哪张表取决于 red_radio_ 的当前状态而非坐标所属区域；
-    //       不在当前表中的坐标一律返回 -1，调用方按 -1 过滤。
-    if (red_radio_->isChecked()) {
-        if (x == 0 && y == 0) {
-            return 0;
-        }
-        if (x == 0 && y == 1) {
-            return 1;
-        }
-        if (x == 0 && y == 2) {
-            return 2;
-        }
-        if (x == 1 && y == 0) {
-            return 3;
-        }
-        if (x == 1 && y == 1) {
-            return 4;
-        }
-        if (x == 2 && y == 0) {
-            return 5;
-        }
-    } else {
-        if (x == 4 && y == 4) {
-            return 0;
-        }
-        if (x == 4 && y == 3) {
-            return 1;
-        }
-        if (x == 4 && y == 2) {
-            return 2;
-        }
-        if (x == 3 && y == 4) {
-            return 3;
-        }
-        if (x == 3 && y == 3) {
-            return 4;
-        }
-        if (x == 2 && y == 4) {
-            return 5;
-        }
-    }
-    return -1;
+    // 用哪张表取决于当前阵营，而不是坐标属于哪个区：另一方的三角区在这里一律得到 -1。
+    const core::Side side = red_radio_->isChecked() ? core::Side::Red : core::Side::Blue;
+    return core::Board::start_index(side, to_pos(x, y)).value_or(-1);
 }
 
 void SetupDialog::on_side_changed() {

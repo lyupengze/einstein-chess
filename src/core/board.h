@@ -20,6 +20,13 @@ public:
     static constexpr int kChessCount{6};    ///< 每方棋子数，也是骰子点数上限
     static constexpr std::size_t kSize{5};  ///< 棋盘边长（5x5）
 
+    /// @brief 红方初始区坐标，按布阵落位顺序排列：layout[i] 落在第 i 个格子。
+    inline static constexpr std::array<Pos, kChessCount> kRedStartPositions{
+        {{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {2, 0}}};
+    /// @brief 蓝方初始区坐标，与红方关于棋盘中心对称，顺序同红方。
+    inline static constexpr std::array<Pos, kChessCount> kBlueStartPositions{
+        {{4, 4}, {4, 3}, {4, 2}, {3, 4}, {3, 3}, {2, 4}}};
+
     /// @brief 构造空棋盘：25 格全部为 {Side::None, 0}。
     Board();
 
@@ -45,9 +52,20 @@ public:
     /// @brief 统计某方剩余棋子数。允许吃己方棋子，所以结果可能小于 kChessCount。
     [[nodiscard]] int count_pieces(Side side) const;
 
+    /// @brief 某方的初始区坐标表（按布阵落位顺序排列）。
+    /// @param side 必须是红方或蓝方
+    /// @throws std::invalid_argument side 为 Side::None
+    [[nodiscard]] static const std::array<Pos, kChessCount>& start_positions(Side side);
+
+    /// @brief 查询某格在该方初始区中的落位序号。
+    /// @param side 阵营；Side::None 一律返回空
+    /// @param pos 棋盘坐标
+    /// @return 属于该方初始区时返回 0~kChessCount-1，否则返回 std::nullopt
+    [[nodiscard]] static std::optional<int> start_index(Side side, Pos pos) noexcept;
+
     /// @brief 用给定排列在初始区布阵（布阵阶段调用）。
     ///
-    /// layout[i] 依次对应该方第 i 个初始格，落位顺序必须与 SetupDialog::get_index_in_region 一致。
+    /// layout[i] 依次落在 start_positions(side) 的第 i 个格子。
     /// 写入前先清空该方全部棋子，因此重复调用是“替换”而不是“叠加”。
     /// @param side 必须是 Side::Red 或 Side::Blue
     /// @param layout 必须是 1~6 的一个排列（不可缺号、不可重复）

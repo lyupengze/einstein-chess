@@ -72,6 +72,33 @@ int Board::count_pieces(Side side) const {
     return count;
 }
 
+const std::array<Pos, Board::kChessCount>& Board::start_positions(Side side) {
+    switch (side) {
+        case Side::Red:
+            return kRedStartPositions;
+        case Side::Blue:
+            return kBlueStartPositions;
+        case Side::None:
+            break;
+    }
+    throw std::invalid_argument("初始区只属于红方或蓝方");
+}
+
+std::optional<int> Board::start_index(Side side, Pos pos) noexcept {
+    if (side != Side::Red && side != Side::Blue) {
+        return std::nullopt;
+    }
+
+    const std::array<Pos, kChessCount>& positions =
+        side == Side::Red ? kRedStartPositions : kBlueStartPositions;
+    for (std::size_t i = 0; i < positions.size(); ++i) {
+        if (positions[i] == pos) {
+            return static_cast<int>(i);
+        }
+    }
+    return std::nullopt;
+}
+
 void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) {
     // 只接受红/蓝：None 与任何未来新增的枚举值都无法映射到实际布阵区。
     if (side != Side::Red && side != Side::Blue) {
@@ -98,19 +125,10 @@ void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) 
         }
     }
 
-    // 初始区落位顺序必须与 SetupDialog::get_index_in_region 一一对应，
-    // 改动任意一边都会让布阵界面与棋盘实际落子错位。
-    constexpr std::array<Pos, kChessCount> kRedPos{
-        {{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {2, 0}}};
-    constexpr std::array<Pos, kChessCount> kBluePos{
-        {{4, 4}, {4, 3}, {4, 2}, {3, 4}, {3, 3}, {2, 4}}};
-
+    // 落位顺序由 start_positions 的坐标表定义，布阵界面与棋盘共用同一份表。
+    const std::array<Pos, kChessCount>& start = start_positions(side);
     for (int i = 0; i < kChessCount; ++i) {
-        if (side == Side::Red) {
-            at(kRedPos[i]) = {Side::Red, layout[i]};
-        } else {
-            at(kBluePos[i]) = {Side::Blue, layout[i]};
-        }
+        at(start[i]) = {side, layout[i]};
     }
 }
 

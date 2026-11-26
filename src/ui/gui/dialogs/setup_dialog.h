@@ -31,7 +31,7 @@ public:
     ///       不依赖 Side 的枚举数值。
     [[nodiscard]] int get_selected_side() const;
     /// @brief 六个编号的布阵结果。
-    /// @return 下标 0~5 与 Board::setup_custom 的落位顺序一一对应
+    /// @return 下标 0~5 与 core::Board::start_positions 的数组顺序一一对应
     /// @note 只有 accept() 之后取才有意义；对话框已保证六个编号互不重复且在 1~6。
     [[nodiscard]] std::array<int, core::Board::kChessCount> get_layout() const;
     /// @brief 玩家选择的电脑档位（界面文字称“强度”）。
@@ -59,12 +59,12 @@ private:
 
     /// @brief 按当前阵营重画 5x5 网格：活动格着色并显示编号，其余格禁用清空。
     void update_grid_ui();
-    /// @brief 判断某格是否属于红方三角区（左上角 3+2+1 格）。
+    /// @brief 判断某格是否属于红方初始区（由 core::Board::start_index 判定）。
     bool is_red_region(int x, int y) const;
-    /// @brief 判断某格是否属于蓝方三角区（右下角 3+2+1 格）。
+    /// @brief 判断某格是否属于蓝方初始区（由 core::Board::start_index 判定）。
     bool is_blue_region(int x, int y) const;
-    /// @brief 把坐标换算成己方三角区内的 0~5 下标。
-    /// @return 落在三角区内返回 0~5，否则返回 -1（调用方须自行过滤）
+    /// @brief 把坐标换算成己方初始区内的 0~5 下标。
+    /// @return 落在当前阵营的初始区内返回 0~5，否则返回 -1（调用方须自行过滤）
     int get_index_in_region(int x, int y) const;
 };
 

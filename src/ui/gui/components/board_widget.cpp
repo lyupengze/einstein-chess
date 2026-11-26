@@ -10,6 +10,7 @@
 
 #include <QFont>
 #include <QPainter>
+#include <QPainterPath>
 #include <QRadialGradient>
 #include <algorithm>
 #include <cstddef>
@@ -41,6 +42,14 @@ BoardGeometry compute_geometry(int widget_width, int widget_height) {
     geometry.offset_x = (widget_width - geometry.span) / 2;
     geometry.offset_y = (widget_height - geometry.span) / 2;
     return geometry;
+}
+
+// 一格在屏幕上占用的整数矩形：右、下边是开区间，相邻格不共享像素行。
+// 初始区按格子矩形拼成一条路径，台阶边界正好落在网格线上。
+QRect cell_rect(const BoardGeometry& geometry, const core::Pos& pos) {
+    return QRect(geometry.offset_x + static_cast<int>(pos.y) * geometry.cell_size,
+                 geometry.offset_y + static_cast<int>(pos.x) * geometry.cell_size,
+                 geometry.cell_size, geometry.cell_size);
 }
 
 // 棋子在格内占用的矩形：四周各留 1/8 格边距，相邻棋子之间才有间隙。
@@ -95,34 +104,20 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     // 区域填充不描边，只靠 alpha=50 的半透明色叠在格子之上。
     painter.setPen(Qt::NoPen);
 
-    // 第二层之一：红方初始区。从左上角出发，沿格子边界逐级折回，围出一个阶梯多边形；
-    // 顶点按 (横向 = 列, 纵向 = 行) 给出，与 QPoint 的 (x, y) 含义一致。
-    // 每一级折线都正好跨一格，围出的区域恰好是 row + col <= 2 的 6 个整格；
-    // 若只取 5 个顶点，中间四个点会落在同一条斜线上，实际画成三角形而不是 6 格。
-    painter.setBrush(QColor(231, 76, 60, 50));
-    QPolygon red_region;
-    red_region << QPoint(offset_x, offset_y) << QPoint(offset_x + 3 * cell_size, offset_y)
-               << QPoint(offset_x + 3 * cell_size, offset_y + cell_size)
-               << QPoint(offset_x + 2 * cell_size, offset_y + cell_size)
-               << QPoint(offset_x + 2 * cell_size, offset_y + 2 * cell_size)
-               << QPoint(offset_x + cell_size, offset_y + 2 * cell_size)
-               << QPoint(offset_x + cell_size, offset_y + 3 * cell_size)
-               << QPoint(offset_x, offset_y + 3 * cell_size);
-    painter.drawPolygon(red_region);
+    // 第二层：红/蓝初始区。整片区域装进一个 QPainterPath，只调用一次 fillPath：
+    // 相邻格共享的边在路径内部互相抵消，覆盖率按并集算，不会出现两次 alpha 叠加的接缝。
+    // 格子表来自 core::Board，表的顺序变了这里自动跟随。
+    QPainterPath red_region;
+    for (const core::Pos& cell : core::Board::kRedStartPositions) {
+        red_region.addRect(cell_rect(geometry, cell));
+    }
+    painter.fillPath(red_region, QColor(231, 76, 60, 50));
 
-    // 第二层之二：蓝方初始区，是红区以棋盘中心为对称点的镜像，顶点从右下角反向展开。
-    painter.setBrush(QColor(52, 152, 219, 50));
-    QPolygon blue_region;
-    blue_region << QPoint(offset_x + board_size, offset_y + board_size)
-                << QPoint(offset_x + board_size - 3 * cell_size, offset_y + board_size)
-                << QPoint(offset_x + board_size - 3 * cell_size, offset_y + board_size - cell_size)
-                << QPoint(offset_x + board_size - 2 * cell_size, offset_y + board_size - cell_size)
-                << QPoint(offset_x + board_size - 2 * cell_size,
-                          offset_y + board_size - 2 * cell_size)
-                << QPoint(offset_x + board_size - cell_size, offset_y + board_size - 2 * cell_size)
-                << QPoint(offset_x + board_size - cell_size, offset_y + board_size - 3 * cell_size)
-                << QPoint(offset_x + board_size, offset_y + board_size - 3 * cell_size);
-    painter.drawPolygon(blue_region);
+    QPainterPath blue_region;
+    for (const core::Pos& cell : core::Board::kBlueStartPositions) {
+        blue_region.addRect(cell_rect(geometry, cell));
+    }
+    painter.fillPath(blue_region, QColor(52, 152, 219, 50));
 
     // 第三层：6 横 + 6 纵的网格线（i 取 0~5，四条边也算在内），灰线 1 像素。
     painter.setPen(QPen(QColor("#95a5a6"), 1));
