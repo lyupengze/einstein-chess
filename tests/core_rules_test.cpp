@@ -317,7 +317,7 @@ int main() {
                "未分胜负时换手、回到掷骰并清空骰子");
     }
 
-    // 13. 布阵落位顺序：红方行优先展开，蓝方从右下角镜像展开。
+    // 13. 布阵落位顺序：红方行优先展开，蓝方从右下角镜像展开；坐标表与反查下标一致。
     {
         core::Board red;
         red.setup_custom(core::Side::Red, {1, 2, 3, 4, 5, 6});
@@ -331,6 +331,39 @@ int main() {
         expect(blue.at({4, 4}).id == 1 && blue.at({4, 3}).id == 2 && blue.at({4, 2}).id == 3 &&
                    blue.at({3, 4}).id == 4 && blue.at({3, 3}).id == 5 && blue.at({2, 4}).id == 6,
                "蓝方布阵按红方初始区镜像落位");
+
+        // 坐标表是初始区的唯一事实源：落位顺序、界面反查下标都从它派生。
+        expect(
+            core::Board::start_positions(core::Side::Red) == core::Board::kRedStartPositions &&
+                core::Board::start_positions(core::Side::Blue) == core::Board::kBlueStartPositions,
+            "start_positions 返回对应阵营的坐标表");
+        expect(core::Board::kRedStartPositions.front() == core::Pos{0, 0} &&
+                   core::Board::kRedStartPositions.back() == core::Pos{2, 0} &&
+                   core::Board::kBlueStartPositions.front() == core::Pos{4, 4} &&
+                   core::Board::kBlueStartPositions.back() == core::Pos{2, 4},
+               "坐标表首尾元素与初始区形状一致");
+
+        const auto& red_positions = core::Board::start_positions(core::Side::Red);
+        bool layout_matches_positions = true;
+        for (int i = 0; i < core::Board::kChessCount; ++i) {
+            const core::Pos pos = red_positions[static_cast<std::size_t>(i)];
+            layout_matches_positions = layout_matches_positions && red.at(pos).id == i + 1 &&
+                                       core::Board::start_index(core::Side::Red, pos) == i;
+        }
+        expect(layout_matches_positions, "布阵落位顺序与坐标表一致");
+
+        expect(core::Board::start_index(core::Side::Red, {4, 4}) == std::nullopt &&
+                   core::Board::start_index(core::Side::Blue, {0, 0}) == std::nullopt &&
+                   core::Board::start_index(core::Side::Red, {5, 0}) == std::nullopt,
+               "对方初始区与棋盘外不对应任何下标");
+
+        bool positions_none_threw = false;
+        try {
+            (void)core::Board::start_positions(core::Side::None);
+        } catch (const std::invalid_argument&) {
+            positions_none_threw = true;
+        }
+        expect(positions_none_threw, "start_positions 拒绝 Side::None");
 
         core::Board untouched;
         untouched.setup_custom(core::Side::Red, {1, 2, 3, 4, 5, 6});
