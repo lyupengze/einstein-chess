@@ -209,7 +209,7 @@ void SetupDialog::on_confirm_clicked() {
     for (int i = 0; i < 6; ++i) {
         if (seen[layout_[i]]) {
             // 有重复就留在对话框里，让玩家继续点格子调整。
-            QMessageBox::warning(this, "布阵错误", "棋子编号不能重复！请点击棋盘上的格子调整。");
+            QMessageBox::warning(this, "布阵错误", "棋子编号不能重复，请点击棋盘上的格子调整。");
             return;
         }
         seen[layout_[i]] = true;

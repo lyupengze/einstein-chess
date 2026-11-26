@@ -189,7 +189,7 @@ void GameWidget::on_save_clicked() {
         std::string name = dialog.get_save_name();
         storage::SaveManager save_manager(storage::kDefaultDbPath);
         save_manager.save_game(name, game_.get_state(), ai_level_);
-        show_message("游戏已保存！");
+        show_message("游戏已保存");
     } catch (const std::exception& e) {
         QMessageBox::critical(this, "保存失败", e.what());
     }
@@ -299,7 +299,7 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
                 selected_pos_ = pos;
                 update_ui();
             } else {
-                show_message("这个棋子本回合不能动！");
+                show_message("这个棋子本回合不能动");
             }
         }
     }
@@ -467,7 +467,7 @@ void GameWidget::update_ui() {
     if (state.phase == core::Phase::GameOver) {
         // 终局：展示胜者并禁用掷骰后直接返回。
         status_label_->setText(
-            QString("🏆 %1 获胜！").arg(QString::fromStdString(core::side_name(state.winner))));
+            QString("🏆 %1 获胜").arg(QString::fromStdString(core::side_name(state.winner))));
         roll_btn_->setEnabled(false);
         return;
     }

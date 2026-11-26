@@ -73,7 +73,7 @@ void SaveLoadDialog::on_confirm_clicked() {
     if (mode_ == DialogMode::Save) {
         const QString name = name_input_->text().trimmed();
         if (name.isEmpty()) {
-            QMessageBox::warning(this, "错误", "存档名不能为空！");
+            QMessageBox::warning(this, "错误", "存档名不能为空");
             return;
         }
 
@@ -91,7 +91,7 @@ void SaveLoadDialog::on_confirm_clicked() {
     } else {
         // 空库时列表没有任何项，这里就是唯一的拦截点。
         if (!list_widget_->currentItem()) {
-            QMessageBox::warning(this, "错误", "请选择一个存档！");
+            QMessageBox::warning(this, "错误", "请选择一个存档");
             return;
         }
         accept();

@@ -36,7 +36,7 @@ if(invalid_menu EQUAL -1)
 endif()
 
 # 2. 空存档库必须给出明确提示，并回到主菜单继续接受输入。
-string(FIND "${cli_stdout}" "没有找到任何存档！" empty_saves)
+string(FIND "${cli_stdout}" "没有找到任何存档" empty_saves)
 if(empty_saves EQUAL -1)
     message(FATAL_ERROR "CLI did not report an empty save list.\nstdout:\n${cli_stdout}")
 endif()

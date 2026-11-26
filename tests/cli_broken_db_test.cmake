@@ -62,7 +62,7 @@ if(list_failure EQUAL -1)
 endif()
 
 # 失败后必须回到主菜单，而不是误报“没有存档”或直接退出。
-string(FIND "${cli_stdout}" "没有找到任何存档！" empty_saves)
+string(FIND "${cli_stdout}" "没有找到任何存档" empty_saves)
 if(NOT empty_saves EQUAL -1)
     message(FATAL_ERROR
         "CLI treated the database error as an empty save list.\nstdout:\n${cli_stdout}")

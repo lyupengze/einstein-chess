@@ -56,7 +56,7 @@ bool save(storage::SaveManager& save_manager, const core::GameState& state, ai::
     // 打印原因后继续对局，由玩家决定是否重试。
     try {
         save_manager.save_game(save_name, state, level);
-        std::cout << "存档成功！\n";
+        std::cout << "存档成功\n";
     } catch (const std::exception& e) {
         std::cout << "存档失败: " << e.what() << "\n";
     }
@@ -327,7 +327,7 @@ int main(int argc, char* argv[]) {
                 continue;
             }
             if (saves.empty()) {
-                std::cout << "没有找到任何存档！\n";
+                std::cout << "没有找到任何存档\n";
                 continue;
             }
 
