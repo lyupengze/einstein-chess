@@ -6,7 +6,6 @@
 /// `--db` 指定存档库。所有输入都按整行读取再自行解析，避免 `operator>>`
 /// 在输入缓冲区留下换行残渣。
 
-#include <array>
 #include <cstddef>
 #include <exception>
 #include <filesystem>
@@ -82,10 +81,10 @@ std::optional<ai::Level> choose_ai_level() {
             return ai::kDefaultLevel;
         }
 
-        const auto index =
-            cli::parse_level_index(level_input, static_cast<int>(ai::kAllLevels.size()));
-        if (index) {
-            return ai::kAllLevels[static_cast<std::size_t>(*index - 1)];
+        const auto number =
+            cli::parse_menu_number(level_input, static_cast<int>(ai::kAllLevels.size()));
+        if (number) {
+            return ai::kAllLevels[static_cast<std::size_t>(*number - 1)];
         }
         std::cout << "命令不合法\n\n";
     }
@@ -162,19 +161,18 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                 }
 
                 // 先整行解析出 4 个整数；必须恰好 4 个，多余 token 也视为格式错误。
-                std::array<int, 4> move_values{};
-                if (cli::parse_int_array(move_input, move_values)) {
-                    try {
-                        game.make_move({static_cast<std::size_t>(move_values[0]),
-                                        static_cast<std::size_t>(move_values[1])},
-                                       {static_cast<std::size_t>(move_values[2]),
-                                        static_cast<std::size_t>(move_values[3])});
-                    } catch (const std::exception& e) {
-                        std::cout << "移动失败: " << e.what() << "\n\n";
-                        continue;
-                    }
-                } else {
+                const auto move_values = cli::parse_int_array<4>(move_input);
+                if (!move_values) {
                     std::cout << "命令不合法\n\n";
+                    continue;
+                }
+                const auto [from_x, from_y, to_x, to_y] = *move_values;
+                try {
+                    game.make_move(
+                        {static_cast<std::size_t>(from_x), static_cast<std::size_t>(from_y)},
+                        {static_cast<std::size_t>(to_x), static_cast<std::size_t>(to_y)});
+                } catch (const std::exception& e) {
+                    std::cout << "移动失败: " << e.what() << "\n\n";
                     continue;
                 }
                 // 走子成功，结束输入循环。
@@ -343,33 +341,33 @@ int main(int argc, char* argv[]) {
                 std::cout << "\n输入已结束，退出。\n";
                 return 0;
             }
-            try {
-                int choice = std::stoi(save_id_str);
-                if (choice > 0 && choice <= static_cast<int>(saves.size())) {
-                    // 读档失败（存档被改坏、字段不自洽等）只影响这一次读取：
-                    // 打印具体原因后回主菜单，不能把异常吞成一句"无效的选择"。
-                    try {
-                        auto saved = save_manager->load_game(saves[choice - 1]);
-                        if (saved) {
-                            game.load_game(saved->state);
-                            // 档位来自存档本身：同一份档案每次读都恢复成同一个档位，
-                            // 不受主菜单里临时选择的档位影响。
-                            std::cout << "已开始游戏 (电脑强度: " << ai::level_name(saved->ai_level)
-                                      << "; 在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
-                            game_loop(game, *save_manager, saved->ai_level);
-                        } else {
-                            std::cout << "该存档槽位没有数据。\n";
-                        }
-                    } catch (const std::exception& e) {
-                        std::cout << "读档失败: " << e.what() << "\n";
-                    }
-                    // 读档后（无论是否取到数据）都回主菜单，不落入新局流程。
-                    continue;
-                }
-            } catch (...) {
-                // std::stoi 失败（非数字、溢出）统一按无效选择处理。
+            const auto save_number =
+                cli::parse_menu_number(save_id_str, static_cast<int>(saves.size()));
+            if (!save_number) {
                 std::cout << "无效的选择。\n";
+                continue;
             }
+
+            // 读档失败（存档被改坏、字段不自洽等）只影响这一次读取：
+            // 打印具体原因后回主菜单，不能把异常吞成一句"无效的选择"。
+            try {
+                const auto& slot = saves[static_cast<std::size_t>(*save_number - 1)];
+                auto saved = save_manager->load_game(slot);
+                if (saved) {
+                    game.load_game(saved->state);
+                    // 档位来自存档本身：同一份档案每次读都恢复成同一个档位，
+                    // 不受主菜单里临时选择的档位影响。
+                    std::cout << "已开始游戏 (电脑强度: " << ai::level_name(saved->ai_level)
+                              << "; 在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
+                    game_loop(game, *save_manager, saved->ai_level);
+                } else {
+                    std::cout << "该存档槽位没有数据。\n";
+                }
+            } catch (const std::exception& e) {
+                std::cout << "读档失败: " << e.what() << "\n";
+            }
+            // 读档后（无论是否取到数据）都回主菜单，不落入新局流程。
+            continue;
         }
         // 走到这里说明不是有效的读档请求：只有 "1" 视为开新局，
         // 其余输入（包括超出范围的存档编号）都按非法命令处理。
@@ -435,8 +433,8 @@ int main(int argc, char* argv[]) {
                 std::cout << "\n输入已结束，退出。\n";
                 return 0;
             }
-            std::array<int, core::Board::kChessCount> player_layout{};
-            if (!cli::parse_int_array(layout_input, player_layout)) {
+            const auto player_layout = cli::parse_int_array<core::Board::kChessCount>(layout_input);
+            if (!player_layout) {
                 std::cout << "命令不合法\n\n";
                 continue;
             }
@@ -444,7 +442,7 @@ int main(int argc, char* argv[]) {
             try {
                 // 排列是否合法（1~6 各一个）由 Board::setup_custom 校验；
                 // 抛异常时 Game 状态保持不变，可以放心重输。
-                game.submit_layout(player1_side, player_layout);
+                game.submit_layout(player1_side, *player_layout);
                 game.submit_layout(player2_side, ai::decide_layout());
             } catch (const std::exception& e) {
                 std::cout << "布阵失败: " << e.what() << "\n\n";

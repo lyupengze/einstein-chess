@@ -45,35 +45,40 @@ namespace cli {
 
 /// @brief 严格解析恰好 N 个整数。
 /// @param text 待解析的整行文本
-/// @param out 解析结果写入此处，元素个数由模板参数决定
-/// @return 恰好读满 N 个整数且其后只剩空白时返回 true
-/// @note 多一个 token（例如走法写成 5 个数）直接返回 false，不像 `operator>>`
-///       循环那样静默忽略；负数可以解析，范围由 `core::rules` 决定。
+/// @return 恰好读满 N 个整数且其后只剩空白时返回数组，否则返回 `std::nullopt`
+/// @note 多一个 token（例如走法写成 5 个数）直接返回 `std::nullopt`，不像
+///       `operator>>` 循环那样静默忽略；负数可以解析，范围由 `core::rules` 决定。
 template <std::size_t N>
-[[nodiscard]] bool parse_int_array(std::string_view text, std::array<int, N>& out) {
+[[nodiscard]] std::optional<std::array<int, N>> parse_int_array(std::string_view text) {
     std::istringstream stream{std::string{text}};
-    for (int& value : out) {
+    std::array<int, N> values{};
+    for (int& value : values) {
         if (!(stream >> value)) {
-            return false;
+            return std::nullopt;
         }
     }
     stream >> std::ws;
-    return stream.eof();
+    if (!stream.eof()) {
+        return std::nullopt;
+    }
+    return values;
 }
 
-/// @brief 解析“电脑强度”菜单的 1-based 编号。
+/// @brief 解析菜单里以 1 开始的编号。
 /// @param text 待解析的整行文本
-/// @param count 可选档位总数，由 `ai::kAllLevels.size()` 传入
+/// @param count 菜单项总数，由调用方按当前菜单传入
 /// @return 落在 1..count 内返回编号，否则返回 `std::nullopt`；空行由调用方处理
-[[nodiscard]] inline std::optional<int> parse_level_index(std::string_view text, int count) {
-    std::array<int, 1> values{};
-    if (!parse_int_array(text, values)) {
+/// @note 返回的是用户看到的编号而不是下标，调用方按 `编号 - 1` 取下标。
+[[nodiscard]] inline std::optional<int> parse_menu_number(std::string_view text, int count) {
+    const auto values = parse_int_array<1>(text);
+    if (!values) {
         return std::nullopt;
     }
-    if (values[0] < 1 || values[0] > count) {
+    const int number = (*values)[0];
+    if (number < 1 || number > count) {
         return std::nullopt;
     }
-    return values[0];
+    return number;
 }
 
 }  // namespace cli

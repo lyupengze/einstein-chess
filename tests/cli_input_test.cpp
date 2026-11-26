@@ -1,5 +1,5 @@
 /// @file tests/cli_input_test.cpp
-/// @brief CLI 纯解析函数的单元测试：种子、整数数组与档位序号。
+/// @brief CLI 纯解析函数的单元测试：种子、整数数组与菜单编号。
 ///
 /// 不启动 CLI 进程，也不依赖 Qt/SQLite；完整交互流程由 cli_session 等脚本用例
 /// 覆盖，这里盯住边界值。
@@ -43,42 +43,45 @@ void test_parse_seed() {
 }
 
 void test_parse_int_array_4() {
-    std::array<int, 4> values{};
-    expect(cli::parse_int_array("0 2 1 2", values), "parse_int_array 接受 4 个整数");
-    expect(values[0] == 0 && values[1] == 2 && values[2] == 1 && values[3] == 2,
-           "parse_int_array 正确写入 4 个值");
+    const auto normal = cli::parse_int_array<4>("0 2 1 2");
+    expect(normal.has_value(), "parse_int_array 接受 4 个整数");
+    expect(
+        normal && (*normal)[0] == 0 && (*normal)[1] == 2 && (*normal)[2] == 1 && (*normal)[3] == 2,
+        "parse_int_array 返回 4 个值");
 
-    expect(cli::parse_int_array(" 0  2\t1 2 ", values), "parse_int_array 接受多余空白");
-    expect(cli::parse_int_array("-1 0 0 0", values), "parse_int_array 把负坐标留给 core 拒绝");
+    expect(cli::parse_int_array<4>(" 0  2\t1 2 ").has_value(), "parse_int_array 接受多余空白");
 
-    expect(!cli::parse_int_array("0 2 1", values), "parse_int_array 拒绝个数不足");
-    expect(!cli::parse_int_array("0 2 1 2 9", values), "parse_int_array 拒绝多余整数");
-    expect(!cli::parse_int_array("0 2 1 x", values), "parse_int_array 拒绝非整数");
-    expect(!cli::parse_int_array("", values), "parse_int_array 拒绝空串");
+    const auto negative = cli::parse_int_array<4>("-1 0 0 0");
+    expect(negative.has_value() && (*negative)[0] == -1, "parse_int_array 把负坐标留给 core 拒绝");
+
+    expect(!cli::parse_int_array<4>("0 2 1").has_value(), "parse_int_array 拒绝个数不足");
+    expect(!cli::parse_int_array<4>("0 2 1 2 9").has_value(), "parse_int_array 拒绝多余整数");
+    expect(!cli::parse_int_array<4>("0 2 1 x").has_value(), "parse_int_array 拒绝非整数");
+    expect(!cli::parse_int_array<4>("").has_value(), "parse_int_array 拒绝空串");
 }
 
 void test_parse_int_array_6() {
-    std::array<int, 6> values{};
-    expect(cli::parse_int_array("1 2 3 4 5 6", values), "parse_int_array 接受 6 个整数");
-    expect(cli::parse_int_array("1 1 2 3 4 5", values),
+    const auto valid = cli::parse_int_array<6>("1 2 3 4 5 6");
+    expect(valid.has_value() && (*valid)[5] == 6, "parse_int_array 接受 6 个整数");
+    expect(cli::parse_int_array<6>("1 1 2 3 4 5").has_value(),
            "parse_int_array 把重复编号留给 setup_custom 拒绝");
 
-    expect(!cli::parse_int_array("1 2 3 4 5", values), "parse_int_array 拒绝 5 个整数");
-    expect(!cli::parse_int_array("1 2 3 4 5 6 7", values), "parse_int_array 拒绝 7 个整数");
+    expect(!cli::parse_int_array<6>("1 2 3 4 5").has_value(), "parse_int_array 拒绝 5 个整数");
+    expect(!cli::parse_int_array<6>("1 2 3 4 5 6 7").has_value(), "parse_int_array 拒绝 7 个整数");
 }
 
-void test_parse_level_index() {
-    const auto first = cli::parse_level_index("1", 3);
-    expect(first.has_value() && *first == 1, "parse_level_index 接受 1");
+void test_parse_menu_number() {
+    const auto first = cli::parse_menu_number("1", 3);
+    expect(first.has_value() && *first == 1, "parse_menu_number 接受 1");
 
-    const auto second = cli::parse_level_index(" 2 ", 3);
-    expect(second.has_value() && *second == 2, "parse_level_index 接受带空白的 2");
+    const auto second = cli::parse_menu_number(" 2 ", 3);
+    expect(second.has_value() && *second == 2, "parse_menu_number 接受带空白的 2");
 
-    expect(!cli::parse_level_index("0", 3).has_value(), "parse_level_index 拒绝 0");
-    expect(!cli::parse_level_index("4", 3).has_value(), "parse_level_index 拒绝超过上限的序号");
-    expect(!cli::parse_level_index("1abc", 3).has_value(), "parse_level_index 拒绝尾随字符");
-    expect(!cli::parse_level_index("1 2", 3).has_value(), "parse_level_index 拒绝多余内容");
-    expect(!cli::parse_level_index("", 3).has_value(), "parse_level_index 拒绝空串");
+    expect(!cli::parse_menu_number("0", 3).has_value(), "parse_menu_number 拒绝 0");
+    expect(!cli::parse_menu_number("4", 3).has_value(), "parse_menu_number 拒绝超过上限的编号");
+    expect(!cli::parse_menu_number("1abc", 3).has_value(), "parse_menu_number 拒绝尾随字符");
+    expect(!cli::parse_menu_number("1 2", 3).has_value(), "parse_menu_number 拒绝多余内容");
+    expect(!cli::parse_menu_number("", 3).has_value(), "parse_menu_number 拒绝空串");
 }
 
 }  // namespace
@@ -87,6 +90,6 @@ int main() {
     test_parse_seed();
     test_parse_int_array_4();
     test_parse_int_array_6();
-    test_parse_level_index();
+    test_parse_menu_number();
     return test_support::finish();
 }
