@@ -9,7 +9,7 @@
 #include "views/game_widget.h"
 #include "views/menu_widget.h"
 
-namespace ui {
+namespace gui {
 
 /// @brief 应用主窗口，用 QStackedWidget 在菜单页与对局页之间切换。
 ///
@@ -28,4 +28,4 @@ private:
     GameWidget* game_widget_;         ///< 对局页，常驻栈中，返回主页后 game_ 仍保留
 };
 
-}  // namespace ui
+}  // namespace gui

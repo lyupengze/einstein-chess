@@ -6,7 +6,7 @@
 #include <QWidget>
 #include <optional>
 
-namespace ui {
+namespace gui {
 
 /// @brief 骰子图形控件，尺寸被限制在 100~150 像素之间，由右侧面板水平居中摆放。
 ///
@@ -33,4 +33,4 @@ private:
     std::optional<int> current_dice_;  ///< 当前点数 1~6；nullopt 表示本回合尚未掷骰
 };
 
-}  // namespace ui
+}  // namespace gui

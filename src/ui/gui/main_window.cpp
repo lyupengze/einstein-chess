@@ -15,7 +15,7 @@
 #include "dialogs/setup_dialog.h"
 #include "storage/save_manager.h"
 
-namespace ui {
+namespace gui {
 
 MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
     // 500x400 是菜单页的初始尺寸；对局页靠布局与棋盘的最小尺寸自己撑大窗口。
@@ -88,4 +88,4 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
             [this]() { stacked_widget_->setCurrentWidget(menu_widget_); });
 }
 
-}  // namespace ui
+}  // namespace gui

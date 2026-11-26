@@ -26,7 +26,7 @@
 #include "dialogs/save_load_dialog.h"
 #include "storage/save_manager.h"
 
-namespace ui {
+namespace gui {
 
 GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai_timer_(this) {
     auto* main_layout = new QVBoxLayout(this);
@@ -533,4 +533,4 @@ std::vector<core::Pos> GameWidget::get_reachable_positions(core::Pos from) const
     return positions;
 }
 
-}  // namespace ui
+}  // namespace gui

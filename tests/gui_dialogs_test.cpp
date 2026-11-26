@@ -183,7 +183,7 @@ int main(int argc, char* argv[]) {
 
     // 1. 布阵对话框：红方默认、编号 1~6 按区域顺序铺满、默认档位为 kDefaultLevel。
     {
-        ui::SetupDialog dialog;
+        gui::SetupDialog dialog;
         expect(dialog.get_selected_side() == 1, "布阵默认红方");
         expect(dialog.get_selected_level() == ai::kDefaultLevel, "布阵默认档位为默认档");
 
@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
 
     // 2. 点击活动格只让该格在 1~6 循环；点击非活动格被忽略。
     {
-        ui::SetupDialog dialog;
+        gui::SetupDialog dialog;
         QGridLayout* grid = dialog.findChild<QGridLayout*>();
         expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 0), Q_ARG(int, 0)),
                "布阵点击槽可调用");
@@ -222,7 +222,7 @@ int main(int argc, char* argv[]) {
 
     // 3. 换到蓝方：旧编号清空，蓝方区域重新铺 1~6，红方按钮全部禁用。
     {
-        ui::SetupDialog dialog;
+        gui::SetupDialog dialog;
         QRadioButton* blue = find_radio(dialog, QString::fromUtf8("蓝方"));
         expect(blue != nullptr, "布阵对话框有蓝方单选");
         if (blue != nullptr) {
@@ -246,7 +246,7 @@ int main(int argc, char* argv[]) {
 
     // 4. 合法编号确认后对话框返回 Accepted。
     {
-        ui::SetupDialog dialog;
+        gui::SetupDialog dialog;
         expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"), "布阵确认槽可调用");
         expect(dialog.result() == QDialog::Accepted, "合法布阵被接受");
     }
@@ -254,7 +254,7 @@ int main(int argc, char* argv[]) {
     // 5. 存档对话框：空库提示、无选中项。
     remove_default_db();
     {
-        ui::SaveLoadDialog dialog(ui::DialogMode::Load);
+        gui::SaveLoadDialog dialog(gui::DialogMode::Load);
         QListWidget* list = dialog.findChild<QListWidget*>();
         expect(list != nullptr && list->count() == 0, "读档对话框初始列表为空");
         expect(dialog.get_selected_name().empty(), "空库时没有选中项");
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
         manager.save_game("alpha", make_minimal_state(), ai::Level::kSearch);
     }
     {
-        ui::SaveLoadDialog dialog(ui::DialogMode::Load);
+        gui::SaveLoadDialog dialog(gui::DialogMode::Load);
         QListWidget* list = dialog.findChild<QListWidget*>();
         expect(list != nullptr && list->count() == 1, "读档对话框列出存档");
         expect(list != nullptr && list->currentRow() == 0, "默认选中第一条");
@@ -286,7 +286,7 @@ int main(int argc, char* argv[]) {
 
     // 7. 保存模式：列表可见、名称 trim 后返回、确认返回 Accepted。
     {
-        ui::SaveLoadDialog dialog(ui::DialogMode::Save);
+        gui::SaveLoadDialog dialog(gui::DialogMode::Save);
         QListWidget* list = dialog.findChild<QListWidget*>();
         QLineEdit* input = dialog.findChild<QLineEdit*>();
         expect(list != nullptr && list->count() == 1, "保存对话框列出现有槽位");
@@ -304,7 +304,7 @@ int main(int argc, char* argv[]) {
 
     // 8. 同名保存必须二次确认：选 No 保持对话框，选 Yes 才接受。
     {
-        ui::SaveLoadDialog dialog(ui::DialogMode::Save);
+        gui::SaveLoadDialog dialog(gui::DialogMode::Save);
         QLineEdit* input = dialog.findChild<QLineEdit*>();
         expect(input != nullptr, "覆盖用例有名称输入框");
         if (input != nullptr) {
@@ -315,7 +315,7 @@ int main(int argc, char* argv[]) {
         expect(dialog.result() != QDialog::Accepted, "拒绝覆盖后对话框不关闭");
     }
     {
-        ui::SaveLoadDialog dialog(ui::DialogMode::Save);
+        gui::SaveLoadDialog dialog(gui::DialogMode::Save);
         QLineEdit* input = dialog.findChild<QLineEdit*>();
         expect(input != nullptr, "覆盖接受用例有名称输入框");
         if (input != nullptr) {
@@ -328,7 +328,7 @@ int main(int argc, char* argv[]) {
 
     // 9. 保存期间暂停 AI 定时器：确认保存后按剩余时间恢复，AI 继续走完。
     {
-        ui::GameWidget widget;
+        gui::GameWidget widget;
         widget.set_action_delays(1, 300, 300);
         widget.resize(900, 700);
         widget.show();
@@ -352,7 +352,7 @@ int main(int argc, char* argv[]) {
 
     // 10. 取消保存同样恢复，不能把这一手 AI 动作永久丢掉。
     {
-        ui::GameWidget widget;
+        gui::GameWidget widget;
         widget.set_action_delays(1, 300, 300);
         widget.resize(900, 700);
         widget.show();
@@ -383,7 +383,7 @@ int main(int argc, char* argv[]) {
     }
     bool constructor_threw = false;
     try {
-        ui::SaveLoadDialog dialog(ui::DialogMode::Load);
+        gui::SaveLoadDialog dialog(gui::DialogMode::Load);
     } catch (const std::runtime_error&) {
         constructor_threw = true;
     }

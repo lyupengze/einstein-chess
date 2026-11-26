@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <cstddef>
 
-namespace ui {
+namespace gui {
 
 namespace {
 
@@ -248,4 +248,4 @@ void BoardWidget::mousePressEvent(QMouseEvent* event) {
     emit cell_clicked(clicked_pos);
 }
 
-}  // namespace ui
+}  // namespace gui

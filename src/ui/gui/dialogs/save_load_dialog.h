@@ -8,7 +8,7 @@
 #include <QListWidget>
 #include <string>
 
-namespace ui {
+namespace gui {
 
 /// @brief 对话框形态：Save 需要输入名称，Load 必须从列表里选一项。
 enum class DialogMode { Save, Load };
@@ -47,4 +47,4 @@ private:
     QLineEdit* name_input_ = nullptr;  ///< 仅 Save 模式创建的名称输入框
 };
 
-}  // namespace ui
+}  // namespace gui

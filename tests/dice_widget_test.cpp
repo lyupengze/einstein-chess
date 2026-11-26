@@ -20,7 +20,7 @@ namespace {
 
 /// @brief 把骰子控件渲染到透明背景的 QImage，便于做像素级断言。
 QImage render_dice(std::optional<int> value) {
-    ui::DiceWidget widget;
+    gui::DiceWidget widget;
     widget.resize(120, 120);
     widget.set_dice(value);
 

@@ -16,7 +16,7 @@
 
 #include "storage/save_manager.h"
 
-namespace ui {
+namespace gui {
 
 SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(parent), mode_(mode) {
     // 标题与下方提示语都随模式切换，其余控件复用。
@@ -116,4 +116,4 @@ std::string SaveLoadDialog::get_selected_name() const {
     return "";
 }
 
-}  // namespace ui
+}  // namespace gui

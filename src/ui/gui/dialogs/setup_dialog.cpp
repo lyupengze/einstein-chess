@@ -14,7 +14,7 @@
 /// kRedPos / kBluePos 逐项一致，get_index_in_region 返回的下标就是 layout 的下标，
 /// 错一位就会把编号摆到别的格子上。点击只在 (v % 6) + 1 上循环，重复编号留到确认时校验。
 
-namespace ui {
+namespace gui {
 
 SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle("布阵阶段");
@@ -233,4 +233,4 @@ ai::Level SetupDialog::get_selected_level() const {
     return static_cast<ai::Level>(level_combo_->currentData().toInt());
 }
 
-}  // namespace ui
+}  // namespace gui

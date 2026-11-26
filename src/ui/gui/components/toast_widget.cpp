@@ -13,7 +13,7 @@
 #include <QPropertyAnimation>
 #include <QVBoxLayout>
 
-namespace ui {
+namespace gui {
 
 namespace {
 
@@ -120,4 +120,4 @@ void ToastWidget::fade_out() {
     animation_->start();
 }
 
-}  // namespace ui
+}  // namespace gui

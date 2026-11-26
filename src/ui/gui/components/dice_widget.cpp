@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <optional>
 
-namespace ui {
+namespace gui {
 
 DiceWidget::DiceWidget(QWidget* parent) : QWidget(parent) {
     // 下限定 100：最小尺寸下六个点仍能分辨；上限 150：防止布局把它拉成一大块空白。
@@ -117,4 +117,4 @@ void DiceWidget::paintEvent(QPaintEvent*) {
     }
 }
 
-}  // namespace ui
+}  // namespace gui

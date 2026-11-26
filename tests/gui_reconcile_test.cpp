@@ -27,7 +27,7 @@ using test_support::expect;
 
 namespace {
 
-std::vector<QString> label_texts(ui::GameWidget& widget) {
+std::vector<QString> label_texts(gui::GameWidget& widget) {
     std::vector<QString> texts;
     for (auto* label : widget.findChildren<QLabel*>()) {
         texts.push_back(label->text());
@@ -44,7 +44,7 @@ bool any_contains(const std::vector<QString>& texts, const QString& needle) {
     return false;
 }
 
-QPushButton* find_button(ui::GameWidget& widget, const QString& text) {
+QPushButton* find_button(gui::GameWidget& widget, const QString& text) {
     for (auto* button : widget.findChildren<QPushButton*>()) {
         if (button->text() == text) {
             return button;
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
     {
         // 载入的存档停在 Player2Thinking：handle_ai_turn 必须接着把这一手走完，
         // 而不是只处理 ThrowingDice 后把界面留在“正在思考”。
-        ui::GameWidget widget;
+        gui::GameWidget widget;
         widget.set_action_delays(1, 1, 1);  // 毫秒级推进，不必等真实的 500/800ms
         widget.resize(900, 700);
         widget.show();
@@ -99,14 +99,14 @@ int main(int argc, char** argv) {
         // 用合法局面 + 非法档位触发 decide_move 的异常。不能用缺子或已满足胜利
         // 条件的快照：load_game_state 会先做局面校验，这类数据在入口就被拒绝，
         // 测不到 handle_ai_turn 的异常兜底。非法枚举值能通过局面校验。
-        ui::GameWidget widget;
+        gui::GameWidget widget;
         widget.set_action_delays(1, 1, 1);
         widget.resize(900, 700);
         widget.show();
         app.processEvents();
 
         auto* history = widget.findChild<QListWidget*>();
-        auto* board = widget.findChild<ui::BoardWidget*>();
+        auto* board = widget.findChild<gui::BoardWidget*>();
         auto* roll = find_button(widget, "掷骰子");
         auto* save = find_button(widget, "保存");
         expect(history != nullptr, "对局页暴露历史列表");
@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
         // 回调同时到点，第一个掷骰后阶段变成 Player2Thinking，第二个看到就直接走子，
         // 把思考停顿吞掉。这里把走子后等待与思考都设成 150ms，正确实现要 300ms 才
         // 落子，250ms 的观察窗足以区分。
-        ui::GameWidget widget;
+        gui::GameWidget widget;
         widget.set_action_delays(1, 150, 150);
         widget.resize(900, 700);
         widget.show();
@@ -174,7 +174,7 @@ int main(int argc, char** argv) {
     {
         // 返回主页必须停掉已经排队的 AI 动作：否则玩家切回菜单后，AI 仍在后台
         // 修改一个既看不到、也没有“继续对局”入口的局面。
-        ui::GameWidget widget;
+        gui::GameWidget widget;
         widget.set_action_delays(1, 150, 150);
         widget.resize(900, 700);
         widget.show();

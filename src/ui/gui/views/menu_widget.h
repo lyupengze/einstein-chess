@@ -6,7 +6,7 @@
 #include <QPushButton>
 #include <QWidget>
 
-namespace ui {
+namespace gui {
 
 /// @brief 主菜单页：标题、副标题与“开始新游戏 / 读取存档”两个入口。
 ///
@@ -30,4 +30,4 @@ private:
     QPushButton* load_btn_;   ///< 读取存档，单独压成灰底以弱化视觉权重
 };
 
-}  // namespace ui
+}  // namespace gui

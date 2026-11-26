@@ -11,7 +11,7 @@
 
 #include "ai/ai.h"
 
-namespace ui {
+namespace gui {
 
 /// @brief 布阵阶段对话框：选阵营 + 选电脑强度 + 点击己方三角区循环切换棋子编号。
 ///
@@ -66,4 +66,4 @@ private:
     int get_index_in_region(int x, int y) const;
 };
 
-}  // namespace ui
+}  // namespace gui

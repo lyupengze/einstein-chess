@@ -21,11 +21,11 @@ namespace {
 /// @brief 发一次鼠标按下，返回是否产生 cell_clicked 与坐标。
 ///
 /// 默认左键；右键与中键用于验证棋盘只响应左键。
-bool click(ui::BoardWidget& widget, int x, int y, core::Pos& out,
+bool click(gui::BoardWidget& widget, int x, int y, core::Pos& out,
            Qt::MouseButton button = Qt::LeftButton) {
     bool fired = false;
     const auto connection =
-        QObject::connect(&widget, &ui::BoardWidget::cell_clicked, [&](core::Pos pos) {
+        QObject::connect(&widget, &gui::BoardWidget::cell_clicked, [&](core::Pos pos) {
             fired = true;
             out = pos;
         });
@@ -43,7 +43,7 @@ bool click(ui::BoardWidget& widget, int x, int y, core::Pos& out,
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
 
-    ui::BoardWidget widget;
+    gui::BoardWidget widget;
     // 402x402：board_size=402 -> cell_size=80 -> 网格 400，右侧/下侧各留 1 像素余量。
     widget.resize(402, 402);
     widget.show();

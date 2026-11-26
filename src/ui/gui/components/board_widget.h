@@ -11,7 +11,7 @@
 #include "core/game_state.h"
 #include "core/types.h"
 
-namespace ui {
+namespace gui {
 
 /// @brief 棋盘绘制控件：纯展示组件，所有状态由 update_state() 从外部灌入。
 ///
@@ -58,4 +58,4 @@ private:
     std::vector<core::Pos> reachable_targets_;  ///< 当前选中棋子的可达落点，绿色虚线圆圈
 };
 
-}  // namespace ui
+}  // namespace gui

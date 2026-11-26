@@ -10,7 +10,7 @@ class QGraphicsOpacityEffect;
 class QLabel;
 class QPropertyAnimation;
 
-namespace ui {
+namespace gui {
 
 /// @brief 自动消失的提示条控件（QWidget 子类），外观由样式表中的 QLabel#toast 规则决定。
 ///
@@ -48,4 +48,4 @@ private:
     bool fading_out_ = false;                 ///< 动画结束时据此区分“淡入完”与“该隐藏了”
 };
 
-}  // namespace ui
+}  // namespace gui

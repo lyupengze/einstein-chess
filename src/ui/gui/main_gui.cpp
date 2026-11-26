@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     }
 
     // 主窗口放在栈上：exec() 返回后 main 结束，窗口随之析构。
-    ui::MainWindow w;
+    gui::MainWindow w;
     w.show();
     return app.exec();
 }

@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     parent.show();
     app.processEvents();
 
-    ui::ToastWidget toast(&parent);
+    gui::ToastWidget toast(&parent);
     auto* opacity = toast.findChild<QGraphicsOpacityEffect*>();
     expect(opacity != nullptr, "Toast 持有透明度效果");
     if (opacity == nullptr) {

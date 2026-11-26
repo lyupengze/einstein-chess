@@ -9,7 +9,7 @@
 /// 纯界面搭建，没有状态机也不持有对局数据；背景渐变用 "#menuBackground" 限定在本页，
 /// 按钮尺寸与页脚留白就地写死，style.qss 加载失败时版式也不会塌。
 
-namespace ui {
+namespace gui {
 
 MenuWidget::MenuWidget(QWidget* parent) : QWidget(parent) {
     // 先设 objectName，下面 "#menuBackground" 这条选择器才匹配得到本控件。
@@ -65,4 +65,4 @@ MenuWidget::MenuWidget(QWidget* parent) : QWidget(parent) {
     connect(load_btn_, &QPushButton::clicked, this, &MenuWidget::load_game_clicked);
 }
 
-}  // namespace ui
+}  // namespace gui

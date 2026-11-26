@@ -19,7 +19,7 @@
 #include "components/toast_widget.h"
 #include "core/game.h"
 
-namespace ui {
+namespace gui {
 
 /// @brief 对局主界面：左侧棋盘，右侧骰子与历史记录，顶部状态文案与三个操作按钮。
 ///
@@ -141,4 +141,4 @@ private:
     int think_delay_ms_ = 800;       ///< AI 掷骰后到落子的等待
 };
 
-}  // namespace ui
+}  // namespace gui
