@@ -74,7 +74,7 @@
 ```
 
 `@file` 必须写**相对仓库根**的路径且与真实文件名一致（`src/core/rules.h`，不是 `rules.h`），
-这样脚本可以直接查文件是否存在。
+并且必须是文件第 1 行，这样脚本既能核对路径，也能确认文件头没有被挪到 `#include` 之后。
 
 文件头块之后写 `#pragma once`，不写 `#ifndef`/`#define`/`#endif`：唯一宏名与文件尾收尾标记都不再需要维护。
 
@@ -129,8 +129,9 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 **三类例外（保持原样）：**
 
 1. 品牌与装饰文案：主菜单副标题 `Einstein Chess`、页脚 `Made for C++ Course`。
-2. benchmark 的场景键与统计列名：`opening`、`fallback`、`midgame`、`endgame`、
-   `median`、`p95`——它们同时是 BENCHMARK.md 表格的行键与复现命令的检索词。
+2. benchmark 的局面键与统计列名：`opening`、`fallback`、`midgame`、`endgame`、`p95`。
+   它们与 `benchmarks/ai_benchmark.cpp` 的构造函数名和 BENCHMARK.md 表格的行键一致，
+   保留英文才方便按这些词检索；表格的中文列名（中位数、最小值、最大值）不受此例外影响。
 3. 第三方库的错误原文（见上）。
 
 **Botzone 的 stderr 前缀同样用中文**（如"协议错误：""内部错误："）。平台不解析 stderr，
@@ -190,7 +191,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 
 | 事实                       | 唯一权威位置                                 | 其他位置怎么写                       |
 | -------------------------- | -------------------------------------------- | ------------------------------------ |
-| 测试清单、数量、标签、超时 | `tests/CMakeLists.txt`                       | "19 个用例，见 tests/CMakeLists.txt" |
+| 测试清单、数量、标签、超时 | `tests/CMakeLists.txt`                       | "19 个用例，见 tests/CMakeLists.txt"——该数字由 check_repo 交叉校验 |
 | AI 档位定义与默认档        | `src/ai/ai.h`                                | 只写档位名，不抄默认值               |
 | GUI 三段延迟 400/500/800   | `game_widget.h` 的默认参数                   | "见 game_widget.h"                   |
 | 棋盘规则与判定顺序         | `src/core/rules.cpp` + `core_rules_test.cpp` | 一句话摘要 + 链接到 `RULES.md`       |
@@ -230,7 +231,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 | 无触发条件的时间词       | 目前、暂时、以后可以、先这样、暂时保留                     | 写清条件与触发时机，或删               |
 | 无出处编号               | `BUG-xx`、`P0-x`                                           | 链接 HISTORY.md 锚点，或删编号只写现象 |
 | 无编号的待办             | `TODO`、`FIXME`                                            | `TODO(#123)` 或删除                    |
-| 复制的数字               | 19、5、14、400/500/800                                     | 链接事实源                             |
+| 未经校验的数字           | 5、14、400/500/800                                        | 链接事实源；脚本校验过的用例数与 BENCHMARK 的测量值除外 |
 | 不可验证的评价           | 逻辑健壮、性能很好、应该没问题                             | 可检查的条件或测得的数字               |
 | 复述代码                 | `++i // 自增`                                              | 删，或写"为什么是 i 不是 j"            |
 | 失效的 Markdown 相对链接 | —                                                          | 提交前点开；CI 脚本校验                |
@@ -264,18 +265,19 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 
 ### 8.2 校验项
 
-| 检查项                                            | 方式                              |
-| ------------------------------------------------- | --------------------------------- |
-| 每个 `.h/.cpp` 有 `@file` 且路径存在              | `cmake -P tools/check_repo.cmake` |
-| 每个 `CMakeLists.txt` / `.cmake` 首行是 `#` 注释  | `cmake -P tools/check_repo.cmake` |
-| §6.2 禁词表零命中（含 `docs/*.md` 与 README）     | `cmake -P tools/check_repo.cmake` |
-| 源码注释里的 `` `#anchor` `` 在 HISTORY.md 有条目 | `cmake -P tools/check_repo.cmake` |
-| Markdown 相对链接可达                             | `cmake -P tools/check_repo.cmake` |
-| 文档中的测试数与 `tests/CMakeLists.txt` 一致      | `cmake -P tools/check_repo.cmake` |
-| 改动文件的 clang-format 无差异                    | `clang-format --dry-run --Werror` |
-| `@param` 名与签名一致                             | 人工评审                          |
-| 注释描述与实现一致                                | 人工评审                          |
+| 条款或检查项                                                     | 方式                              |
+| ---------------------------------------------------------------- | --------------------------------- |
+| §2 禁 `/** */`；`@file` 在第 1 行且路径一致；无 `@author` 等字段 | `cmake -P tools/check_repo.cmake` |
+| §2 脚本头：`CMakeLists.txt` / `.cmake` 首行是 `#` 注释           | `cmake -P tools/check_repo.cmake` |
+| §3.4 回归锚点在 `docs/HISTORY.md` 有同名标题                     | `cmake -P tools/check_repo.cmake` |
+| §4.4 链接文字不是目标文件名本身                                  | `cmake -P tools/check_repo.cmake` |
+| §6.2 禁词表零命中（含 `docs/*.md` 与 README）                    | `cmake -P tools/check_repo.cmake` |
+| Markdown 相对链接可达                                            | `cmake -P tools/check_repo.cmake` |
+| 文档中的测试数量与 `tests/CMakeLists.txt` 一致                   | `cmake -P tools/check_repo.cmake` |
+| C++ 每行 100 列、文件末尾有换行                                  | `clang-format --dry-run --Werror` |
+| §2.1 行尾四类、§2.2 空行、§3 文件头内容、§4.1–§4.3 的语言与文案、§4.2 术语、§5 其余数字规则、§9 的行为约定 | 人工评审 |
 
+脚本只守住能机械判定的部分；表里标“人工评审”的条款不会因为跑过脚本就算通过，按 §8.3 逐条看。
 检查脚本只依赖 CMake 本身，本地与 CI 跑的是同一条命令；提交前在仓库根执行即可，报错会带上文件与行号。
 
 ### 8.3 评审清单
@@ -284,7 +286,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 - [ ] 新文件有 `@file`，内容与文件名一致
 - [ ] 新增的 CMake 脚本首行写了职责
 - [ ] 公共函数写了 `@param` 与 `@throws`（抛异常的函数）
-- [ ] 没有复制事实源里的数字
+- [ ] 没有写入未经校验的数字副本
 - [ ] 没有无出处编号与历史叙事
 - [ ] 链接点开过
 
