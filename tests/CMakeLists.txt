@@ -137,6 +137,16 @@ if(EINSTEIN_BUILD_GUI)
                       ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
                       RESOURCE_LOCK qt_gui
                       WORKING_DIRECTORY ${GUI_DIALOGS_WORK_DIR})
+
+    # 样式表回归：QSS 编进测试可执行文件，加载后展开下拉列表，
+    # 断言没有 QFont 字号警告（px 字号会让弹出层拿到 pointSize 为 -1 的字体）。
+    add_executable(test_gui_style gui_style_test.cpp ${PROJECT_SOURCE_DIR}/src/ui/gui/resources.qrc)
+    set_target_properties(test_gui_style PROPERTIES AUTORCC ON)
+    target_link_libraries(test_gui_style PRIVATE einstein_gui_lib einstein_warnings)
+    einstein_add_test(gui_style test_gui_style
+                      TIMEOUT 60 LABEL gui
+                      ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                      RESOURCE_LOCK qt_gui)
 endif()
 
 # CLI 用例统一在独立目录里跑：CLI 的默认存档库是相对路径 einstein_save.db，

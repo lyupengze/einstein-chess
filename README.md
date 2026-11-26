@@ -50,7 +50,7 @@ cmake --build build --parallel 8
 ```
 
 `--parallel 8` 的数值按 CPU 核数与内存调整，不要写成裸 `-j`。构建完成后用 `ctest --test-dir build`
-跑全部用例（19 个，清单与标签见 `tests/CMakeLists.txt`；`EINSTEIN_BUILD_GUI=OFF` 时跳过 `gui` 标签的用例）。无 GUI 构建、Qt6 查找、生成器与常见构建问题见
+跑全部用例（20 个，清单与标签见 `tests/CMakeLists.txt`；`EINSTEIN_BUILD_GUI=OFF` 时跳过 `gui` 标签的用例）。无 GUI 构建、Qt6 查找、生成器与常见构建问题见
 [构建与测试](docs/BUILD.md)；启动参数、布阵与存档落点见 [使用说明](docs/USAGE.md)。
 
 ## 📚 文档索引
