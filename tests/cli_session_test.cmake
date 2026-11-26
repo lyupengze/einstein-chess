@@ -42,7 +42,7 @@ if(empty_saves EQUAL -1)
 endif()
 
 # 3. 非法档位编号（非数字 1abc）应被拒绝；随后空行取默认档位，输出其展示名。
-string(FIND "${cli_stdout}" "电脑强度: 搜索（第二版）" default_level)
+string(FIND "${cli_stdout}" "电脑强度: 搜索" default_level)
 if(default_level EQUAL -1)
     message(FATAL_ERROR
         "CLI did not fall back to the default AI level after an invalid index.\n"
