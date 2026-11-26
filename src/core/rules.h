@@ -1,3 +1,10 @@
+/// @file src/core/rules.h
+/// @brief 走法生成与胜负判定。
+///
+/// 规则的完整说明见 docs/RULES.md。这里只保留三条调用方容易误解的口径：
+/// 骰点不在场时按“小于点数的最大编号、大于点数的最小编号”降级选子；
+/// 落点只要在棋盘内即可，吃己方棋子合法；胜负按全灭或占角判定。
+
 #ifndef RULES_H_
 #define RULES_H_
 
@@ -10,19 +17,11 @@
 
 namespace core::rules {
 
-/// 爱因斯坦棋规则（本项目实现口径；改规则需同步 GUI 状态文案与 README）：
-/// 1. 每回合先掷骰，点数 N 对应 N 号棋子；N 号不在场时"降级选择"——
-///    候选为编号小于 N 的最大者、大于 N 的最小者（各自最多一枚，可能同时有两个）；
-/// 2. 红方每步只能走一格：向下 (x+1)、向右 (y+1)、向右下 (x+1,y+1)；
-///    蓝方完全对称：向上、向左、向左上；
-/// 3. 落点只要求仍在棋盘内，不要求为空——吃对方棋子与吃己方棋子都合法（规则如此，不是缺漏）；
-/// 4. 胜负：一方棋子被吃光，或红方占据右下角 (4,4) / 蓝方占据左上角 (0,0)。
-
-/// @brief 按降级选择规则，从"编号是否存活"中选出本回合可动的编号。
+/// @brief 按降级选择规则，从“编号是否存活”中选出本回合可动的编号。
 /// @param dice 骰子点数 1~6；越界时返回 {-1, -1}
 /// @param is_alive 接收编号 1~6，返回该编号是否还在场
 /// @return 最多两个编号，-1 表示空位；同号在场时只返回该编号。
-///         顺序与 get_selectable_ids 一致：先"小于点数的最大编号"，再"大于点数的最小编号"。
+///         顺序与 get_selectable_ids 一致：先“小于点数的最大编号”，再“大于点数的最小编号”。
 /// @note 这是选子规则的单一口径：get_selectable_ids 与 AI 的竞速分布表都调用它。
 template <typename IsAlive>
 [[nodiscard]] std::array<int, 2> selectable_ids_for(int dice, IsAlive&& is_alive) noexcept {
@@ -49,36 +48,33 @@ template <typename IsAlive>
     return result;
 }
 
-/// @brief 算出本回合"可以被选中移动"的棋子编号集合（降级选择规则见上）。
+/// @brief 算出本回合可被选中移动的棋子编号集合。
 /// @param state 只读取 current_dice 与 current_side，不修改
-/// @return 合法编号集合；current_dice 为空（还没掷骰）时返回空集合，
-///         因此"没掷骰就想走子"会被 check_move 间接拦下
+/// @return 合法编号集合；current_dice 为空（还没掷骰）时返回空集合
 [[nodiscard]] std::vector<int> get_selectable_ids(const GameState& state);
 
 /// @brief 校验一步走法是否合法。
 /// @param state 当前对局状态，只读
 /// @param from 起点；必须是当前方棋子且属于本回合可选编号
-/// @param to 终点；只校验在棋盘内，**不校验占位**（允许吃己方棋子）
-/// @return 合法返回空字符串；非法返回面向用户的错误原因（中文），可直接展示
-/// @note 本函数不校验 phase：调用前应确保处于 Thinking 阶段（current_dice 已掷出）
+/// @param to 终点；只校验在棋盘内，不校验占位（允许吃己方棋子）
+/// @return 合法返回空字符串；非法返回面向用户的中文原因，可直接展示
+/// @note 不校验 phase：调用前应确保处于思考阶段（current_dice 已掷出）
 [[nodiscard]] std::string check_move(const GameState& state, Pos from, Pos to);
 
 /// @brief 枚举当前回合方的全部合法着法。
-/// @param state 只读；读取 current_side、current_dice 与棋盘
+/// @param state 只读
 /// @return 合法着法列表；未掷骰或当前方没有棋子时返回空
-/// @note 不校验 phase；最终合法性仍由 check_move 裁决，不在这里复制规则。
+/// @note 不校验 phase；每个候选仍由 check_move 裁决，不在这里复制规则
 [[nodiscard]] std::vector<Move> generate_legal_moves(const GameState& state);
 
 /// @brief 执行一步已经校验过的走子：落点被覆盖（即吃子），起点清空。
 /// @throws std::invalid_argument check_move 判定非法时抛出，what() 为中文原因
-/// @note 只改棋盘；换手、判胜、清骰由 core::apply_move_and_settle 负责
-///       （Game::make_move 只是委托它）。
+/// @note 只改棋盘；换手、判胜、清骰由 core::apply_move_and_settle 负责。
 void apply_move(GameState& state, Pos from, Pos to);
 
 /// @brief 判定当前局面是否已分出胜负。
 /// @return 胜方；未分胜负返回 Side::None
-/// @note 三个条件按顺序判定：红方全灭 → 蓝胜；蓝方全灭 → 红胜；
-///       红方在 (4,4) → 红胜；蓝方在 (0,0) → 蓝胜
+/// @note 先判全灭，再判占角；两个条件不会指向不同胜者，判定顺序不影响结果。
 [[nodiscard]] Side check_winner(const GameState& state);
 
 }  // namespace core::rules
