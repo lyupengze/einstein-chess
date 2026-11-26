@@ -60,7 +60,7 @@
 协议字段、错误分类与本地验证方法见 [Botzone 协议](BOTZONE.md)：
 
 ```bash
-echo '{"requests":[{"color":0}],"responses":[]}' | ./einstein_botzone
+echo '{"requests":[],"responses":[]}' | ./einstein_botzone   # 空 requests 表示首次布阵
 ```
 
 ## 4. 存档位置
