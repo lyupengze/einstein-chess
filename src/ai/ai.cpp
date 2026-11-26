@@ -246,7 +246,7 @@ double search_chance_node(const core::GameState& state, int depth, core::Side ro
 core::Move choose_move(const core::GameState& state, const SearchConfig& config) {
     const std::vector<core::Move> moves = core::rules::generate_legal_moves(state);
     if (moves.empty()) {
-        throw std::runtime_error("AI 无路可走！");
+        throw std::runtime_error("AI 没有合法着法可走");
     }
     if (moves.size() == 1) {
         return moves.front();
@@ -314,7 +314,7 @@ void require_thinking_phase(const core::GameState& state) {
 core::Move choose_random_move(const core::GameState& state) {
     const std::vector<core::Move> moves = core::rules::generate_legal_moves(state);
     if (moves.empty()) {
-        throw std::runtime_error("AI 无路可走！");
+        throw std::runtime_error("AI 没有合法着法可走");
     }
     std::uniform_int_distribution<std::size_t> dist(0, moves.size() - 1);
     return moves[dist(engine())];
