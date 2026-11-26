@@ -24,10 +24,10 @@ int main(int argc, char* argv[]) {
         // 整份表样式一次性挂到 QApplication 上，所有窗口与对话框自动继承。
         app.setStyleSheet(styleFile.readAll());
         styleFile.close();
-        qDebug() << "QSS 加载成功！";
+        qDebug() << "QSS 加载成功";
     } else {
         // 样式失败不影响功能，界面退回 Qt 默认外观继续运行。
-        qDebug() << "QSS 加载失败！找不到 :/style.qss";
+        qDebug() << "QSS 加载失败: 找不到 :/style.qss";
     }
 
     // 主窗口放在栈上：exec() 返回后 main 结束，窗口随之析构。

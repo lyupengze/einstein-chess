@@ -220,7 +220,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
     std::cout << "【游戏已结束】\n";
     std::cout << game.get_state().board.to_string() << "\n";
     auto winner = game.get_state().winner;
-    std::cout << core::side_name(winner) << " 获胜！\n";
+    std::cout << core::side_name(winner) << " 获胜\n";
     std::cout << "按回车返回主菜单...";
     std::string pause;
     // 忽略返回值：EOF 时直接返回主菜单，不会卡住。
