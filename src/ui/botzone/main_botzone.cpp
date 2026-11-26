@@ -1,8 +1,9 @@
-// Botzone 无状态适配层：每次进程启动只处理一行 JSON 请求，输出一行 JSON 响应后退出。
-// 平台侧保存对局历史，本程序不持有任何跨请求状态——所需信息全部从本次请求重建。
-//
-// 协议解析、棋盘解码与响应组装都在 botzone_protocol 库里；本文件只负责
-// stdin/stdout 和异常兜底，便于协议逻辑单独做单元测试。
+/// @file src/ui/botzone/main_botzone.cpp
+/// @brief Botzone 适配入口：读一行 JSON、调用协议层、写一行 JSON。
+///
+/// 每次进程启动只处理一帧，对局历史由平台保存，本程序不持有跨请求状态；
+/// 协议解析与响应组装都在 botzone_protocol 库里，本文件只负责 stdin/stdout
+/// 与异常兜底。
 
 #include <exception>
 #include <iostream>

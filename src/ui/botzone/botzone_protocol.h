@@ -1,16 +1,18 @@
-// Botzone 无状态协议层：把平台下发的一帧 JSON 请求转换成 AI 决策，
-// 再组装成平台要求的一帧 JSON 响应。
-//
-// 单独抽成库是为了让协议解析、棋盘解码与响应组装可以脱离 stdin/stdout 做单元测试；
-// main_botzone.cpp 只负责读一行、调用本层、写一行，并在异常时输出空 response。
-//
-// 协议约定（详见 README 的 Botzone 一节）：
-//   - requests 为空：首次调用，返回 response.layout 布阵；
-//   - 最后一个 request 的 phase == "layout"：重新布阵；
-//   - 最后一个 request 的 phase == "move"：读取 color、棋盘与骰子，返回 x0/y0/x1/y1；
-//   - 其它阶段：返回空 response。
-// 结构/类型不符合协议时抛 ProtocolError；AI 内部错误抛普通 std::runtime_error。
-// 两者由 main 统一兜底成空 response，但日志可以区分“平台数据坏了”和“我们算错了”。
+/// @file src/ui/botzone/botzone_protocol.h
+/// @brief Botzone 无状态协议层：一帧 JSON 请求 → 一次 AI 决策 → 一帧 JSON 响应。
+///
+/// 单独抽成库，使协议解析、棋盘解码与响应组装可以脱离 stdin/stdout 做单元测试；
+/// main_botzone.cpp 只负责读一行、调用本层、写一行，并在异常时输出空 response。
+/// 协议细节见 `docs/BOTZONE.md`。
+///
+/// 结构/类型不符合协议时抛 ProtocolError，AI 内部错误抛普通 std::runtime_error；
+/// 两者由 main 统一兜底成空 response，日志可以区分“平台数据坏了”和“我们算错了”。
+///
+/// 响应形状：
+/// - requests 为空：首次调用，返回 response.layout 布阵；
+/// - 最后一个 request 的 phase == "layout"：重新布阵；
+/// - 最后一个 request 的 phase == "move"：读取 color、棋盘与骰子，返回 x0/y0/x1/y1；
+/// - 其它阶段：返回空 response。
 
 #pragma once
 

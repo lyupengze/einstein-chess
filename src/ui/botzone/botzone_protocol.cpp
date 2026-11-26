@@ -1,3 +1,9 @@
+/// @file src/ui/botzone/botzone_protocol.cpp
+/// @brief 解析 Botzone 请求、重建局面并调用 AI 决策。
+///
+/// 所有字段都做显式类型与范围检查：协议层宁可拒绝一帧，也不把截断后的
+/// 整数或残缺棋盘交给 AI。
+
 #include "botzone_protocol.h"
 
 #include <array>
@@ -79,9 +85,8 @@ int resolve_color(const json& latest_req) {
     return check_color(latest_req["color"], "request color");
 }
 
-// 把平台下发的二维棋盘解码成 core::Board。
-// 协议要求严格的 5x5 整数矩阵：缺行、缺列、非数组、非整数都拒绝。
-// 过去会把缺失格当空格、把残缺棋盘直接交给 AI，等于让 AI 在错误局面上决策。
+// 把平台下发的二维棋盘解码成 core::Board。协议要求严格的 5x5 整数矩阵：
+// 缺行、缺列、非数组、非整数都拒绝，避免 AI 在残缺局面上决策。
 void decode_board(const json& board_json, core::GameState& state) {
     if (!board_json.is_array() || board_json.size() != core::Board::kSize) {
         throw ProtocolError("Board must contain exactly 5 rows");
@@ -112,7 +117,6 @@ void decode_board(const json& board_json, core::GameState& state) {
                 seen[side_index][static_cast<std::size_t>(piece_id)] = true;
             }
 
-            // 编码与存档一致：正数红方、负数蓝方、0 空格。
             if (val > kNoPiece) {
                 state.board.at({x, y}) = {core::Side::Red, val};
             } else if (val < kNoPiece) {
@@ -168,8 +172,7 @@ json handle_request(const json& input) {
     if (latest_req.contains("phase") && !latest_req["phase"].is_string()) {
         throw ProtocolError("phase must be a string");
     }
-    // phase 缺失时按空串处理，最终落入"未知阶段"分支，返回空 response；
-    // 未知字符串阶段也保持空 response，与历史行为一致。
+    // phase 缺失时按空串处理，与无法识别的阶段一样返回空 response。
     const std::string phase = latest_req.value("phase", "");
 
     if (phase == "layout") {
