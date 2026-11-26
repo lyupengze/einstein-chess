@@ -54,7 +54,7 @@ if(NOT cli_result STREQUAL "0")
         "stdout:\n${cli_stdout}\nstderr:\n${cli_stderr}")
 endif()
 
-# 必须走到新加的 list_saves 异常分支。
+# 必须走到 list_saves 的异常分支，而不是把数据库错误当成空列表。
 string(FIND "${cli_stdout}" "读取存档列表失败:" list_failure)
 if(list_failure EQUAL -1)
     message(FATAL_ERROR

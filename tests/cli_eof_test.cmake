@@ -1,4 +1,4 @@
-# CLI 的 EOF 回归：BUG（报告未覆盖）——stdin 关闭时旧实现死循环刷屏。
+# CLI 的 EOF 回归：stdin 在启动后立即关闭，验证程序不进入提示循环。
 #
 # 用法：cmake -DEXE=<einstein_cli> -DINPUT=<某个文件> -P cli_eof_test.cmake
 # 把 INPUT 接到子进程的 stdin，模拟脚本/CI 里"输入旋即结束"的场景。
@@ -29,12 +29,12 @@ if(NOT cli_result STREQUAL "0")
         "stdout:\n${cli_stdout}\nstderr:\n${cli_stderr}")
 endif()
 
-# 旧实现会在 EOF 后无限循环打印提示语，几秒钟就能刷出上百 KB。
+# 正常路径只会打印少量提示；超过 4 KB 说明同一句提示被反复打印，即提示循环。
 string(LENGTH "${cli_stdout}" stdout_length)
 if(stdout_length GREATER 4096)
     message(FATAL_ERROR
         "CLI produced ${stdout_length} bytes of output on EOF; "
-        "this looks like the old infinite prompt loop.")
+        "这看起来是提示循环。")
 endif()
 
 # 语义断言 1：读到 EOF 后必须明确告诉用户“输入已结束，退出。”，
@@ -45,7 +45,7 @@ if(eof_notice EQUAL -1)
         "CLI exited without printing the EOF notice.\nstdout:\n${cli_stdout}")
 endif()
 
-# 语义断言 2：主菜单提示只应出现一次。旧死循环的典型特征就是同一句提示反复出现。
+# 语义断言 2：主菜单提示只应出现一次；提示循环的典型特征就是同一句提示反复出现。
 string(REGEX MATCHALL "请选择" menu_prompts "${cli_stdout}")
 list(LENGTH menu_prompts prompt_count)
 if(prompt_count GREATER 1)

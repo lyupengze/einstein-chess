@@ -1,11 +1,10 @@
-// 测试辅助程序：创建一个“表结构损坏”的存档库。
-//
-// 正常的 SaveManager 构造函数会执行 CREATE TABLE IF NOT EXISTS saves(...)；
-// 这里提前建一个只有一列 x 的 saves 表，构造函数不会重建它，随后
-// list_saves() 查询 name/timestamp 时就会失败。CLI 用例借此验证：
-// 列存档失败只打印原因并回主菜单，不会让异常穿出 main。
-//
-// 该程序只由 cli_broken_db_test.cmake 调用，不单独注册为 CTest 用例。
+/// @file tests/make_broken_save_db.cpp
+/// @brief 测试辅助程序：创建一个 saves 表结构损坏的存档库。
+///
+/// SaveManager 构造时执行 CREATE TABLE IF NOT EXISTS saves(...)，不会修复已存在的
+/// 残缺表；这里提前建只有一列 x 的 saves 表，随后 list_saves() 查询 name/timestamp
+/// 就会失败。cli_broken_db 用例借此验证列存档失败只打印原因并回主菜单。
+/// 本程序只由 tests/cli_broken_db_test.cmake 调用，不注册为 CTest 用例。
 
 #include <sqlite3.h>
 

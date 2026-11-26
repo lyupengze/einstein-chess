@@ -1,11 +1,11 @@
-# CLI 会话回归：把“主菜单 -> 开新局 -> 选强度 -> 选色 -> 布阵”的完整交互
+# CLI 会话回归：把“主菜单 -> 开新局 -> 选档位 -> 选色 -> 布阵”的完整交互
 # 用脚本输入走一遍，验证每条错误输入都会重新询问、正确输入能推进流程，
 # 并确认对局中途 stdin 结束时仍能打印提示并正常返回主菜单。
 #
 # 用法：cmake -DEXE=<einstein_cli> -DINPUT=<cli_session_input.txt> -P cli_session_test.cmake
 #
-# 输入文件刻意包含四类错误：非法主菜单命令、空存档库、非法强度编号、
-# 非法颜色与非法布阵（数量不足/编号重复），最后才是一组合法布阵。
+# 输入文件刻意包含各类错误：非法主菜单命令、空存档库、非法档位编号、
+# 非法颜色与非法布阵（数量不足/编号重复/数量过多），最后才是一组合法布阵。
 # 对局开始后不再喂输入，让 stdin 在“按回车掷骰子”处结束。
 
 if(NOT DEFINED EXE OR NOT DEFINED INPUT)
@@ -41,7 +41,7 @@ if(empty_saves EQUAL -1)
     message(FATAL_ERROR "CLI did not report an empty save list.\nstdout:\n${cli_stdout}")
 endif()
 
-# 3. 非法强度编号（0）应被拒绝；随后空行取默认档位，输出其展示名。
+# 3. 非法档位编号（非数字 1abc）应被拒绝；随后空行取默认档位，输出其展示名。
 string(FIND "${cli_stdout}" "电脑强度: 搜索（第二版）" default_level)
 if(default_level EQUAL -1)
     message(FATAL_ERROR
@@ -55,7 +55,7 @@ if(red_side EQUAL -1)
     message(FATAL_ERROR "CLI did not accept the valid color choice.\nstdout:\n${cli_stdout}")
 endif()
 
-# 5. 数量不足按格式错误处理；重复编号由 Board::setup_custom 拒绝，并给出原因。
+# 5. 数量不足与数量过多按格式错误处理；重复编号由 Board::setup_custom 拒绝，并给出原因。
 string(FIND "${cli_stdout}" "布阵失败:" layout_failure)
 if(layout_failure EQUAL -1)
     message(FATAL_ERROR

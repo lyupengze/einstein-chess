@@ -1,4 +1,4 @@
-# 回归测试：把报告里"可稳定复现"且能自动化的缺陷固化下来。
+# 回归测试：覆盖核心规则、状态校验、存储、CLI、Botzone 与 GUI 的可自动化断言。
 # 图形用例统一在 offscreen 平台上跑，无显示器的 CI 环境同样可用。
 #
 # 所有用例都经 einstein_add_test 注册，把超时、标签、工作目录等 CTest 级
@@ -83,7 +83,7 @@ target_link_libraries(test_botzone_protocol PRIVATE einstein_botzone_protocol ei
 einstein_add_test(botzone_protocol test_botzone_protocol TIMEOUT 60 LABEL botzone)
 
 add_executable(test_save_level save_level_test.cpp)
-# 测试要直接改 SQLite 里的 data 列来伪造旧档，因此显式链接 sqlite3；
+# 测试要直接改 SQLite 里的 data 列来伪造缺档位的数据，因此显式链接 sqlite3；
 # storage 自身只 PRIVATE 依赖它，不会自动传递过来。
 target_link_libraries(test_save_level PRIVATE einstein_storage sqlite3 einstein_warnings)
 # 每个用例独占一个工作目录：存档文件名由测试自己决定，不同时跑也不会互删。

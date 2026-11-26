@@ -1,15 +1,11 @@
-#pragma once
+/// @file tests/test_support.h
+/// @brief 回归测试共用的最小断言工具：expect()、failures、finish()。
+///
+/// 用例刻意不引入 Catch2/GTest：非 GUI 测试保持零 Qt、零第三方依赖，
+/// 只有编译器的机器也能跑。每个用例都是独立可执行程序，通常只有一个翻译单元；
+/// failures 仍写成 inline 变量，便于把一个用例拆成多个 .cpp。
 
-// 回归测试共用的最小断言工具。
-//
-// 这些用例刻意不引入 Catch2/GTest：非 GUI 测试必须保持零 Qt、零第三方依赖，
-// 否则拿到一台只装了编译器的机器就跑不起来。这里只提供三样东西：
-//   - expect()：断言并打印一行 PASS/FAIL，失败时让进程最终返回 1；
-//   - failures：当前测试进程累计的失败数；
-//   - finish()：打印与旧用例一致的总结行并给出退出码。
-//
-// 每个测试都是独立可执行程序，正常只有一个翻译单元；failures 仍写成 inline
-// 变量，方便以后把某个用例拆成多个 .cpp 而不必再改头文件。
+#pragma once
 
 #include <iostream>
 #include <string_view>
@@ -33,7 +29,7 @@ inline void expect(bool condition, std::string_view what) {
     }
 }
 
-/// @brief 打印测试总结并返回适合 main 的退出码。
+/// @brief 打印测试总结并返回适合 main 的退出码；总结行可被 CTest 直接阅读。
 /// @return 全部通过返回 0，否则返回 1
 inline int finish() {
     if (failures == 0) {

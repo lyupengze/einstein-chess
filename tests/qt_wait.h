@@ -1,10 +1,10 @@
-#pragma once
+/// @file tests/qt_wait.h
+/// @brief GUI 回归用的条件等待工具：轮询真实状态，条件满足立即返回。
+///
+/// 固定 sleep 只能猜界面走到哪一步，慢机器或并行跑用例时只能靠加长等待压住 flaky；
+/// 这里改为轮询，超时打印等待目标。所有函数要求调用线程已有 QCoreApplication。
 
-// GUI 回归的条件等待工具。
-//
-// 旧用例用固定 sleep 猜“界面应该已经走到哪一步”，在慢机器或并行跑测试时
-// 只能靠加长等待来压住 flaky；这里改成轮询真实状态，条件一满足就返回，
-// 超时才失败，并打印等待目标。所有函数都要求当前线程已有 QApplication。
+#pragma once
 
 #include <QEventLoop>
 #include <QTimer>
@@ -45,7 +45,7 @@ inline bool wait_until(const std::function<bool()>& predicate, int timeout_ms,
 
 /// @brief 在给定时间窗内持续要求 predicate 为 false。
 ///
-/// 用于“旧定时器不该再触发”这类否定断言：不能只睡一次就断言，
+/// 用于“迟到的定时器不应触发”这类否定断言：不能只睡一次就断言，
 /// 必须让事件循环在整个窗口里都跑起来，才有机会看到迟到回调。
 /// @param predicate 不应发生的条件
 /// @param duration_ms 观察窗口的毫秒数
