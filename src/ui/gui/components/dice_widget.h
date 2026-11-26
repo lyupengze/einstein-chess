@@ -1,5 +1,4 @@
-#ifndef DICE_WIDGET_H_
-#define DICE_WIDGET_H_
+#pragma once
 
 #include <QWidget>
 #include <optional>
@@ -33,5 +32,3 @@ private:
 };
 
 }  // namespace ui
-
-#endif  // DICE_WIDGET_H_

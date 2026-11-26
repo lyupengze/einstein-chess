@@ -3,8 +3,7 @@
 ///
 /// 只负责数据，不做任何走法判定；规则全部在 core::rules 中。
 
-#ifndef BOARD_H_
-#define BOARD_H_
+#pragma once
 
 #include <array>
 #include <cstddef>
@@ -66,5 +65,3 @@ private:
 };
 
 }  // namespace core
-
-#endif  // BOARD_H_

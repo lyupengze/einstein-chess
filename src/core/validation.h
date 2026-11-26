@@ -1,8 +1,7 @@
 /// @file src/core/validation.h
 /// @brief 局面状态的一致性校验。
 
-#ifndef VALIDATION_H_
-#define VALIDATION_H_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -38,5 +37,3 @@ struct StateIssue {
 void require_valid_state(const GameState& state);
 
 }  // namespace core
-
-#endif  // VALIDATION_H_

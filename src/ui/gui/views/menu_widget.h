@@ -1,5 +1,4 @@
-#ifndef MENU_WIDGET_H_
-#define MENU_WIDGET_H_
+#pragma once
 
 #include <QPushButton>
 #include <QWidget>
@@ -32,5 +31,3 @@ private:
 };
 
 }  // namespace ui
-
-#endif  // MENU_WIDGET_H_

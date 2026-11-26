@@ -3,8 +3,7 @@
 // 目的是把裸指针所有权收进类中（析构时自动 close / finalize），
 // 让业务代码（save_manager）不必关心 C API 的清理细节。
 
-#ifndef SQLITE_WRAPPER_H_
-#define SQLITE_WRAPPER_H_
+#pragma once
 
 #include <string>
 
@@ -83,5 +82,3 @@ private:
 };
 
 }  // namespace storage
-
-#endif  // SQLITE_WRAPPER_H_

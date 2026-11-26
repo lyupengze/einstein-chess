@@ -1,5 +1,4 @@
-#ifndef TESTS_TEST_SUPPORT_H_
-#define TESTS_TEST_SUPPORT_H_
+#pragma once
 
 // 回归测试共用的最小断言工具。
 //
@@ -46,5 +45,3 @@ inline int finish() {
 }
 
 }  // namespace test_support
-
-#endif  // TESTS_TEST_SUPPORT_H_

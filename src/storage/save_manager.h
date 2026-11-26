@@ -4,8 +4,7 @@
 // 存档会记录当局使用的 AI 档位，读档时原样恢复，保证一局之内电脑强度始终一致，
 // 不会因为之后在“开始游戏”里换了档位而影响同一局的其他存档。
 
-#ifndef SAVE_MANAGER_H_
-#define SAVE_MANAGER_H_
+#pragma once
 
 #include <optional>
 #include <string>
@@ -56,5 +55,3 @@ private:
 };
 
 }  // namespace storage
-
-#endif  // SAVE_MANAGER_H_

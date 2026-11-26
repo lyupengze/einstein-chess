@@ -1,5 +1,4 @@
-#ifndef BOARD_WIDGET_H_
-#define BOARD_WIDGET_H_
+#pragma once
 
 #include <QMouseEvent>
 #include <QWidget>
@@ -61,5 +60,3 @@ private:
 };
 
 }  // namespace ui
-
-#endif  // BOARD_WIDGET_H_

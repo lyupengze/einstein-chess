@@ -1,8 +1,7 @@
 /// @file src/core/game.h
 /// @brief 对局门面：把阶段约束与规则判定组装成操作。
 
-#ifndef GAME_H_
-#define GAME_H_
+#pragma once
 
 #include <array>
 #include <random>
@@ -69,5 +68,3 @@ private:
 [[nodiscard]] GameState apply_move_and_settle(const GameState& state, Pos from, Pos to);
 
 }  // namespace core
-
-#endif  // GAME_H_

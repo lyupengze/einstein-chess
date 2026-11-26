@@ -1,5 +1,4 @@
-#ifndef SAVE_LOAD_DIALOG_H_
-#define SAVE_LOAD_DIALOG_H_
+#pragma once
 
 #include <QDialog>
 #include <QLineEdit>
@@ -49,5 +48,3 @@ private:
 };
 
 }  // namespace ui
-
-#endif  // SAVE_LOAD_DIALOG_H_

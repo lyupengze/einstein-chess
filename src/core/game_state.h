@@ -1,8 +1,7 @@
 /// @file src/core/game_state.h
 /// @brief 对局阶段与局面快照。
 
-#ifndef GAME_STATE_H_
-#define GAME_STATE_H_
+#pragma once
 
 #include <optional>
 
@@ -34,5 +33,3 @@ struct GameState {
 };
 
 }  // namespace core
-
-#endif  // GAME_STATE_H_

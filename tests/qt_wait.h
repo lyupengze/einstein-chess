@@ -1,5 +1,4 @@
-#ifndef TESTS_QT_WAIT_H_
-#define TESTS_QT_WAIT_H_
+#pragma once
 
 // GUI 回归的条件等待工具。
 //
@@ -71,5 +70,3 @@ inline bool expect_remains_false(const std::function<bool()>& predicate, int dur
 }
 
 }  // namespace test_support
-
-#endif  // TESTS_QT_WAIT_H_

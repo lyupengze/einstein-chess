@@ -12,8 +12,7 @@
 // 结构/类型不符合协议时抛 ProtocolError；AI 内部错误抛普通 std::runtime_error。
 // 两者由 main 统一兜底成空 response，但日志可以区分“平台数据坏了”和“我们算错了”。
 
-#ifndef BOTZONE_PROTOCOL_H_
-#define BOTZONE_PROTOCOL_H_
+#pragma once
 
 #include <nlohmann/json.hpp>
 #include <stdexcept>
@@ -50,5 +49,3 @@ public:
 [[nodiscard]] nlohmann::json handle_line(const std::string& line);
 
 }  // namespace botzone
-
-#endif  // BOTZONE_PROTOCOL_H_

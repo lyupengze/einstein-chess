@@ -13,8 +13,7 @@
 // 规则、合法着法枚举与走子结算全部复用 core，AI 不维护第二套规则；
 // 两代实现只在"如何从合法着法中做选择"上不同。
 
-#ifndef AI_H_
-#define AI_H_
+#pragma once
 
 #include <array>
 #include <string>
@@ -104,5 +103,3 @@ void set_random_seed(unsigned int seed);
 [[nodiscard]] core::Move decide_move(const core::GameState& state, const SearchConfig& config);
 
 }  // namespace ai
-
-#endif  // AI_H_

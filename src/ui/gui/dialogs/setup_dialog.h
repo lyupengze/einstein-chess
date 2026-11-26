@@ -1,5 +1,4 @@
-#ifndef SETUP_DIALOG_H_
-#define SETUP_DIALOG_H_
+#pragma once
 
 #include <QComboBox>
 #include <QDialog>
@@ -68,5 +67,3 @@ private:
 };
 
 }  // namespace ui
-
-#endif  // SETUP_DIALOG_H_

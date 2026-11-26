@@ -4,8 +4,7 @@
 /// 坐标约定：x 是行号（向下增大），y 是列号（向右增大），原点 (0,0) 在左上角。
 /// 绘制按矩阵习惯处理：x（行）落到屏幕纵向、y（列）落到屏幕横向，不做转置。
 
-#ifndef TYPES_H_
-#define TYPES_H_
+#pragma once
 
 #include <cstddef>
 #include <string>
@@ -73,5 +72,3 @@ inline std::string side_name(Side s) {
 }
 
 }  // namespace core
-
-#endif  // TYPES_H_

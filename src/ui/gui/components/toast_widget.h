@@ -1,5 +1,4 @@
-#ifndef TOAST_WIDGET_H_
-#define TOAST_WIDGET_H_
+#pragma once
 
 #include <QTimer>
 #include <QWidget>
@@ -48,5 +47,3 @@ private:
 };
 
 }  // namespace ui
-
-#endif  // TOAST_WIDGET_H_

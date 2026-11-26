@@ -5,8 +5,7 @@
 /// 骰点不在场时按“小于点数的最大编号、大于点数的最小编号”降级选子；
 /// 落点只要在棋盘内即可，吃己方棋子合法；胜负按全灭或占角判定。
 
-#ifndef RULES_H_
-#define RULES_H_
+#pragma once
 
 #include <array>
 #include <string>
@@ -78,5 +77,3 @@ void apply_move(GameState& state, Pos from, Pos to);
 [[nodiscard]] Side check_winner(const GameState& state);
 
 }  // namespace core::rules
-
-#endif  // RULES_H_
