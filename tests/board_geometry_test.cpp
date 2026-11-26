@@ -1,9 +1,10 @@
-// 棋盘几何回归：BUG-01（右/下边缘余数像素点击导致越界坐标崩溃）。
-//
-// 旧实现用 board_size（= min(w,h)）做点击边界判定，用 cell_size * 5 画网格，
-// 两者在小数除法下最多差 4 像素；落在余数条里的点击会算出列号 5 并抛
-// std::out_of_range。这里直接对控件发鼠标事件，检查越界像素被忽略、
-// 棋盘内像素仍能映射到正确行列。
+/// @file tests/board_geometry_test.cpp
+/// @brief 棋盘几何回归：边缘余数像素不得换算成越界坐标。
+///
+/// 网格覆盖边长是 cell_size * 5，而控件边长 board_size = min(w, h) 在小数除法下
+/// 最多多出 4 像素；若用 board_size 判边界，落在余数条里的点击会算出下标 5 并
+/// 抛 std::out_of_range。这里直接对控件发鼠标事件，检查越界像素被忽略、棋盘内
+/// 像素仍映射到正确行列。背景见 `#board-remainder-click`。
 
 #include <QApplication>
 #include <QMouseEvent>
@@ -17,8 +18,9 @@ using test_support::expect;
 
 namespace {
 
-// 发一次鼠标按下，返回是否产生了 cell_clicked，以及坐标。
-// 默认左键；右键/中键用于验证棋盘只响应左键的回归。
+/// @brief 发一次鼠标按下，返回是否产生 cell_clicked 与坐标。
+///
+/// 默认左键；右键与中键用于验证棋盘只响应左键。
 bool click(ui::BoardWidget& widget, int x, int y, core::Pos& out,
            Qt::MouseButton button = Qt::LeftButton) {
     bool fired = false;
@@ -49,34 +51,31 @@ int main(int argc, char** argv) {
 
     core::Pos pos{99, 99};
 
-    expect(!click(widget, 401, 200, pos), "right remainder pixel is ignored");
-    expect(!click(widget, 200, 401, pos), "bottom remainder pixel is ignored");
-    expect(!click(widget, 0, 200, pos), "left padding is ignored");
+    expect(!click(widget, 401, 200, pos), "右边缘余数像素被忽略");
+    expect(!click(widget, 200, 401, pos), "下边缘余数像素被忽略");
+    expect(!click(widget, 0, 200, pos), "左侧留白被忽略");
 
-    expect(click(widget, 400, 200, pos) && pos.x == 2 && pos.y == 4,
-           "right-most board pixel maps to column 4");
-    expect(click(widget, 1, 1, pos) && pos.x == 0 && pos.y == 0,
-           "top-left board pixel maps to (0,0)");
+    expect(click(widget, 400, 200, pos) && pos.x == 2 && pos.y == 4, "棋盘最右像素映射到第 4 列");
+    expect(click(widget, 1, 1, pos) && pos.x == 0 && pos.y == 0, "棋盘左上像素映射到 (0,0)");
 
     // 棋盘走子只响应左键：右键/中键不能误触；随后左键仍能正常工作。
-    expect(!click(widget, 200, 200, pos, Qt::RightButton), "right click is ignored");
-    expect(!click(widget, 200, 200, pos, Qt::MiddleButton), "middle click is ignored");
-    expect(click(widget, 200, 200, pos) && pos.x == 2 && pos.y == 2,
-           "left click still maps to the expected cell");
+    expect(!click(widget, 200, 200, pos, Qt::RightButton), "右键被忽略");
+    expect(!click(widget, 200, 200, pos, Qt::MiddleButton), "中键被忽略");
+    expect(click(widget, 200, 200, pos) && pos.x == 2 && pos.y == 2, "左键仍映射到预期格子");
 
     // 非正方形窗口：留白在左右，判定与网格必须仍然一致。
     widget.resize(500, 402);
     app.processEvents();
-    expect(!click(widget, 451, 200, pos), "pixel past right edge is ignored in wide window");
+    expect(!click(widget, 451, 200, pos), "宽窗口下超出右边缘的像素被忽略");
     expect(click(widget, 449, 200, pos) && pos.x == 2 && pos.y == 4,
-           "last in-board column still maps to 4 in wide window");
-    expect(!click(widget, 49, 200, pos), "left padding is ignored in wide window");
+           "宽窗口下棋盘内最后一列仍映射到 4");
+    expect(!click(widget, 49, 200, pos), "宽窗口下左侧留白被忽略");
 
     widget.resize(402, 500);
     app.processEvents();
-    expect(!click(widget, 200, 451, pos), "pixel past bottom edge is ignored in tall window");
+    expect(!click(widget, 200, 451, pos), "高窗口下超出下边缘的像素被忽略");
     expect(click(widget, 200, 449, pos) && pos.x == 4 && pos.y == 2,
-           "last in-board row still maps to 4 in tall window");
+           "高窗口下棋盘内最后一行仍映射到 4");
 
     return test_support::finish();
 }

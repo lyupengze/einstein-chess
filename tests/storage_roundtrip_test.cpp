@@ -1,11 +1,10 @@
-// 存档往返回归：验证 core::GameState 的全部字段（含棋盘、骰子、胜负、布阵就绪）
-// 经过 SaveManager 序列化再反序列化后逐字段一致，并覆盖同名覆盖、存档列表、
-// 跨实例持久化，以及“字段各自合法但组合不自洽”的损坏数据必须被拒绝。
-//
-// 与 save_level_test 的分工：
-// - save_level_test 关注 AI 档位必填、严格解析与损坏拒绝；
-// - 本用例关注局面本身的完整往返、存档边界校验，以及布阵阶段存档的拒绝。
-// 两者都直接使用临时 SQLite 文件，互不共享数据库。
+/// @file tests/storage_roundtrip_test.cpp
+/// @brief 存档往返回归：全部局面字段经序列化往返后逐字段一致。
+///
+/// 覆盖同名覆盖、存档列表、跨实例持久化，以及“字段各自合法但组合不自洽”的
+/// 损坏数据被拒绝。与 save_level_test 的分工：那个用例关注档位必填与严格解析，
+/// 本用例关注局面本身的完整往返、存档边界校验与布阵阶段存档的拒绝。两者都
+/// 使用临时 SQLite 文件，互不共享数据库。
 
 #include <algorithm>
 #include <cstddef>
@@ -27,9 +26,9 @@ using test_support::expect;
 
 namespace {
 
-/// 测试专用临时数据库；工作目录由 CTest 固定到 build/tests/storage_roundtrip。
+/// @brief 测试专用临时数据库；工作目录由 CTest 固定到 build/tests/storage_roundtrip。
 constexpr const char* kDbPath = "test_storage_roundtrip.db";
-/// 专门验证同一秒存档排序的临时数据库，避免污染主夹具。
+/// @brief 专门验证同一秒存档排序的临时数据库，避免污染主夹具。
 constexpr const char* kSortDbPath = "test_storage_roundtrip_sort.db";
 
 /// @brief 逐字段比较两个局面，包括 5x5 棋盘的每一格。
@@ -150,38 +149,31 @@ int main() {
 
         // 1. 两种可恢复阶段各自完整往返，棋盘每一格与可选骰子都要一致。
         const auto full_saved = manager.load_game("完整对局");
-        expect(full_saved.has_value(), "full save is loadable");
-        expect(full_saved && same_state(full_saved->state, full),
-               "full save round-trips every board cell and dice");
-        expect(full_saved && full_saved->ai_level == ai::Level::kRandom,
-               "full save restores its AI level");
+        expect(full_saved.has_value(), "完整存档可读");
+        expect(full_saved && same_state(full_saved->state, full), "完整存档的棋盘与骰子逐格往返");
+        expect(full_saved && full_saved->ai_level == ai::Level::kRandom, "完整存档恢复档位");
 
         const auto over_saved = manager.load_game("终局");
-        expect(over_saved && same_state(over_saved->state, game_over),
-               "game-over save round-trips the winner and empty dice");
-        expect(over_saved && over_saved->ai_level == ai::kDefaultLevel,
-               "game-over save restores the default AI level");
+        expect(over_saved && same_state(over_saved->state, game_over), "终局存档往返胜者与空骰子");
+        expect(over_saved && over_saved->ai_level == ai::kDefaultLevel, "终局存档恢复默认档");
 
         // 2. 同名保存必须覆盖旧局面，而不是新增一行或保留旧数据。
         manager.save_game("完整对局", game_over, ai::Level::kSearch);
         const auto overwritten = manager.load_game("完整对局");
-        expect(overwritten && same_state(overwritten->state, game_over),
-               "saving the same slot overwrites the old state");
+        expect(overwritten && same_state(overwritten->state, game_over), "同名存档覆盖旧局面");
         expect(overwritten && overwritten->ai_level == ai::Level::kSearch,
-               "overwriting also replaces the stored AI level");
+               "覆盖同名存档同时更新档位");
 
         // 3. 列表应恰好有两个槽位；同名覆盖不能产生重复项。
         const auto names = manager.list_saves();
-        expect(names.size() == 2, "list_saves returns exactly the two saved slots");
+        expect(names.size() == 2, "list_saves 恰好返回两个槽位");
         expect(std::find(names.begin(), names.end(), "完整对局") != names.end(),
-               "list_saves contains the overwritten slot");
-        expect(std::find(names.begin(), names.end(), "终局") != names.end(),
-               "list_saves contains the game-over slot");
-        expect(std::count(names.begin(), names.end(), "完整对局") == 1,
-               "overwritten slot is not duplicated in list_saves");
+               "列表包含被覆盖的槽位");
+        expect(std::find(names.begin(), names.end(), "终局") != names.end(), "列表包含终局槽位");
+        expect(std::count(names.begin(), names.end(), "完整对局") == 1, "覆盖后的槽位不重复");
 
         // 4. 不存在的槽位返回空 optional，而不是抛异常。
-        expect(!manager.load_game("不存在的档位").has_value(), "missing slot returns nullopt");
+        expect(!manager.load_game("不存在的档位").has_value(), "不存在的槽位返回 nullopt");
 
         // 5. 保存前也要校验：不能把"能序列化但语义不自洽"的局面写进数据库。
         //    这里复用满盘局面，只把发起方改成 None；若 serialize 没有校验，
@@ -194,7 +186,7 @@ int main() {
         } catch (const std::runtime_error&) {
             save_threw = true;
         }
-        expect(save_threw, "save_game rejects a semantically invalid state");
+        expect(save_threw, "save_game 拒绝语义非法的局面");
 
         // 6. 布阵阶段没有可恢复的 UI 流程，必须在写库前拒绝。
         bool layout_save_threw = false;
@@ -203,38 +195,37 @@ int main() {
         } catch (const std::invalid_argument&) {
             layout_save_threw = true;
         }
-        expect(layout_save_threw, "save_game rejects a layout-phase state");
+        expect(layout_save_threw, "save_game 拒绝布阵阶段局面");
 
-        // 7. 非法 AI 档位不能写进库，也不能覆盖同名旧档。
+        // 7. 非法 AI 档位不能写进库，也不能覆盖同名槽位。
         bool invalid_level_threw = false;
         try {
             manager.save_game("终局", game_over, static_cast<ai::Level>(99));
         } catch (const std::invalid_argument&) {
             invalid_level_threw = true;
         }
-        expect(invalid_level_threw, "save_game rejects an unknown AI level");
+        expect(invalid_level_threw, "save_game 拒绝未知档位");
         const auto preserved = manager.load_game("终局");
         expect(preserved && same_state(preserved->state, game_over) &&
                    preserved->ai_level == ai::kDefaultLevel,
-               "invalid AI level does not overwrite the existing slot");
+               "非法档位不覆盖已有槽位");
 
-        // 8. 非法局面/布阵阶段/非法档位被拒绝后，列表数量保持不变。
-        expect(manager.list_saves().size() == 2, "rejected saves do not add slots to list_saves");
+        // 8. 非法局面、布阵阶段、非法档位被拒绝后，列表数量保持不变。
+        expect(manager.list_saves().size() == 2, "被拒绝的保存不新增槽位");
     }
 
-    // 6. 关闭连接后重新打开同一个数据库，数据仍应完整存在（真正的持久化）。
+    // 9. 关闭连接后重新打开同一个数据库，数据仍应完整存在（真正的持久化）。
     {
         storage::SaveManager reopened(kDbPath);
         const core::GameState game_over = make_game_over_state();
         const auto saved = reopened.load_game("完整对局");
-        expect(saved && same_state(saved->state, game_over),
-               "saved state survives reopening the database");
-        expect(saved && saved->ai_level == ai::Level::kSearch,
-               "AI level survives reopening the database");
+        expect(saved && same_state(saved->state, game_over), "重开数据库后局面仍在");
+        expect(saved && saved->ai_level == ai::Level::kSearch, "重开数据库后档位仍在");
     }
 
-    // 7. 语义不自洽的数据：每个字段单独看都合法，但组合起来不可能出现。
-    //    GUI 会在思考阶段直接解引用 current_dice，因此这类数据必须在读档时拒绝。
+    // 10. 语义不自洽的数据：每个字段单独看都合法，但组合起来不可能出现。
+    //     思考阶段缺骰子会让状态自相矛盾，这类数据必须在读档时拒绝；成因见
+    //     `#save-unchecked-state`。
     const std::string empty_board = [] {
         const int cell_count = static_cast<int>(core::Board::kSize * core::Board::kSize);
         std::string cells;
@@ -268,24 +259,22 @@ int main() {
     write_raw("棋盘残缺", "0 0 0 -1 0 0 0 1 2\n");
     //    Player2Thinking 却轮到 player1_side：GUI 会显示人类可走但点击被忽略。
     write_raw("思考方错位", "1 1 3 1 0 1 1 " + two_piece_board + "1\n");
-    //    current_side=None 却处于思考阶段：CLI 会在 decide_move 抛“AI 无路可走！”。
+    //    current_side=None 却处于思考阶段：CLI 会在 decide_move 抛异常。
     write_raw("当前方缺失", "1 0 3 1 0 1 1 " + two_piece_board + "1\n");
-    //    GameOver 却没有胜者：界面会显示“无 获胜！”。
+    //    GameOver 却没有胜者：界面会显示无胜者。
     write_raw("终局无胜者", "1 0 4 -1 0 1 1 " + two_piece_board + "1\n");
     //    布阵阶段局面本身合法，但读档后没有可恢复的界面流程，必须在边界拒绝。
     write_raw("布阵阶段", "1 0 0 -1 0 0 1 " + two_piece_board + "1\n");
 
     {
         storage::SaveManager manager(kDbPath);
-        expect(load_throws(manager, "缺少骰子"), "thinking phase without a dice value is rejected");
-        expect(load_throws(manager, "多余骰子"),
-               "non-thinking phase with a dice value is rejected");
-        expect(load_throws(manager, "棋盘残缺"), "truncated board data is rejected");
-        expect(load_throws(manager, "思考方错位"), "Player2Thinking on player1 side is rejected");
-        expect(load_throws(manager, "当前方缺失"),
-               "thinking phase with current_side=None is rejected");
-        expect(load_throws(manager, "终局无胜者"), "GameOver without a winner is rejected");
-        expect(load_throws(manager, "布阵阶段"), "layout-phase save is rejected");
+        expect(load_throws(manager, "缺少骰子"), "思考阶段缺骰子被拒绝");
+        expect(load_throws(manager, "多余骰子"), "非思考阶段带骰子被拒绝");
+        expect(load_throws(manager, "棋盘残缺"), "棋盘数据残缺被拒绝");
+        expect(load_throws(manager, "思考方错位"), "Player2Thinking 轮到我方被拒绝");
+        expect(load_throws(manager, "当前方缺失"), "思考阶段当前方为 None 被拒绝");
+        expect(load_throws(manager, "终局无胜者"), "终局缺胜者被拒绝");
+        expect(load_throws(manager, "布阵阶段"), "布阵阶段存档被拒绝");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。
@@ -308,7 +297,7 @@ int main() {
         storage::SaveManager manager(kSortDbPath);
         const auto names = manager.list_saves();
         expect(names.size() == 2 && names[0] == "alpha" && names[1] == "beta",
-               "same-second saves are ordered by name");
+               "同一秒的存档按名称排序");
     }
     std::remove(kSortDbPath);
 

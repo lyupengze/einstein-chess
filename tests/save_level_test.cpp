@@ -1,9 +1,9 @@
-// 存档强度回归：验证 AI 档位随存档一起保存、读档时原样恢复，
-// 并且缺少档位、档位溢出或档位不是整数的存档都会被明确拒绝。
-//
-// 这里直接操作临时 SQLite 文件：先用 SaveManager 正常存档，再借 sqlite_wrapper
-// 把 data 列改成“缺少档位”或“损坏值”，观察 SaveManager 的解析行为。
-// AI 档位是必填字段：项目没有历史发行版，不需要为旧格式保留静默回落。
+/// @file tests/save_level_test.cpp
+/// @brief 存档档位回归：档位随存档保存、读档原样恢复，非法档位被拒绝。
+///
+/// 直接操作临时 SQLite 文件：先用 SaveManager 正常存档，再借 sqlite_wrapper 把
+/// data 列改成缺字段或损坏值，观察 SaveManager 的解析行为。档位是必填字段，
+/// 缺失、越界或非整数都按损坏数据拒绝。相关背景见 `#save-level-overflow`。
 
 #include <cstdio>
 #include <exception>
@@ -24,10 +24,10 @@ using test_support::expect;
 
 namespace {
 
-/// 测试专用临时数据库；放在测试的当前工作目录（构建目录）下。
+/// @brief 测试专用临时数据库；放在测试的当前工作目录（构建目录）下。
 constexpr const char* kDbPath = "test_save_level.db";
 
-// 一个能通过反序列化语义校验的简单局面：轮到红方思考且骰子为 1。
+/// @brief 能通过语义校验的简单局面：轮到红方思考且骰子为 1。
 core::GameState make_state() {
     core::GameState state;
     state.player1_side = core::Side::Red;
@@ -39,7 +39,7 @@ core::GameState make_state() {
     return state;
 }
 
-/// 读出某槽位的原始序列化文本（绕过 SaveManager，便于伪造损坏数据）。
+/// @brief 读出某槽位的原始序列化文本，绕过 SaveManager 以便伪造损坏数据。
 std::string read_data(storage::Database& db, const std::string& slot) {
     storage::Statement stmt(db, "SELECT data FROM saves WHERE name = ?;");
     stmt.bind(1, slot);
@@ -49,7 +49,7 @@ std::string read_data(storage::Database& db, const std::string& slot) {
     return stmt.column_text(0);
 }
 
-/// 覆盖式写入某槽位的原始序列化文本。
+/// @brief 覆盖式写入某槽位的原始序列化文本。
 void write_data(storage::Database& db, const std::string& slot, const std::string& data) {
     storage::Statement stmt(db, "INSERT OR REPLACE INTO saves (name, data) VALUES (?, ?);");
     stmt.bind(1, slot);
@@ -57,8 +57,7 @@ void write_data(storage::Database& db, const std::string& slot, const std::strin
     stmt.step();
 }
 
-/// 序列化文本的最后一个字段是 AI 档位，定位它前面那个空格的位置。
-/// 末尾可能有换行，判断边界时先跳过。
+/// @brief 定位最后一个字段（AI 档位）前的空格，跳过末尾换行。
 std::size_t last_field_start(const std::string& data) {
     const auto newline = data.find_last_of('\n');
     const auto end = (newline == std::string::npos) ? data.size() : newline;
@@ -69,7 +68,7 @@ std::size_t last_field_start(const std::string& data) {
     return space;
 }
 
-/// 去掉尾部的 AI 档位字段，模拟“缺少必需字段”的损坏存档。
+/// @brief 去掉尾部的 AI 档位字段，模拟缺少必需字段的损坏存档。
 std::string strip_ai_level(std::string data) {
     const auto space = last_field_start(data);
     const auto newline = data.find_last_of('\n');
@@ -78,7 +77,7 @@ std::string strip_ai_level(std::string data) {
     return data;
 }
 
-/// 把尾部 AI 档位换成任意文本，用来构造越界值与非法文本两种损坏。
+/// @brief 把尾部 AI 档位换成任意文本，构造越界值与非法文本两种损坏。
 std::string replace_ai_level(std::string data, const std::string& replacement) {
     const auto space = last_field_start(data);
     const auto newline = data.find_last_of('\n');
@@ -102,18 +101,18 @@ int main() {
 
         // 1. 档位必须随存档往返，且两种档位各自独立。
         const auto random_saved = manager.load_game("random");
-        expect(random_saved.has_value(), "random save is loadable");
+        expect(random_saved.has_value(), "随机档存档可读");
         expect(random_saved && random_saved->ai_level == ai::Level::kRandom,
-               "random save restores the random AI level");
+               "随机档存档恢复随机档");
 
         const auto search_saved = manager.load_game("search");
         expect(search_saved && search_saved->ai_level == ai::Level::kSearch,
-               "search save restores the search AI level");
+               "搜索档存档恢复搜索档");
 
         // 2. 局面本身不能被档位字段影响。
         expect(random_saved && random_saved->state.phase == state.phase &&
                    random_saved->state.current_dice == state.current_dice,
-               "board state still round-trips alongside the AI level");
+               "局面随档位一起往返");
 
         // 下面用原始 SQL 伪造缺失字段与损坏档，因此先把 data 取出来。
         {
@@ -126,8 +125,8 @@ int main() {
             write_data(db, "bad-level", replace_ai_level(data, "9"));
             // 5. 档位不是整数：同样视为数据损坏。
             write_data(db, "garbage", replace_ai_level(data, "abc"));
-            // 6. 超出 int 的整数：operator>> 会置 failbit|eofbit，旧实现
-            //    会误判成 EOF 并回落到默认档；现在必须拒绝。
+            // 6. 超出 int 的整数：operator>> 会置 failbit|eofbit，
+            //    若按 EOF 处理会静默回落到默认档，因此必须拒绝。
             write_data(db, "overflow-level", replace_ai_level(data, "2147483648"));
         }
 
@@ -137,7 +136,7 @@ int main() {
         } catch (const std::runtime_error&) {
             missing_level_threw = true;
         }
-        expect(missing_level_threw, "save without an AI level is rejected");
+        expect(missing_level_threw, "缺少档位的存档被拒绝");
 
         bool bad_level_threw = false;
         try {
@@ -145,7 +144,7 @@ int main() {
         } catch (const std::runtime_error&) {
             bad_level_threw = true;
         }
-        expect(bad_level_threw, "out-of-range AI level is rejected");
+        expect(bad_level_threw, "越界档位被拒绝");
 
         bool garbage_threw = false;
         try {
@@ -153,7 +152,7 @@ int main() {
         } catch (const std::runtime_error&) {
             garbage_threw = true;
         }
-        expect(garbage_threw, "non-numeric AI level field is rejected");
+        expect(garbage_threw, "非整数档位被拒绝");
 
         bool overflow_threw = false;
         try {
@@ -161,7 +160,7 @@ int main() {
         } catch (const std::runtime_error&) {
             overflow_threw = true;
         }
-        expect(overflow_threw, "overflowing AI level field is rejected instead of treated as EOF");
+        expect(overflow_threw, "溢出档位被拒绝");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。

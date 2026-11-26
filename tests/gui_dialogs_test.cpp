@@ -1,14 +1,13 @@
-// GUI 对话框回归：直接构造对话框、操作控件并调用私有槽，
-// 大部分路径不进入模态事件循环，因此可以在 offscreen 平台上稳定运行。
-//
-// 覆盖四件事：
-// 1. 布阵对话框的默认编号、点击循环、换边清空与合法确认；
-// 2. 存档对话框的列表读取、默认选中、名称 trim 与确认路径；
-// 3. 同名覆盖确认（No 保持对话框、Yes 才接受）；
-// 4. 保存期间暂停 AI 定时器，确认/取消后都按剩余时间恢复。
-//
-// 注意：重复编号 / 空名称会弹出模态 QMessageBox，本用例刻意不触发这些分支，
-// 避免测试进程卡在无人关闭的对话框上；同名覆盖确认与保存暂停则用 QTimer 自动操作。
+/// @file tests/gui_dialogs_test.cpp
+/// @brief GUI 对话框回归：直接构造对话框、操作控件并调用私有槽。
+///
+/// 大部分路径不进入模态事件循环，因此可在 offscreen 平台稳定运行。覆盖布阵
+/// 对话框的默认编号、点击循环、换边清空与合法确认；存档对话框的列表读取、
+/// 默认选中、名称 trim 与确认路径；同名覆盖确认；以及保存期间暂停 AI 定时器、
+/// 确认或取消后按剩余时间恢复。
+///
+/// 注意：重复编号与空名称会弹出模态 QMessageBox，本用例刻意不触发这些分支，
+/// 避免测试进程卡在无人关闭的对话框上；同名覆盖确认与保存暂停用 QTimer 自动操作。
 
 #include <QAbstractButton>
 #include <QApplication>
@@ -134,14 +133,13 @@ void drive_save_dialog(int delay_ms, QListWidget* history, const QString& name, 
                 }
             }
         }
-        expect(dialog != nullptr, "opening save pauses the game in a modal dialog");
+        expect(dialog != nullptr, "打开保存对话框时游戏暂停");
         if (dialog == nullptr) {
             return;
         }
 
         // 若保存没有暂停定时器，AI 会在对话框背后走完一步，这里能直接抓到。
-        expect(history == nullptr || history->count() == 0,
-               "pending AI action does not run while the save dialog is open");
+        expect(history == nullptr || history->count() == 0, "保存对话框打开时排队的 AI 动作不执行");
 
         if (!accept) {
             dialog->reject();
@@ -149,7 +147,7 @@ void drive_save_dialog(int delay_ms, QListWidget* history, const QString& name, 
         }
 
         auto* input = dialog->findChild<QLineEdit*>();
-        expect(input != nullptr, "save pause dialog has a name input");
+        expect(input != nullptr, "保存对话框有名称输入框");
         if (input == nullptr) {
             dialog->reject();
             return;
@@ -161,7 +159,7 @@ void drive_save_dialog(int delay_ms, QListWidget* history, const QString& name, 
                 return;
             }
         }
-        expect(false, "save pause dialog has a confirm button");
+        expect(false, "保存对话框有确认按钮");
         dialog->reject();
     });
 }
@@ -186,22 +184,21 @@ int main(int argc, char* argv[]) {
     // 1. 布阵对话框：红方默认、编号 1~6 按区域顺序铺满、默认档位为 kDefaultLevel。
     {
         ui::SetupDialog dialog;
-        expect(dialog.get_selected_side() == 1, "setup defaults to red");
-        expect(dialog.get_selected_level() == ai::kDefaultLevel,
-               "setup defaults to the default AI level");
+        expect(dialog.get_selected_side() == 1, "布阵默认红方");
+        expect(dialog.get_selected_level() == ai::kDefaultLevel, "布阵默认档位为默认档");
 
         const std::array<int, 6> expected{1, 2, 3, 4, 5, 6};
-        expect(dialog.get_layout() == expected, "setup fills 1..6 in region order");
+        expect(dialog.get_layout() == expected, "布阵按区域顺序填 1~6");
 
         QGridLayout* grid = dialog.findChild<QGridLayout*>();
-        expect(grid != nullptr, "setup has a grid layout");
+        expect(grid != nullptr, "布阵对话框有网格布局");
         QPushButton* red_first = grid_button_at(grid, 0, 0);
         QPushButton* red_last = grid_button_at(grid, 2, 0);
         QPushButton* inactive = grid_button_at(grid, 2, 2);
-        expect(red_first != nullptr && red_first->text() == "1", "setup red (0,0) shows number 1");
-        expect(red_last != nullptr && red_last->text() == "6", "setup red (2,0) shows number 6");
+        expect(red_first != nullptr && red_first->text() == "1", "红方 (0,0) 显示编号 1");
+        expect(red_last != nullptr && red_last->text() == "6", "红方 (2,0) 显示编号 6");
         expect(inactive != nullptr && !inactive->isEnabled() && inactive->text().isEmpty(),
-               "setup inactive cells are disabled and empty");
+               "非活动格禁用且为空");
     }
 
     // 2. 点击活动格只让该格在 1~6 循环；点击非活动格被忽略。
@@ -209,53 +206,49 @@ int main(int argc, char* argv[]) {
         ui::SetupDialog dialog;
         QGridLayout* grid = dialog.findChild<QGridLayout*>();
         expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 0), Q_ARG(int, 0)),
-               "setup grid click slot is invokable");
+               "布阵点击槽可调用");
 
         const std::array<int, 6> after_first{2, 2, 3, 4, 5, 6};
-        expect(dialog.get_layout() == after_first, "setup click cycles 1 to 2");
+        expect(dialog.get_layout() == after_first, "点击后编号 1 循环到 2");
 
         QPushButton* button = grid_button_at(grid, 0, 0);
-        expect(button != nullptr && button->text() == "2",
-               "setup clicked button shows the new number");
+        expect(button != nullptr && button->text() == "2", "被点击的按钮显示新编号");
 
         const std::array<int, 6> before_inactive = dialog.get_layout();
         expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 2), Q_ARG(int, 2)),
-               "inactive cell slot can be invoked");
-        expect(dialog.get_layout() == before_inactive,
-               "setup ignores clicks outside the active region");
+               "非活动格槽可调用");
+        expect(dialog.get_layout() == before_inactive, "活动区外的点击被忽略");
     }
 
     // 3. 换到蓝方：旧编号清空，蓝方区域重新铺 1~6，红方按钮全部禁用。
     {
         ui::SetupDialog dialog;
         QRadioButton* blue = find_radio(dialog, QString::fromUtf8("蓝方"));
-        expect(blue != nullptr, "setup has a blue radio");
+        expect(blue != nullptr, "布阵对话框有蓝方单选");
         if (blue != nullptr) {
             blue->setChecked(true);
         }
 
-        expect(dialog.get_selected_side() == 2, "setup switches to blue");
+        expect(dialog.get_selected_side() == 2, "切换到蓝方");
         const std::array<int, 6> expected{1, 2, 3, 4, 5, 6};
-        expect(dialog.get_layout() == expected, "setup resets numbers when switching side");
+        expect(dialog.get_layout() == expected, "换方后编号重置");
 
         QGridLayout* grid = dialog.findChild<QGridLayout*>();
         QPushButton* blue_first = grid_button_at(grid, 4, 4);
         QPushButton* red_cell = grid_button_at(grid, 0, 0);
-        expect(blue_first != nullptr && blue_first->text() == "1",
-               "setup blue (4,4) shows number 1");
-        expect(red_cell != nullptr && !red_cell->isEnabled(), "setup disables the old red region");
+        expect(blue_first != nullptr && blue_first->text() == "1", "蓝方 (4,4) 显示编号 1");
+        expect(red_cell != nullptr && !red_cell->isEnabled(), "红方区域被禁用");
 
         expect(QMetaObject::invokeMethod(&dialog, "on_grid_clicked", Q_ARG(int, 4), Q_ARG(int, 4)),
-               "blue grid click slot is invokable");
-        expect(dialog.get_layout()[0] == 2, "setup blue click cycles 1 to 2");
+               "蓝方网格点击槽可调用");
+        expect(dialog.get_layout()[0] == 2, "蓝方点击后编号 1 循环到 2");
     }
 
     // 4. 合法编号确认后对话框返回 Accepted。
     {
         ui::SetupDialog dialog;
-        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"),
-               "setup confirm slot is invokable");
-        expect(dialog.result() == QDialog::Accepted, "setup accepts a valid layout");
+        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"), "布阵确认槽可调用");
+        expect(dialog.result() == QDialog::Accepted, "合法布阵被接受");
     }
 
     // 5. 存档对话框：空库提示、无选中项。
@@ -263,17 +256,16 @@ int main(int argc, char* argv[]) {
     {
         ui::SaveLoadDialog dialog(ui::DialogMode::Load);
         QListWidget* list = dialog.findChild<QListWidget*>();
-        expect(list != nullptr && list->count() == 0, "load dialog starts with an empty list");
-        expect(dialog.get_selected_name().empty(), "load dialog has no selection when empty");
+        expect(list != nullptr && list->count() == 0, "读档对话框初始列表为空");
+        expect(dialog.get_selected_name().empty(), "空库时没有选中项");
         bool save_name_threw = false;
         try {
             [[maybe_unused]] const auto& ignored = dialog.get_save_name();
         } catch (const std::logic_error&) {
             save_name_threw = true;
         }
-        expect(save_name_threw, "load dialog rejects get_save_name as a contract violation");
-        expect(has_label(dialog, QString::fromUtf8("没有任何存档")),
-               "load dialog explains an empty database");
+        expect(save_name_threw, "读档模式调用 get_save_name 违反契约");
+        expect(has_label(dialog, QString::fromUtf8("没有任何存档")), "读档对话框提示空库");
     }
 
     // 6. 预置一个存档后，读取模式应选中最近一条，确认后返回 Accepted。
@@ -284,13 +276,12 @@ int main(int argc, char* argv[]) {
     {
         ui::SaveLoadDialog dialog(ui::DialogMode::Load);
         QListWidget* list = dialog.findChild<QListWidget*>();
-        expect(list != nullptr && list->count() == 1, "load dialog lists the saved slot");
-        expect(list != nullptr && list->currentRow() == 0, "load dialog preselects the first slot");
-        expect(dialog.get_selected_name() == "alpha", "load dialog reports the selected name");
+        expect(list != nullptr && list->count() == 1, "读档对话框列出存档");
+        expect(list != nullptr && list->currentRow() == 0, "默认选中第一条");
+        expect(dialog.get_selected_name() == "alpha", "返回选中的槽位名");
 
-        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"),
-               "load confirm slot is invokable");
-        expect(dialog.result() == QDialog::Accepted, "load dialog accepts a selected slot");
+        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"), "读档确认槽可调用");
+        expect(dialog.result() == QDialog::Accepted, "读档接受选中槽位");
     }
 
     // 7. 保存模式：列表可见、名称 trim 后返回、确认返回 Accepted。
@@ -298,47 +289,41 @@ int main(int argc, char* argv[]) {
         ui::SaveLoadDialog dialog(ui::DialogMode::Save);
         QListWidget* list = dialog.findChild<QListWidget*>();
         QLineEdit* input = dialog.findChild<QLineEdit*>();
-        expect(list != nullptr && list->count() == 1, "save dialog lists existing slots");
-        expect(input != nullptr, "save dialog has a name input");
-        expect(has_label(dialog, QString::fromUtf8("同名将覆盖")),
-               "save dialog warns about overwriting");
+        expect(list != nullptr && list->count() == 1, "保存对话框列出现有槽位");
+        expect(input != nullptr, "保存对话框有名称输入框");
+        expect(has_label(dialog, QString::fromUtf8("同名将覆盖")), "保存对话框提示同名覆盖");
 
         if (input != nullptr) {
             input->setText("  my slot  ");
         }
-        expect(dialog.get_save_name() == "my slot", "save dialog trims the slot name");
+        expect(dialog.get_save_name() == "my slot", "槽位名去掉首尾空白");
 
-        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"),
-               "save confirm slot is invokable");
-        expect(dialog.result() == QDialog::Accepted, "save dialog accepts a non-empty name");
+        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"), "保存确认槽可调用");
+        expect(dialog.result() == QDialog::Accepted, "保存接受非空名称");
     }
 
     // 8. 同名保存必须二次确认：选 No 保持对话框，选 Yes 才接受。
     {
         ui::SaveLoadDialog dialog(ui::DialogMode::Save);
         QLineEdit* input = dialog.findChild<QLineEdit*>();
-        expect(input != nullptr, "overwrite test has a name input");
+        expect(input != nullptr, "覆盖用例有名称输入框");
         if (input != nullptr) {
             input->setText("alpha");
         }
         click_next_message_box(QMessageBox::No);
-        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"),
-               "overwrite confirm slot is invokable");
-        expect(dialog.result() != QDialog::Accepted,
-               "declining overwrite keeps the save dialog open");
+        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"), "覆盖确认槽可调用");
+        expect(dialog.result() != QDialog::Accepted, "拒绝覆盖后对话框不关闭");
     }
     {
         ui::SaveLoadDialog dialog(ui::DialogMode::Save);
         QLineEdit* input = dialog.findChild<QLineEdit*>();
-        expect(input != nullptr, "overwrite accept test has a name input");
+        expect(input != nullptr, "覆盖接受用例有名称输入框");
         if (input != nullptr) {
             input->setText("alpha");
         }
         click_next_message_box(QMessageBox::Yes);
-        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"),
-               "overwrite accept slot is invokable");
-        expect(dialog.result() == QDialog::Accepted,
-               "confirming overwrite accepts the save dialog");
+        expect(QMetaObject::invokeMethod(&dialog, "on_confirm_clicked"), "覆盖接受槽可调用");
+        expect(dialog.result() == QDialog::Accepted, "确认覆盖后接受对话框");
     }
 
     // 9. 保存期间暂停 AI 定时器：确认保存后按剩余时间恢复，AI 继续走完。
@@ -351,8 +336,8 @@ int main(int argc, char* argv[]) {
 
         auto* history = widget.findChild<QListWidget*>();
         auto* save = find_button(widget, QString::fromUtf8("保存"));
-        expect(history != nullptr, "save pause test exposes the history list");
-        expect(save != nullptr, "save pause test exposes the save button");
+        expect(history != nullptr, "保存暂停用例暴露历史列表");
+        expect(save != nullptr, "保存暂停用例暴露保存按钮");
         widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel);
 
         drive_save_dialog(900, history, "paused", true);
@@ -361,8 +346,8 @@ int main(int argc, char* argv[]) {
         }
         expect(test_support::wait_until(
                    [history] { return history != nullptr && history->count() == 1; }, 3000,
-                   "AI resumes after the save dialog is accepted"),
-               "accepting save restores the pending AI action");
+                   "保存后 AI 继续"),
+               "接受保存后恢复排队动作");
     }
 
     // 10. 取消保存同样恢复，不能把这一手 AI 动作永久丢掉。
@@ -375,8 +360,8 @@ int main(int argc, char* argv[]) {
 
         auto* history = widget.findChild<QListWidget*>();
         auto* save = find_button(widget, QString::fromUtf8("保存"));
-        expect(history != nullptr, "cancel pause test exposes the history list");
-        expect(save != nullptr, "cancel pause test exposes the save button");
+        expect(history != nullptr, "取消暂停用例暴露历史列表");
+        expect(save != nullptr, "取消暂停用例暴露保存按钮");
         widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel);
 
         drive_save_dialog(900, history, QString(), false);
@@ -385,8 +370,8 @@ int main(int argc, char* argv[]) {
         }
         expect(test_support::wait_until(
                    [history] { return history != nullptr && history->count() == 1; }, 3000,
-                   "AI resumes after the save dialog is cancelled"),
-               "cancelling save restores the pending AI action");
+                   "取消保存后 AI 继续"),
+               "取消保存后恢复排队动作");
     }
 
     // 11. 构造即开库：坏 schema 必须把异常抛给调用方，而不是在对话框内部吞掉。
@@ -402,7 +387,7 @@ int main(int argc, char* argv[]) {
     } catch (const std::runtime_error&) {
         constructor_threw = true;
     }
-    expect(constructor_threw, "save dialog propagates database schema errors");
+    expect(constructor_threw, "保存对话框向上抛出 schema 错误");
     remove_default_db();
 
     return test_support::finish();

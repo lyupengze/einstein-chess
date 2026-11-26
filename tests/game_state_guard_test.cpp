@@ -1,8 +1,8 @@
-// Game / Board 状态机守卫测试。
-//
-// P0-1 把“损坏存档”挡在了 load/save 边界；本文件覆盖运行期公共 API 的另一半：
-// 即使调用方绕开界面直接驱动 core，也不能让 Game 进入非法状态。
-// 重点不是“错误文案”，而是“非法调用必须抛异常，且失败后状态不变”。
+/// @file tests/game_state_guard_test.cpp
+/// @brief Game 与 Board 的运行期守卫：非法调用必须抛 invalid_argument，且失败后状态不变。
+///
+/// 存档边界由 state_validation_test.cpp 覆盖；这里覆盖调用方绕开界面、直接驱动
+/// core 的路径。每条断言都配一次状态快照比较，避免“抛了异常但状态已被改坏”。
 
 #include <array>
 #include <optional>
@@ -65,13 +65,12 @@ int main() {
         const core::GameState before = game.get_state();
 
         expect(throws_invalid([&] { game.prepare_new_game(core::Side::None); }),
-               "prepare_new_game rejects Side::None");
-        expect(same_state(game.get_state(), before), "rejected prepare_new_game keeps old state");
+               "prepare_new_game 拒绝 None");
+        expect(same_state(game.get_state(), before), "被拒绝的 prepare_new_game 不改动旧局");
 
         expect(throws_invalid([&] { game.prepare_new_game(static_cast<core::Side>(99)); }),
-               "prepare_new_game rejects unknown side");
-        expect(same_state(game.get_state(), before),
-               "unknown-side prepare_new_game keeps old state");
+               "prepare_new_game 拒绝未知阵营");
+        expect(same_state(game.get_state(), before), "未知阵营的 prepare_new_game 不改动旧局");
     }
 
     // 2. submit_layout：同侧重复提交被拒，且不改变已提交的布阵。
@@ -82,9 +81,8 @@ int main() {
         const core::GameState before = game.get_state();
 
         expect(throws_invalid([&] { game.submit_layout(core::Side::Red, {6, 5, 4, 3, 2, 1}); }),
-               "duplicate submit_layout is rejected");
-        expect(same_state(game.get_state(), before),
-               "rejected duplicate submit_layout keeps the board");
+               "重复提交布阵被拒绝");
+        expect(same_state(game.get_state(), before), "被拒绝的重复布阵不改动棋盘");
     }
 
     // 3. submit_layout：非布阵阶段（ThrowingDice / GameOver）被拒。
@@ -96,9 +94,8 @@ int main() {
         const core::GameState before = game.get_state();
 
         expect(throws_invalid([&] { game.submit_layout(core::Side::Blue, {6, 5, 4, 3, 2, 1}); }),
-               "submit_layout is rejected after the game starts");
-        expect(same_state(game.get_state(), before),
-               "rejected post-start submit_layout keeps the state");
+               "开赛后再提交布阵被拒绝");
+        expect(same_state(game.get_state(), before), "开赛后提交布阵失败不改动状态");
     }
     {
         core::Game game;
@@ -106,9 +103,8 @@ int main() {
         const core::GameState before = game.get_state();
 
         expect(throws_invalid([&] { game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6}); }),
-               "submit_layout cannot revive a GameOver state");
-        expect(same_state(game.get_state(), before),
-               "rejected GameOver submit_layout keeps the state");
+               "submit_layout 不能复活终局");
+        expect(same_state(game.get_state(), before), "终局提交布阵失败不改动状态");
     }
 
     // 4. submit_layout：非法阵营 / 非法 layout 不改变状态。
@@ -118,10 +114,10 @@ int main() {
         const core::GameState before = game.get_state();
 
         expect(throws_invalid([&] { game.submit_layout(core::Side::None, {1, 2, 3, 4, 5, 6}); }),
-               "submit_layout rejects Side::None");
+               "submit_layout 拒绝 None");
         expect(throws_invalid([&] { game.submit_layout(core::Side::Red, {1, 1, 2, 3, 4, 5}); }),
-               "submit_layout rejects a duplicate layout id");
-        expect(same_state(game.get_state(), before), "rejected submit_layout keeps the state");
+               "submit_layout 拒绝重复编号");
+        expect(same_state(game.get_state(), before), "submit_layout 失败不改动状态");
     }
 
     // 5. Board::setup_custom 是“替换”而不是“叠加”：旧子（包括初始区外）被清掉。
@@ -130,38 +126,32 @@ int main() {
         board.at({4, 4}) = {core::Side::Red, 6};  // 模拟上一轮遗留在初始区外的旧子
         board.setup_custom(core::Side::Red, {1, 2, 3, 4, 5, 6});
 
-        expect(board.count_pieces(core::Side::Red) == 6,
-               "setup_custom clears stale red pieces outside the region");
-        expect(board.at({4, 4}).side == core::Side::None,
-               "stale red piece outside the initial region is removed");
+        expect(board.count_pieces(core::Side::Red) == 6, "setup_custom 清掉初始区外的残留红子");
+        expect(board.at({4, 4}).side == core::Side::None, "初始区外的残留红子被移除");
 
         // 再提交一次不同排列，仍然是 6 子、编号 1..6，不叠加。
         board.setup_custom(core::Side::Red, {6, 5, 4, 3, 2, 1});
-        expect(board.count_pieces(core::Side::Red) == 6,
-               "repeated setup_custom keeps exactly six red pieces");
+        expect(board.count_pieces(core::Side::Red) == 6, "再次布阵后红方恰好 6 子");
         bool ids_ok = true;
         for (int id = 1; id <= core::Board::kChessCount; ++id) {
             ids_ok = ids_ok && board.has_piece(core::Side::Red, id);
         }
-        expect(ids_ok, "repeated setup_custom keeps ids 1..6 exactly once");
+        expect(ids_ok, "再次布阵后编号 1~6 各一枚");
     }
 
     // 6. make_move：LayOut / ThrowingDice / GameOver 阶段都拒绝走子。
     {
         core::Game game;
         game.prepare_new_game(core::Side::Red);
-        expect(throws_invalid([&] { game.make_move({0, 0}, {0, 1}); }),
-               "make_move is rejected in LayOut");
+        expect(throws_invalid([&] { game.make_move({0, 0}, {0, 1}); }), "布阵阶段拒绝走子");
 
         game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6});
         game.submit_layout(core::Side::Blue, {1, 2, 3, 4, 5, 6});
-        expect(throws_invalid([&] { game.make_move({0, 0}, {0, 1}); }),
-               "make_move is rejected in ThrowingDice");
+        expect(throws_invalid([&] { game.make_move({0, 0}, {0, 1}); }), "掷骰阶段拒绝走子");
 
         core::Game over;
         over.load_game(make_game_over_state());
-        expect(throws_invalid([&] { over.make_move({4, 4}, {3, 4}); }),
-               "make_move is rejected in GameOver");
+        expect(throws_invalid([&] { over.make_move({4, 4}, {3, 4}); }), "终局拒绝走子");
     }
 
     // 7. roll_dice：LayOut 阶段被拒，且不改状态；正常 ThrowingDice 仍可掷。
@@ -170,13 +160,13 @@ int main() {
         game.prepare_new_game(core::Side::Red);
         const core::GameState before = game.get_state();
 
-        expect(throws_invalid([&] { game.roll_dice(); }), "roll_dice rejects LayOut");
-        expect(same_state(game.get_state(), before), "rejected roll_dice keeps the state");
+        expect(throws_invalid([&] { game.roll_dice(); }), "布阵阶段拒绝掷骰");
+        expect(same_state(game.get_state(), before), "被拒绝的掷骰不改动状态");
 
         game.submit_layout(core::Side::Red, {1, 2, 3, 4, 5, 6});
         game.submit_layout(core::Side::Blue, {1, 2, 3, 4, 5, 6});
         game.roll_dice();
-        expect(game.get_state().current_dice.has_value(), "roll_dice still works in ThrowingDice");
+        expect(game.get_state().current_dice.has_value(), "掷骰阶段仍可掷骰");
     }
 
     return test_support::finish();

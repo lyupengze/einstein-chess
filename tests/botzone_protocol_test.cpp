@@ -1,8 +1,8 @@
-// Botzone 协议回归：不启动子进程，直接调用 botzone::handle_request / handle_line，
-// 验证布阵帧、走子帧、严格颜色/整数校验，以及所有非法输入的拒绝路径。
-//
-// 抽成库之前这些逻辑只能通过“喂一行 JSON 给 exe、再解析 stdout”间接覆盖；
-// 现在可以精确断言返回的 JSON 结构，并复用 core 的合法着法枚举检查 AI 的落点。
+/// @file tests/botzone_protocol_test.cpp
+/// @brief Botzone 协议回归：布阵帧、走子帧与所有非法输入的拒绝路径。
+///
+/// 不启动子进程，直接调用 botzone::handle_request / handle_line，因此可以精确
+/// 断言返回的 JSON 结构，并复用 core 的合法着法枚举检查 AI 的落点。
 
 #include "botzone_protocol.h"
 
@@ -139,7 +139,7 @@ bool throws_protocol_error(Fn&& fn) {
     return false;
 }
 
-/// @brief 从 response 中取出四个坐标，并顺带断言它们都存在且为整数。
+/// @brief 从 response 中取出四个坐标；缺字段或类型不符时 complete 为 false。
 struct MoveReply {
     int x0 = -1;
     int y0 = -1;
@@ -171,14 +171,14 @@ int main() {
     {
         const json response = botzone::handle_request(json::object());
         expect(is_layout_permutation(response.at("response").at("layout")),
-               "missing requests returns a layout permutation");
+               "缺少 requests 时返回布阵排列");
     }
     {
         json request;
         request["requests"] = json::array();
         const json response = botzone::handle_request(request);
         expect(is_layout_permutation(response.at("response").at("layout")),
-               "empty requests returns a layout permutation");
+               "requests 为空时返回布阵排列");
     }
 
     // 2. 显式布阵帧与空历史走同一分支。
@@ -190,7 +190,7 @@ int main() {
         request["requests"].push_back(item);
         const json response = botzone::handle_request(request);
         expect(is_layout_permutation(response.at("response").at("layout")),
-               "layout phase returns a layout permutation");
+               "layout 阶段返回布阵排列");
     }
 
     // 3. 未知阶段或缺少阶段：返回空 response，而不是崩溃或猜测走法。
@@ -200,15 +200,13 @@ int main() {
         json item;
         item["phase"] = "unknown";
         request["requests"].push_back(item);
-        expect(botzone::handle_request(request).at("response").empty(),
-               "unknown phase returns an empty response");
+        expect(botzone::handle_request(request).at("response").empty(), "未知阶段返回空 response");
     }
     {
         json request;
         request["requests"] = json::array();
         request["requests"].push_back(json::object());
-        expect(botzone::handle_request(request).at("response").empty(),
-               "missing phase returns an empty response");
+        expect(botzone::handle_request(request).at("response").empty(), "缺少阶段返回空 response");
     }
 
     // 4. 红方走子：color=0，返回的起点必须是红 1 号所在的 (0,0)，终点合法。
@@ -216,10 +214,9 @@ int main() {
         const core::GameState state = make_red_state(3);
         const MoveReply reply =
             read_move_reply(botzone::handle_request(make_move_request(state, 3, 0)));
-        expect(reply.complete, "red move reply contains all four coordinates");
-        expect(reply.x0 == 0 && reply.y0 == 0, "red move starts from the red piece");
-        expect(is_legal_move(state, reply.x0, reply.y0, reply.x1, reply.y1),
-               "red move is legal for the decoded board");
+        expect(reply.complete, "红方响应包含四个坐标");
+        expect(reply.x0 == 0 && reply.y0 == 0, "红方从红子出发");
+        expect(is_legal_move(state, reply.x0, reply.y0, reply.x1, reply.y1), "红方落点合法");
     }
 
     // 5. 蓝方走子：color=1，起点必须是蓝 1 号所在的 (4,4)。
@@ -227,20 +224,19 @@ int main() {
         const core::GameState state = make_blue_state(1);
         const MoveReply reply =
             read_move_reply(botzone::handle_request(make_move_request(state, 1, 1)));
-        expect(reply.complete, "blue move reply contains all four coordinates");
-        expect(reply.x0 == 4 && reply.y0 == 4, "blue move starts from the blue piece");
-        expect(is_legal_move(state, reply.x0, reply.y0, reply.x1, reply.y1),
-               "blue move is legal for the decoded board");
+        expect(reply.complete, "蓝方响应包含四个坐标");
+        expect(reply.x0 == 4 && reply.y0 == 4, "蓝方从蓝子出发");
+        expect(is_legal_move(state, reply.x0, reply.y0, reply.x1, reply.y1), "蓝方落点合法");
     }
 
-    // 6. 缺 color 必须拒绝；不再退回红方，也不再看旧 initdata.player。
+    // 6. 缺 color 必须拒绝；initdata.player 不参与阵营判定。
     {
         const core::GameState state = make_red_state(1);
         json request = make_move_request(state, 1, std::nullopt);
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "missing color is rejected");
+               "缺少 color 被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -249,7 +245,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "legacy initdata does not replace a missing color");
+               "initdata 不能替代缺失的 color");
     }
 
     // 7. 颜色越界或非整数必须拒绝，不能静默挑一方。
@@ -259,7 +255,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "out-of-range color is rejected");
+               "越界 color 被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -268,7 +264,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-integer color is rejected");
+               "非整数 color 被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -278,7 +274,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "color above int range is rejected");
+               "超出 int 范围的 color 被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -287,7 +283,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "color above int range is not truncated to a valid side");
+               "超出 int 范围的 color 不被截断成有效阵营");
     }
 
     // 8. 骰子缺失、为 0 或越界都必须拒绝。
@@ -298,7 +294,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "missing dice is rejected");
+               "缺少 dice 被拒绝");
     }
     {
         const core::GameState state = make_red_state(0);
@@ -306,7 +302,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "zero dice is rejected");
+               "骰点 0 被拒绝");
     }
     {
         const core::GameState state = make_red_state(7);
@@ -314,7 +310,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "out-of-range dice is rejected");
+               "越界骰点被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -323,7 +319,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "dice above int range is rejected instead of truncated");
+               "超出 int 范围的骰点被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -332,7 +328,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "negative dice is rejected");
+               "负骰点被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -341,7 +337,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "floating-point dice is rejected");
+               "浮点骰点被拒绝");
     }
 
     // 9. 棋盘缺失或不是二维数组必须拒绝。
@@ -352,7 +348,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "missing board is rejected");
+               "缺少 board 被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -361,7 +357,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-array board is rejected");
+               "board 不是数组被拒绝");
     }
 
     // 10. 棋子编号越界或同一方重复必须拒绝；空格与对方棋子不受影响。
@@ -372,7 +368,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "piece id above six is rejected");
+               "编号大于 6 被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -381,7 +377,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "duplicate red piece id is rejected");
+               "红方重复编号被拒绝");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -391,7 +387,7 @@ int main() {
         expect(!throws_exception([&] {
             [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
         }),
-               "same id on opposite sides is accepted");
+               "两方各有一枚同号棋子被接受");
     }
     {
         const core::GameState state = make_red_state(1);
@@ -401,20 +397,20 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "semantically invalid board is rejected");
+               "语义非法的棋盘被拒绝");
     }
 
     // 11. 入口层：非法 JSON 文本必须抛异常，交给 main 兜底为空 response。
     expect(throws_protocol_error(
                [] { [[maybe_unused]] const auto& ignored = botzone::handle_line("{"); }),
-           "malformed JSON line is a protocol error");
+           "畸形 JSON 行是协议错误");
 
     // 12. 协议结构错误：requests/phase/board 的类型与维度必须被拒绝。
     {
         expect(throws_protocol_error([] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(json::array());
                }),
-               "non-object request is rejected");
+               "请求不是对象被拒绝");
     }
     {
         json request;
@@ -422,7 +418,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-array requests is rejected");
+               "requests 不是数组被拒绝");
     }
     {
         json request;
@@ -431,7 +427,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-object latest request is rejected");
+               "最近一条请求不是对象被拒绝");
     }
     {
         json item;
@@ -443,7 +439,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-object historical request is rejected");
+               "历史请求不是对象被拒绝");
     }
     {
         json item;
@@ -454,12 +450,12 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-string phase is rejected");
+               "phase 不是字符串被拒绝");
     }
 
     const json empty = botzone::empty_response();
     expect(empty.contains("response") && empty["response"].is_object() && empty["response"].empty(),
-           "empty_response is a well-formed empty response");
+           "empty_response 是结构正确的空响应");
 
     const core::GameState board_state = make_red_state(1);
     {
@@ -468,7 +464,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "board with four rows is rejected");
+               "4 行棋盘被拒绝");
     }
     {
         json request = make_move_request(board_state, 1, 0);
@@ -476,7 +472,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "board row with four cells is rejected");
+               "4 列棋盘行被拒绝");
     }
     {
         json request = make_move_request(board_state, 1, 0);
@@ -484,7 +480,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-array board row is rejected");
+               "棋盘行不是数组被拒绝");
     }
     {
         json request = make_move_request(board_state, 1, 0);
@@ -492,7 +488,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-integer board cell is rejected");
+               "格子不是整数被拒绝");
     }
     {
         json request = make_move_request(board_state, 1, 0);
@@ -501,7 +497,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "board with six rows is rejected");
+               "6 行棋盘被拒绝");
     }
     {
         json request = make_move_request(board_state, 1, 0);
@@ -509,17 +505,16 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "board row with six cells is rejected");
+               "6 列棋盘行被拒绝");
     }
     {
         json request = make_move_request(board_state, 1, 0);
-        // 999999999999 截断成非法编号只是“碰巧失败”，这里用 2^32+1：
-        // 截断后会变成合法的红 1 号，必须由严格转换拒绝。
+        // 用 2^32+1：截断后会变成合法的红 1 号，必须由严格转换拒绝。
         request["requests"][0]["board"][0][0] = 4294967297LL;
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "board cell above int range is not truncated into a valid piece");
+               "超出 int 范围的格子不被截断成合法棋子");
     }
     {
         json request = make_move_request(board_state, 1, 0);
@@ -527,7 +522,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "floating-point board cell is rejected");
+               "浮点格子被拒绝");
     }
     {
         json request = make_move_request(board_state, 1, 0);
@@ -535,7 +530,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "negative piece id outside range is rejected");
+               "负数编号越界被拒绝");
     }
     {
         json request = make_move_request(board_state, 1, 0);
@@ -543,7 +538,7 @@ int main() {
         expect(throws_protocol_error([&] {
                    [[maybe_unused]] const auto& ignored = botzone::handle_request(request);
                }),
-               "non-integer dice is rejected");
+               "非整数 dice 被拒绝");
     }
 
     // 13. 单行入口与对象入口应返回完全相同的结果（不含随机布阵，用走子帧验证）。
@@ -552,7 +547,7 @@ int main() {
         const json request = make_move_request(state, 1, 0);
         const json from_object = botzone::handle_request(request);
         const json from_line = botzone::handle_line(request.dump());
-        expect(from_object == from_line, "handle_line matches handle_request");
+        expect(from_object == from_line, "handle_line 与 handle_request 结果一致");
     }
 
     return test_support::finish();

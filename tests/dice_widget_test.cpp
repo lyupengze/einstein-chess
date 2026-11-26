@@ -1,7 +1,8 @@
-// 骰子控件回归：合法点数必须画点，非法点数不能退化成“空白骰面”。
-//
-// 直接渲染到 QImage 后统计深红色像素，避免依赖系统字体或截图比对；
-// “没有骰子”允许整帧空白，但 0/7 这类非法值必须画出一个可见的错误标记。
+/// @file tests/dice_widget_test.cpp
+/// @brief 骰子控件回归：合法点数画点，非法点数画错误标记。
+///
+/// 直接渲染到 QImage 后统计深红色像素，不依赖系统字体或截图比对。“没有骰子”
+/// 允许整帧空白；0 与 7 这类非法值必须画出可见的错误标记，不能退化成空白骰面。
 
 #include "components/dice_widget.h"
 
@@ -50,14 +51,14 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
 
     // 没有点数时允许整帧空白，这是“本回合还没掷骰”的正常状态。
-    expect(count_red_pixels(render_dice(std::nullopt)) == 0, "no dice renders no red marks");
+    expect(count_red_pixels(render_dice(std::nullopt)) == 0, "没有骰子时不画红色标记");
 
     // 合法点数必须有可见骰点。
-    expect(count_red_pixels(render_dice(3)) > 0, "valid dice renders dots");
+    expect(count_red_pixels(render_dice(3)) > 0, "合法点数画出骰点");
 
-    // 非法点数不能静默留下白色空骰面，否则和“没有骰子”难以区分。
-    expect(count_red_pixels(render_dice(0)) > 0, "invalid dice 0 renders an error mark");
-    expect(count_red_pixels(render_dice(7)) > 0, "invalid dice 7 renders an error mark");
+    // 非法点数必须留下可见标记，否则和“没有骰子”难以区分。
+    expect(count_red_pixels(render_dice(0)) > 0, "非法点数 0 画出错误标记");
+    expect(count_red_pixels(render_dice(7)) > 0, "非法点数 7 画出错误标记");
 
     return test_support::finish();
 }
