@@ -27,7 +27,7 @@ inline void spin_events(int milliseconds) {
 /// @param predicate 目标条件，每次事件循环转动后重新求值
 /// @param timeout_ms 最长等待毫秒数
 /// @param what 超时信息里要打印的等待目标
-/// @return 超时前条件成立返回 true，否则打印 TIMEOUT 并返回 false
+/// @return 超时前条件成立返回 true，否则打印“超时”并返回 false
 inline bool wait_until(const std::function<bool()>& predicate, int timeout_ms,
                        std::string_view what) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
@@ -36,7 +36,7 @@ inline bool wait_until(const std::function<bool()>& predicate, int timeout_ms,
             return true;
         }
         if (std::chrono::steady_clock::now() >= deadline) {
-            std::cout << "TIMEOUT: " << what << " (waited " << timeout_ms << " ms)\n";
+            std::cout << "超时: " << what << " (waited " << timeout_ms << " ms)\n";
             return false;
         }
         spin_events(5);

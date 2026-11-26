@@ -23,7 +23,7 @@ inline int failures = 0;
 /// @param condition 断言条件
 /// @param what 这条断言在验证什么
 inline void expect(bool condition, std::string_view what) {
-    std::cout << (condition ? "PASS" : "FAIL") << ' ' << what << '\n';
+    std::cout << (condition ? "通过 " : "失败 ") << what << '\n';
     if (!condition) {
         ++failures;
     }
@@ -33,10 +33,10 @@ inline void expect(bool condition, std::string_view what) {
 /// @return 全部通过返回 0，否则返回 1
 inline int finish() {
     if (failures == 0) {
-        std::cout << "ALL PASS\n";
+        std::cout << "全部通过\n";
         return 0;
     }
-    std::cout << failures << " FAILURE(S)\n";
+    std::cout << failures << " 处断言失败\n";
     return 1;
 }
 
