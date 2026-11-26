@@ -19,7 +19,7 @@ namespace {
 // 不足或语句已失效；不在这里暴露，错误会拖到 step 阶段并伪装成别的故障。
 void check_bind(int rc, sqlite3_stmt* stmt) {
     if (rc != SQLITE_OK) {
-        throw std::runtime_error("Failed to bind parameter: " +
+        throw std::runtime_error("绑定参数失败: " +
                                  std::string(sqlite3_errmsg(sqlite3_db_handle(stmt))));
     }
 }
@@ -33,7 +33,7 @@ Database::Database(const std::string& db_path) {
         std::string err_msg = sqlite3_errmsg(db_);
         sqlite3_close(db_);
         db_ = nullptr;
-        throw std::runtime_error("Failed to open database: " + err_msg);
+        throw std::runtime_error("打开数据库失败: " + err_msg);
     }
 }
 
@@ -69,8 +69,7 @@ Statement::Statement(Database& db, const std::string& sql) {
     // nByte = -1：sql 以 NUL 结尾；末尾输出参数（未编译的尾巴）本项目用不到，传 nullptr。
     int rc = sqlite3_prepare_v2(db.get(), sql.c_str(), -1, &stmt_, nullptr);
     if (rc != SQLITE_OK) {
-        throw std::runtime_error("Failed to prepare statement: " +
-                                 std::string(sqlite3_errmsg(db.get())));
+        throw std::runtime_error("准备语句失败: " + std::string(sqlite3_errmsg(db.get())));
     }
 }
 
@@ -123,7 +122,7 @@ bool Statement::step() {
     } else {
         // 其余返回码（约束冲突、IO 错误等）统一升级为异常，
         // 调用方不必逐个检查 C 风格返回码。
-        throw std::runtime_error("Failed to step statement: " +
+        throw std::runtime_error("执行语句失败: " +
                                  std::string(sqlite3_errmsg(sqlite3_db_handle(stmt_))));
     }
 }
