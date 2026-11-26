@@ -84,4 +84,4 @@ private:
 
 }  // namespace storage
 
-#endif
+#endif  // SQLITE_WRAPPER_H_

@@ -33,4 +33,4 @@ private:
 
 }  // namespace ui
 
-#endif
+#endif  // MENU_WIDGET_H_

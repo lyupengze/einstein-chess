@@ -70,4 +70,4 @@ private:
 
 }  // namespace core
 
-#endif
+#endif  // GAME_H_

@@ -34,4 +34,4 @@ private:
 
 }  // namespace ui
 
-#endif
+#endif  // DICE_WIDGET_H_

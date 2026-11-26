@@ -105,4 +105,4 @@ void set_random_seed(unsigned int seed);
 
 }  // namespace ai
 
-#endif
+#endif  // AI_H_

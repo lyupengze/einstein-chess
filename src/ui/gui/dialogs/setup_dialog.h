@@ -69,4 +69,4 @@ private:
 
 }  // namespace ui
 
-#endif
+#endif  // SETUP_DIALOG_H_

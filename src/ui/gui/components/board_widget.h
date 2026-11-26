@@ -62,4 +62,4 @@ private:
 
 }  // namespace ui
 
-#endif
+#endif  // BOARD_WIDGET_H_

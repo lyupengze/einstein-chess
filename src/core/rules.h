@@ -79,4 +79,4 @@ void apply_move(GameState& state, Pos from, Pos to);
 
 }  // namespace core::rules
 
-#endif
+#endif  // RULES_H_

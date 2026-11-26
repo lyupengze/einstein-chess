@@ -35,4 +35,4 @@ struct GameState {
 
 }  // namespace core
 
-#endif
+#endif  // GAME_STATE_H_

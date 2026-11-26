@@ -57,4 +57,4 @@ private:
 
 }  // namespace storage
 
-#endif
+#endif  // SAVE_MANAGER_H_

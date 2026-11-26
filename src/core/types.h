@@ -74,4 +74,4 @@ inline std::string side_name(Side s) {
 
 }  // namespace core
 
-#endif
+#endif  // TYPES_H_

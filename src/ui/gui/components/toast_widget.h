@@ -49,4 +49,4 @@ private:
 
 }  // namespace ui
 
-#endif
+#endif  // TOAST_WIDGET_H_

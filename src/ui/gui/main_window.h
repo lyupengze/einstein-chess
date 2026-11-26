@@ -31,4 +31,4 @@ private:
 
 }  // namespace ui
 
-#endif
+#endif  // MAIN_WINDOW_H_

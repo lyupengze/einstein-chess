@@ -144,4 +144,4 @@ private:
 
 }  // namespace ui
 
-#endif
+#endif  // GAME_WIDGET_H_

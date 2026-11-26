@@ -39,4 +39,4 @@ void require_valid_state(const GameState& state);
 
 }  // namespace core
 
-#endif
+#endif  // VALIDATION_H_
