@@ -1,4 +1,4 @@
-# 仓库一致性检查：文件头、脚本头、禁词、缺陷锚点、相对链接与测试数量。
+# 仓库一致性检查：文件头、脚本头、注释语法、禁词、缺陷锚点、相对链接与测试数量。
 #
 # 用法（在仓库根或任意目录执行均可，不需要先配置构建目录）：
 #
@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.20)
 # 脚本可能被 target 或 CI 从任意目录调用，仓库根只按脚本位置推算。
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
-# 问题先累积在全局属性里，跑完六项再统一打印，避免漏报。
+# 问题先累积在全局属性里，跑完全部检查再统一打印，避免漏报。
 function(add_problem text)
     set_property(GLOBAL APPEND PROPERTY check_repo_problems "${text}")
 endfunction()
@@ -89,7 +89,7 @@ function(report_section name before)
     endif()
 endfunction()
 
-# 1. 每个 .h/.cpp 的前 10 行必须有 /// @file <相对路径>。
+# 1. 每个 .h/.cpp 的第 1 行必须是 /// @file <相对路径>，路径与实际文件一致。
 problem_count(before_headers)
 foreach(rel IN LISTS tracked)
     get_filename_component(extension "${rel}" EXT)
@@ -97,20 +97,14 @@ foreach(rel IN LISTS tracked)
         continue()
     endif()
     read_lines("${REPO_ROOT}/${rel}" lines)
-    set(found FALSE)
-    set(number 0)
-    foreach(line IN LISTS lines)
-        math(EXPR number "${number} + 1")
-        if(number GREATER 10)
-            break()
-        endif()
-        string(FIND "${line}" "/// @file ${rel}" position)
-        if(NOT position EQUAL -1)
-            set(found TRUE)
-        endif()
-    endforeach()
-    if(NOT found)
-        add_problem("${rel}: 文件头缺少「/// @file ${rel}」")
+    list(LENGTH lines line_count)
+    if(line_count EQUAL 0)
+        add_problem("${rel}:1: 文件为空，缺少文件头")
+        continue()
+    endif()
+    list(GET lines 0 first_line)
+    if(NOT first_line STREQUAL "/// @file ${rel}")
+        add_problem("${rel}:1: 第 1 行必须是「/// @file ${rel}」")
     endif()
 endforeach()
 report_section("文件头" "${before_headers}")
@@ -145,6 +139,27 @@ foreach(rel IN LISTS all_tracked)
 endforeach()
 report_section("脚本头" "${before_scripts}")
 
+# 1c. 注释语法：C++ 文件禁块注释 /**，文件头禁作者、日期、版本、版权字段。
+problem_count(before_syntax)
+foreach(rel IN LISTS tracked)
+    get_filename_component(extension "${rel}" EXT)
+    if(NOT extension STREQUAL ".h" AND NOT extension STREQUAL ".cpp")
+        continue()
+    endif()
+    read_lines("${REPO_ROOT}/${rel}" lines)
+    find_lines(lines "/**" block_comments)
+    foreach(number IN LISTS block_comments)
+        add_problem("${rel}:${number}: 禁用块注释 /**，改用 /// 或 //")
+    endforeach()
+    foreach(field IN ITEMS "@author" "@date" "@version" "@copyright")
+        find_lines(lines "${field}" field_lines)
+        foreach(number IN LISTS field_lines)
+            add_problem("${rel}:${number}: 文件头不写「${field}」，作者与时间由 git 记录")
+        endforeach()
+    endforeach()
+endforeach()
+report_section("注释语法" "${before_syntax}")
+
 # 2. 禁词扫描：源码、脚本与文档；规范本身与缺陷台账按定义要写这些词，跳过。
 set(BANNED_WORDS
     旧实现
@@ -152,6 +167,8 @@ set(BANNED_WORDS
     原实现
     曾经的
     历史遗留
+    迁移
+    废弃
     改为
     改成
     不再
@@ -159,6 +176,11 @@ set(BANNED_WORDS
     替换为
     升级为
     已经不支持
+    目前
+    暂时
+    暂时保留
+    以后可以
+    先这样
     BUG-
     P0-
     TODO
@@ -214,7 +236,7 @@ foreach(rel IN LISTS tracked)
 endforeach()
 report_section("锚点" "${before_anchors}")
 
-# 4. Markdown 相对链接必须存在；外链与同页锚点跳过。
+# 4. Markdown 相对链接必须存在；链接文字不能只是文件名（§4.4）；外链与同页锚点跳过。
 problem_count(before_links)
 foreach(rel IN LISTS tracked)
     if(NOT rel MATCHES "\\.md$")
@@ -232,6 +254,16 @@ foreach(rel IN LISTS tracked)
             string(LENGTH "${link}" total)
             math(EXPR target_length "${total} - ${begin} - 1")
             string(SUBSTRING "${link}" ${begin} ${target_length} target)
+            # 规范文件里贴着反例，跳过它的链接文字检查。
+            if(NOT rel STREQUAL "docs/COMMENTING.md")
+                string(FIND "${link}" "[" bracket)
+                math(EXPR text_begin "${bracket} + 1")
+                math(EXPR text_length "${open} - ${text_begin}")
+                string(SUBSTRING "${link}" ${text_begin} ${text_length} link_text)
+                if(link_text MATCHES "\\.(md|h|cpp|txt)$")
+                    add_problem("${rel}:${number}: 链接文字只写了文件名「${link_text}」，应说明目标")
+                endif()
+            endif()
             if(target MATCHES "^(https?://|mailto:|#)")
                 continue()
             endif()
