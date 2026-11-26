@@ -1,9 +1,10 @@
-// 命令行版爱因斯坦棋：在单进程内完成"选强度 → 选色 → 布阵 → 掷骰 / 走子"的完整对局，
-// 对手由 ai 模块扮演，存档通过 storage::SaveManager 写入 SQLite。
-// 交互约定：人类回合内输入 save 可存档、输入 exit 返回主菜单。
-// 启动参数 --seed <n> 固定 AI 随机种子，便于复现同一局；
-// --db <path> 显式指定存档库，避免存档位置随启动目录漂移。
-// 所有输入都按整行读取再自行解析，避免 operator>> 在输入缓冲区留下换行残渣。
+/// @file src/ui/cli/main_cli.cpp
+/// @brief 命令行对局：选档位、选色、布阵、掷骰与走子。
+///
+/// 对手由 ai 模块扮演，存档经 `storage::SaveManager` 写入 SQLite；人类回合内
+/// 输入 save 存档、exit 返回主菜单。`--seed` 固定随机种子便于复现同一局，
+/// `--db` 指定存档库。所有输入都按整行读取再自行解析，避免 `operator>>`
+/// 在输入缓冲区留下换行残渣。
 
 #include <array>
 #include <cstddef>
@@ -40,8 +41,7 @@ bool read_line(std::string& line) {
     return static_cast<bool>(std::getline(std::cin, line));
 }
 
-// 询问存档名并立即保存；直接回车则使用默认名 autosave。
-// level 是本局电脑强度，一并写进存档，读档时原样恢复。
+// 询问存档名并立即保存，直接回车使用 autosave；level 是当局档位，一并写入存档。
 // 返回 false 表示输入已结束，调用方应结束本局。
 bool save(storage::SaveManager& save_manager, const core::GameState& state, ai::Level level) {
     std::cout << "请输入存档名 (直接回车默认名为 autosave) : ";
@@ -63,9 +63,8 @@ bool save(storage::SaveManager& save_manager, const core::GameState& state, ai::
     return true;
 }
 
-// 让玩家选择电脑强度，选项由 ai::kAllLevels 生成，不在此写死档位。
-// 直接回车取 kDefaultLevel（最新版），与接口“不指定版本就用最新版”的默认一致。
-// 返回 std::nullopt 表示输入已结束，调用方应立即退出。
+// 让玩家选择档位，选项由 ai::kAllLevels 生成，不在此写死；直接回车取
+// kDefaultLevel。返回 std::nullopt 表示输入已结束，调用方应立即退出。
 std::optional<ai::Level> choose_ai_level() {
     std::cout << "【难度选择】\n";
     while (true) {
@@ -92,10 +91,8 @@ std::optional<ai::Level> choose_ai_level() {
     }
 }
 
-// 单局主循环，直到 phase 进入 GameOver 才返回。
-// 人类回合：先掷骰子，再输入"起点行 起点列 终点行 终点列"；输错不消耗回合。
-// AI 回合：自动掷骰并走一步，等待玩家按回车继续。
-// ai_level 是本局电脑强度，整局不变；存档时也会写进档案。
+// 单局主循环，直到 phase 进入 GameOver 才返回。人类回合先掷骰再输入走法，
+// 输错不消耗回合；AI 回合自动掷骰并走一步。ai_level 是当局档位，整局不变。
 void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level ai_level) {
     while (game.get_state().phase != core::Phase::GameOver) {
         // 每轮开头重绘棋盘：玩家能直接看到上一手（或读档）后的局面。
@@ -184,9 +181,9 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                 break;
             }
         } else {
-            // AI 回合：掷骰、搜索、落子都在同一段异常边界内。任何一步失败都
-            // 不再“判为放弃”继续对局，而是中止本局回主菜单，避免在可疑状态上
-            // 继续操作；Game 的失败路径都保证原状态不被部分修改。
+            // AI 回合：掷骰、搜索、落子都在同一段异常边界内。任何一步失败都中止
+            // 本局回主菜单，避免在可疑状态上继续操作；Game 的失败路径保证原状态
+            // 不被部分修改。
             try {
                 // 补上掷骰这一步，与人类回合保持相同的阶段流转。
                 if (game.get_state().phase == core::Phase::ThrowingDice) {
@@ -245,7 +242,7 @@ int main(int argc, char* argv[]) {
 #endif
     std::cout << "=== 爱因斯坦棋 (CLI) ===\n";
 
-    // --seed <n>：固定 AI 随机种子（BUG-10 的配套入口），同种子可复现同一局。
+    // --seed <n>：固定 AI 随机种子，同种子可复现同一局。
     // --db <path>：显式指定存档库；不指定时仍跟随当前工作目录。
     std::string db_path(storage::kDefaultDbPath);
     for (int i = 1; i < argc; ++i) {
@@ -355,8 +352,8 @@ int main(int argc, char* argv[]) {
                         auto saved = save_manager->load_game(saves[choice - 1]);
                         if (saved) {
                             game.load_game(saved->state);
-                            // 强度来自存档本身：同一份档案每次读都恢复成同一个档位，
-                            // 不会受主菜单流程里临时选过的强度影响。
+                            // 档位来自存档本身：同一份档案每次读都恢复成同一个档位，
+                            // 不受主菜单里临时选择的档位影响。
                             std::cout << "已开始游戏 (电脑强度: " << ai::level_name(saved->ai_level)
                                       << "; 在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
                             game_loop(game, *save_manager, saved->ai_level);
@@ -383,7 +380,7 @@ int main(int argc, char* argv[]) {
 
         std::cout << "已开始游戏 (在你的回合输入 save 可以存档, 输入 exit 可以退出)\n\n";
 
-        // 强度在选色前确定，之后整局（含存档）都使用它。
+        // 档位在选色前确定，之后整局（含存档）都使用它。
         const auto selected_level = choose_ai_level();
         if (!selected_level) {
             std::cout << "\n输入已结束，退出。\n";
