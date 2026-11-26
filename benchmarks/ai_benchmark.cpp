@@ -1,12 +1,11 @@
-// AI 性能与强度基准。
-//
-// 目的不是“跑得好看”，而是给后续 AI 优化留下可复现的基线：
-// - 单步延迟：开局、中局、残局各重复多次，输出中位数与 p95；
-// - 对随机基线胜率：搜索版与随机版交替执红/执蓝自对弈，固定骰子序列与种子；
-// - 所有局面先经过 core::require_valid_state，避免用非法状态测出假数据。
-//
-// 本目标只依赖 core/ai，不依赖 Qt，也不注册成 CTest 用例；正常构建会编译它，
-// 但 CI 不运行计时，避免把机器噪声当成功能回归。
+/// @file benchmarks/ai_benchmark.cpp
+/// @brief AI 单步延迟与对随机基线胜率的基准程序。
+///
+/// 输出两组数据：开局、降级选子、中局、残局四个局面的搜索延迟（中位数与 p95），
+/// 以及搜索版对随机版 40 局的胜负。所有局面在计时前经 core::require_valid_state
+/// 校验，计时结果只在同一台机器上横向比较。
+///
+/// 本目标不注册为 CTest 用例：正常构建会编译，CI 不运行，避免把机器噪声当成功能回归。
 
 #include <algorithm>
 #include <array>
@@ -30,9 +29,9 @@
 
 namespace {
 
-/// 单步延迟测量的搜索深度，与默认 AI 保持一致。
+/// 单步延迟测量使用的搜索深度，与默认档相同。
 constexpr int kSearchDepth = 4;
-/// 每种局面重复次数；20 次足以看出中位数与长尾，又不至于让 benchmark 太慢。
+/// 每种局面的重复次数；p95 在 20 个样本里只等于次大值，仅作粗略参考。
 constexpr int kLatencyRepeats = 20;
 /// 自对弈总局数；红蓝各一半，降低先手偏差。
 constexpr int kGameCount = 40;
@@ -41,7 +40,7 @@ constexpr int kMaxPlies = 160;
 /// 固定随机种子，保证同一次构建下可复现。
 constexpr unsigned int kRandomSeed = 0x5EED2026u;
 
-/// 在棋盘上放置一枚棋子；benchmark 只构造已知合法局面，不做规则校验。
+/// 在棋盘上放置一枚棋子；这里只摆坐标，局面合法性由 main 统一校验。
 void put_piece(core::GameState& state, std::size_t x, std::size_t y, core::Side side, int id) {
     state.board.at({x, y}) = core::Piece{side, id};
 }
@@ -159,7 +158,7 @@ LatencyStats measure_latency(const core::GameState& state, std::string_view name
     return stats;
 }
 
-/// 自对弈统计；draws 包含达到步数上限、无合法着法和异常中断。
+/// 自对弈统计；draws 包含达到步数上限、无合法着法和异常中断。errors 单独计数。
 struct SelfPlayStats {
     int search_wins = 0;
     int random_wins = 0;
