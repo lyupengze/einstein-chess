@@ -2,7 +2,7 @@
 /// @brief 存档档位回归：档位随存档保存、读档原样恢复，非法档位被拒绝。
 ///
 /// 直接操作临时 SQLite 文件：先用 SaveManager 正常存档，再借 sqlite_wrapper 把
-/// data 列改成缺字段或损坏值，观察 SaveManager 的解析行为。档位是必填字段，
+/// data 列写入缺字段或损坏值，观察 SaveManager 的解析行为。档位是必填字段，
 /// 缺失、越界或非整数都按损坏数据拒绝。相关背景见 `#save-level-overflow`。
 
 #include <cstdio>
@@ -77,7 +77,7 @@ std::string strip_ai_level(std::string data) {
     return data;
 }
 
-/// @brief 把尾部 AI 档位换成任意文本，构造越界值与非法文本两种损坏。
+/// @brief 把尾部 AI 档位写成任意文本，构造越界值与非法文本两种损坏。
 std::string replace_ai_level(std::string data, const std::string& replacement) {
     const auto space = last_field_start(data);
     const auto newline = data.find_last_of('\n');

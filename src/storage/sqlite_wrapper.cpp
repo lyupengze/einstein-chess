@@ -120,7 +120,7 @@ bool Statement::step() {
     } else if (rc == SQLITE_DONE) {
         return false;
     } else {
-        // 其余返回码（约束冲突、IO 错误等）统一升级为异常，
+        // 其余返回码（约束冲突、IO 错误等）统一抛成异常，
         // 调用方不必逐个检查 C 风格返回码。
         throw std::runtime_error("执行语句失败: " +
                                  std::string(sqlite3_errmsg(sqlite3_db_handle(stmt_))));

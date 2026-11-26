@@ -35,7 +35,7 @@ constexpr int kMaxDice = 6;
 // 棋子编号只有 1~6；超出范围的值不是“强一点的棋子”，而是协议错误。
 constexpr int kMaxPieceId = core::Board::kChessCount;
 
-// 把 JSON 数值严格转换成 int。
+// 把 JSON 数值严格解析为 int。
 //
 // nlohmann::json::get<int>() 会在 64 位整数超出 int 时静默截断，例如
 // 4294967297 会变成 1，足以让棋子编号/骰子/阵营绕过后续范围检查。

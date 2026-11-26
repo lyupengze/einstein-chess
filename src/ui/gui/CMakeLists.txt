@@ -42,7 +42,7 @@ target_link_libraries(einstein_gui PRIVATE einstein_gui_lib einstein_warnings)
 # AUTORCC 把 .qrc 编译进可执行文件本身，保证资源一定被注册。
 set_target_properties(einstein_gui PROPERTIES AUTOMOC ON AUTORCC ON)
 
-# Release 使用 Windows GUI 子系统，双击时不再附带控制台窗口；
+# Release 使用 Windows GUI 子系统，双击启动时不弹出控制台窗口；
 # Debug 仍保持 Console 子系统，便于查看日志和调试输出。
 # 生成器表达式让单配置（MinGW Makefiles）与多配置生成器都能正确判断配置。
 set_target_properties(einstein_gui PROPERTIES WIN32_EXECUTABLE "$<CONFIG:Release>")

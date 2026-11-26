@@ -1,3 +1,9 @@
+/// @file src/ui/gui/dialogs/save_load_dialog.cpp
+/// @brief 两种形态共用一套控件，按 mode_ 分支搭建与校验。
+///
+/// 打开即查库（list_saves），新存或删档后必须重新打开才能看到新列表；校验集中在
+/// on_confirm_clicked，不满足就留在对话框里，全部通过才 accept()。
+
 #include "save_load_dialog.h"
 
 #include <QLabel>
@@ -9,12 +15,6 @@
 #include <string>
 
 #include "storage/save_manager.h"
-
-/// @file src/ui/gui/dialogs/save_load_dialog.cpp
-/// @brief 两种形态共用一套控件，按 mode_ 分支搭建与校验。
-///
-/// 打开即查库（list_saves），新存或删档后必须重新打开才能看到新列表；校验集中在
-/// on_confirm_clicked，不满足就留在对话框里，全部通过才 accept()。
 
 namespace ui {
 

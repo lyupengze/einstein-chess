@@ -6,7 +6,7 @@
 #
 # 输入文件刻意包含各类错误：非法主菜单命令、空存档库、非法档位编号、
 # 非法颜色与非法布阵（数量不足/编号重复/数量过多），最后才是一组合法布阵。
-# 对局开始后不再喂输入，让 stdin 在“按回车掷骰子”处结束。
+# 对局开始后不喂输入，让 stdin 在“按回车掷骰子”处结束。
 
 if(NOT DEFINED EXE OR NOT DEFINED INPUT)
     message(FATAL_ERROR "cli_session_test.cmake requires -DEXE=<path> and -DINPUT=<path>")

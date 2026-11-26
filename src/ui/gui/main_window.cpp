@@ -1,3 +1,9 @@
+/// @file src/ui/gui/main_window.cpp
+/// @brief 搭页面栈并接好菜单的三条流程：新游戏、读档、返回主页。
+///
+/// 两段菜单流程用 lambda 而非成员槽：只连接一次且需要就地捕获 this。
+/// 对话框一律以 this 为父，模态执行期间主窗口不响应输入。
+
 #include "main_window.h"
 
 #include <QMessageBox>
@@ -8,12 +14,6 @@
 #include "dialogs/save_load_dialog.h"
 #include "dialogs/setup_dialog.h"
 #include "storage/save_manager.h"
-
-/// @file src/ui/gui/main_window.cpp
-/// @brief 搭页面栈并接好菜单的三条流程：新游戏、读档、返回主页。
-///
-/// 两段菜单流程用 lambda 而非成员槽：只连接一次且需要就地捕获 this。
-/// 对话框一律以 this 为父，模态执行期间主窗口不响应输入。
 
 namespace ui {
 
@@ -41,7 +41,7 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
 
         if (dialog.exec() == QDialog::Accepted) {
             // get_selected_side 的约定是 1=红、2=蓝，这里按 1/2 显式映射；
-            // 注意: 不要改成 static_cast<Side>(side_int)——那才会依赖枚举的数值顺序。
+            // 注意: 不要写成 static_cast<Side>(side_int)——那会依赖枚举的数值顺序。
             int side_int = dialog.get_selected_side();
             core::Side human_side = (side_int == 1) ? core::Side::Red : core::Side::Blue;
             auto player_layout = dialog.get_layout();

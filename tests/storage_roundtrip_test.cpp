@@ -176,7 +176,7 @@ int main() {
         expect(!manager.load_game("不存在的档位").has_value(), "不存在的槽位返回 nullopt");
 
         // 5. 保存前也要校验：不能把"能序列化但语义不自洽"的局面写进数据库。
-        //    这里复用满盘局面，只把发起方改成 None；若 serialize 没有校验，
+        //    这里复用满盘局面，只把发起方写成 None；若 serialize 没有校验，
         //    下一次 load_game 才会失败，问题被推迟到读档时。
         core::GameState invalid = full;
         invalid.player1_side = core::Side::None;

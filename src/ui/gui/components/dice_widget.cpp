@@ -54,7 +54,7 @@ void DiceWidget::paintEvent(QPaintEvent*) {
     painter.setBrush(Qt::white);
     painter.drawRoundedRect(dice_rect, size / 5, size / 5);
 
-    // 画点之前换成无边框画刷，否则每个点都会带一圈灰边。
+    // 画点之前改用无边框画刷，否则每个点都会带一圈灰边。
     painter.setPen(Qt::NoPen);
     painter.setBrush(QColor("#c0392b"));
 

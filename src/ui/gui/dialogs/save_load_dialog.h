@@ -13,7 +13,7 @@ namespace ui {
 /// @brief 对话框形态：Save 需要输入名称，Load 必须从列表里选一项。
 enum class DialogMode { Save, Load };
 
-/// @brief 存档对话框，按 DialogMode 切换成“保存”或“读取”两种界面。
+/// @brief 存档对话框，按 DialogMode 显示“保存”或“读取”两种界面。
 ///
 /// 构造时就查一次数据库（list_saves），因此新存或删档后要重新打开才会看到变化。
 /// Save 模式下列表只作参考，同名保存会先弹出覆盖确认；Load 模式下默认选中最近的一条。
