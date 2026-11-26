@@ -1,3 +1,6 @@
+/// @file src/core/rules.cpp
+/// @brief 选子、走法校验与胜负判定的实现。
+
 #include "rules.h"
 
 #include <array>
@@ -11,8 +14,7 @@ namespace core::rules {
 
 namespace {
 
-// 红蓝双方的三个合法方向。check_move 与 generate_legal_moves 共用这张表，
-// 避免"哪些方向能走"的知识在 core 与 AI 各存一份。
+// 双方的三个合法方向；check_move 与 generate_legal_moves 共用，避免规则重复。
 constexpr std::array<std::pair<int, int>, 3> kRedSteps{{{1, 0}, {0, 1}, {1, 1}}};
 constexpr std::array<std::pair<int, int>, 3> kBlueSteps{{{-1, 0}, {0, -1}, {-1, -1}}};
 
@@ -26,8 +28,8 @@ const std::array<std::pair<int, int>, 3>* steps_for(Side side) noexcept {
     return nullptr;
 }
 
-// Side::None 时返回 true，与旧实现"不触发方向拦截"的行为保持一致；
-// 正常调用不会走到这里，因为 get_selectable_ids 对 None 返回空集。
+// None 没有方向表：按“通过”处理，不额外编造方向错误。调用方在此之前
+// 已因无棋子或无骰子被拒绝，这里只是兜底。
 bool is_forward_step(Side side, int dx, int dy) noexcept {
     const auto* steps = steps_for(side);
     if (steps == nullptr) {
@@ -51,8 +53,6 @@ std::vector<int> get_selectable_ids(const GameState& state) {
     const int dice = *state.current_dice;
     const Side side = state.current_side;
 
-    // 选子口径收敛到 selectable_ids_for：同号在场时只动它，否则取
-    // 小于点数的最大编号和大于点数的最小编号，两者可以同时存在。
     const auto ids =
         selectable_ids_for(dice, [&](int id) { return state.board.has_piece(side, id); });
     std::vector<int> result;
@@ -110,8 +110,7 @@ std::vector<Move> generate_legal_moves(const GameState& state) {
         return moves;
     }
 
-    // 只枚举本回合可被选中的棋子，每个棋子最多尝试三个方向；
-    // 每个候选仍交给 check_move 做最终裁决，AI 不复制任何规则。
+    // 每个可选棋子最多尝试三个方向，候选仍交给 check_move 裁决。
     for (int id : get_selectable_ids(state)) {
         const auto from = state.board.find_piece(state.current_side, id);
         if (!from) {
@@ -139,7 +138,6 @@ void apply_move(GameState& state, Pos from, Pos to) {
         throw std::invalid_argument(err);
     }
 
-    // 直接覆盖落点（即吃子，可能是对方的也可能是己方的），再清空起点。
     state.board.at(to) = state.board.at(from);
     state.board.at(from) = {Side::None, 0};
 }

@@ -1,3 +1,6 @@
+/// @file src/core/board.cpp
+/// @brief 棋盘的构造、查询与布阵。
+
 #include "board.h"
 
 #include <array>
@@ -11,8 +14,6 @@
 
 namespace core {
 
-// std::array 的 value-initialization 会把每个 Piece 的 side 置为 None、id 置为 0，
-// 因此空棋盘不需要额外初始化逻辑。
 Board::Board() : cells_{} {
 }
 
@@ -29,14 +30,13 @@ const Piece& Board::at(const Pos& p) const {
     return cells_[p.x][p.y];
 }
 
-// 非 const 版本复用 const 版本的边界检查，避免两处逻辑漂移；
-// 因为已经确认坐标合法、且 this 指向真实对象，这里的 const_cast 是安全的。
+// 复用 const 版本的边界检查，避免两处逻辑漂移；对象本身非 const，转换安全。
 Piece& Board::at(const Pos& p) {
     return const_cast<Piece&>(static_cast<const Board*>(this)->at(p));
 }
 
-// 三个查询函数都是全盘 25 格扫描：棋盘极小，不值得为此维护额外的索引结构。
-// 注意：空格子的 id 恒为 0，因此 side 为红/蓝时按 id 查找传 0 不会命中。
+// 查询按全盘扫描：棋盘只有 25 格，不值得维护额外索引。
+// 空格子的 id 恒为 0，因此红/蓝方按 id 0 查找不会命中。
 bool Board::has_piece(Side side, int id) const {
     for (std::size_t i = 0; i < kSize; ++i) {
         for (std::size_t j = 0; j < kSize; ++j) {
@@ -87,9 +87,8 @@ void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) 
         seen[id - 1] = true;
     }
 
-    // 先清空该方全部棋子，再写入新布阵。这样即使调用方重复提交，
-    // 也不会把上一轮的棋子留在初始区之外，形成重复编号或超过 6 子。
-    // 清空放在所有校验之后，保证非法 layout 不会破坏原棋盘（强异常保证）。
+    // 先清空该方棋子再写入，重复调用是“替换”。清空放在校验之后，
+    // 非法 layout 不会破坏原棋盘（强异常保证）。
     for (std::size_t x = 0; x < kSize; ++x) {
         for (std::size_t y = 0; y < kSize; ++y) {
             Piece& piece = at({x, y});
@@ -99,10 +98,8 @@ void Board::setup_custom(Side side, const std::array<int, kChessCount>& layout) 
         }
     }
 
-    // 初始区六个格子的落位顺序：layout[0..5] 依次写入这里列出的坐标。
-    // 红方从左上角按行优先展开，蓝方从右下角按镜像顺序展开。
-    // 该顺序与 SetupDialog::get_index_in_region 的返回值一一对应，
-    // 改动任意一边都会让图形布阵与棋盘实际落子错位。
+    // 初始区落位顺序必须与 SetupDialog::get_index_in_region 一一对应，
+    // 改动任意一边都会让布阵界面与棋盘实际落子错位。
     constexpr std::array<Pos, kChessCount> kRedPos{
         {{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 1}, {2, 0}}};
     constexpr std::array<Pos, kChessCount> kBluePos{

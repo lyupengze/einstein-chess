@@ -1,3 +1,6 @@
+/// @file src/core/game.cpp
+/// @brief 对局门面的实现：阶段校验与结算。
+
 #include "game.h"
 
 #include <array>
@@ -40,7 +43,7 @@ void Game::submit_layout(Side side, const std::array<int, 6>& layout) {
         throw std::invalid_argument("布阵方必须是红方或蓝方");
     }
 
-    // 同侧只允许提交一次；重复提交会叠加已不在初始区的棋子。
+    // 同侧只允许提交一次：再次提交会覆盖已摆好的棋子，ready 标志也会失真。
     const bool already_ready =
         (side == game_state_.player1_side) ? game_state_.player1_ready : game_state_.player2_ready;
     if (already_ready) {
@@ -61,8 +64,7 @@ void Game::submit_layout(Side side, const std::array<int, 6>& layout) {
 }
 
 void Game::load_game(GameState game_state) {
-    // 即使调用方来自 storage，也不能假设它一定做过完整校验：
-    // 这里统一再过一遍状态机约束，非法局面在进入对局对象前就被拒绝。
+    // 即使调用方来自 storage 也重新校验：非法局面在进入对局对象前被拒绝。
     require_valid_state(game_state);
     game_state_ = game_state;
 }

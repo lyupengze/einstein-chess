@@ -1,3 +1,6 @@
+/// @file src/core/validation.cpp
+/// @brief 局面校验的实现。
+
 #include "validation.h"
 
 #include <array>
@@ -15,31 +18,26 @@ namespace core {
 
 namespace {
 
-/// @brief 判断阵营字段是否落在枚举定义的值域内（含 None）。
+// 阵营值域（含 None）。
 bool is_known_side(Side side) {
     return side == Side::None || side == Side::Red || side == Side::Blue;
 }
 
-/// @brief 判断某阵营是否是可以实际行棋的一方。
 bool is_playable_side(Side side) {
     return side == Side::Red || side == Side::Blue;
 }
 
-/// @brief 判断阶段字段是否落在枚举定义的值域内。
 bool is_known_phase(Phase phase) {
     return phase == Phase::LayOut || phase == Phase::ThrowingDice ||
            phase == Phase::Player1Thinking || phase == Phase::Player2Thinking ||
            phase == Phase::GameOver;
 }
 
-/// @brief 向问题列表追加一条记录。
 void add_issue(std::vector<StateIssue>& issues, std::string field, std::string message) {
     issues.push_back(StateIssue{std::move(field), std::move(message)});
 }
 
-/// @brief 校验棋盘格：空格必须 id=0；棋子必须是红/蓝且 id 在 1..6，同方不重复。
-/// @param issues 收集问题
-/// @param board 待校验棋盘
+// 校验棋盘格：空格的 id 必须为 0；棋子编号 1~6 且同方不重复。
 void validate_board(std::vector<StateIssue>& issues, const Board& board) {
     std::array<std::array<bool, Board::kChessCount + 1>, 2> seen{};
 
@@ -109,8 +107,7 @@ std::vector<StateIssue> validate_state(const GameState& state) {
 
     switch (state.phase) {
         case Phase::LayOut:
-            // 布阵阶段还没有行棋方，也绝不能已经双方就绪：后者会让对局永远
-            // 停在布阵界面，因为没有任何代码会再触发一次 check_both_ready。
+            // 布阵阶段没有行棋方；双方都已就绪会让对局永远停在布阵界面。
             if (state.current_side != Side::None) {
                 add_issue(issues, "current_side", "布阵阶段 current_side 必须为 None");
             }
@@ -167,9 +164,8 @@ std::vector<StateIssue> validate_state(const GameState& state) {
     const int red_count = state.board.count_pieces(Side::Red);
     const int blue_count = state.board.count_pieces(Side::Blue);
 
-    // 6. 棋盘与阶段/胜负的一致性。
-    // LayOut 允许空棋盘和部分棋子；check_winner 对"双方都 0 子"会误判，
-    // 因此只对 GameOver 和真正进行中的阶段做交叉校验。
+    // 6. 棋盘与阶段/胜负的一致性。LayOut 允许空棋盘；check_winner 对“双方都 0 子”
+    // 会误判，因此只对 GameOver 与进行中的阶段做交叉校验。
     if (state.phase == Phase::GameOver) {
         if (red_count == 0 && blue_count == 0) {
             add_issue(issues, "board", "终局不能双方都没有棋子");
