@@ -21,6 +21,7 @@
 | [`#gui-dialog-outside-try`](#gui-dialog-outside-try)       | 存档对话框在异常边界之外构造     |
 | [`#gui-stale-timer`](#gui-stale-timer)                     | 上一局的延迟回调落到新局         |
 | [`#gui-toast-fade`](#gui-toast-fade)                       | Toast 没有淡入淡出               |
+| [`#gui-combo-font-warning`](#gui-combo-font-warning)       | 强度下拉框展开时打印字体警告     |
 | [`#storage-bind-ignored`](#storage-bind-ignored)           | SQLite 参数绑定失败被忽略        |
 | [`#save-unchecked-state`](#save-unchecked-state)           | 存档字段各自合法但组合不可能     |
 | [`#core-invariant-gaps`](#core-invariant-gaps)             | 公共 API 不强制阶段顺序          |
@@ -131,6 +132,18 @@
 - **根因**：对子控件调用 `QWidget::setWindowOpacity` 只对顶层窗口生效。
 - **修复**：`9422138` 用容器叠加内层文字控件，透明度用 `QGraphicsOpacityEffect` 作用在容器上。
 - **回归**：`toast_fade`。
+- **来源**：无。
+
+### `#gui-combo-font-warning` 强度下拉框展开时打印字体警告
+
+- **现象**：启动 GUI 后点开强度下拉框，stderr 打印 `QFont::setPointSize: Point size <= 0 (-1),
+  must be greater than 0`；功能不受影响，启动、布阵对话框与对局页本身都不打印。
+- **触发**：打开布阵对话框，展开强度下拉框的候选列表。
+- **根因**：样式表给 `QComboBox` 写的是像素字号（`14px`），Qt 把它记成像素字号有效、`pointSize()`
+  为 -1；弹出层继承这份字体并再次按点字号套用，于是触发 `QFont::setPointSize(-1)`。
+- **修复**：`5d6da25` 把该规则改为 `font-size: 10.5pt`（96 DPI 下与 14px 等值），并在样式表
+  注释里写明单位要求。
+- **回归**：`gui_style`。
 - **来源**：无。
 
 ## 存储
