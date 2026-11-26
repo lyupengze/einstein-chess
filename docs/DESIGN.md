@@ -45,13 +45,25 @@
 - **代价与边界**：窗口在提示显示期间缩放，提示条会停在上一次的位置，直到下一次提示。
 - **何时重新考虑**：需要常驻通知栏，或需要跟随布局变化时。
 
-## Windows 控制台
+## GUI 的子系统
 
-- **选择**：Debug 使用 Console 子系统，Release 使用 `WIN32` 子系统；UTF-8 通过
-  `SetConsoleOutputCP` / `SetConsoleCP` 设置，不引入 `WriteConsoleW` 输出层。
-- **原因**：Debug 保留日志能力，Release 双击不弹黑框；避免为跨平台项目增加一套宽字符输出路径。
-- **代价与边界**：Release 没有控制台输出；控制台不支持 UTF-8 时中文仍可能显示异常（会打印警告）。
-- **何时重新考虑**：需要 Release 日志，或统一走 Unicode 控制台 API 时。
+- **选择**：`einstein_gui` 在 Release 配置下设置 `WIN32_EXECUTABLE`，Debug 保留 Console 子系统。
+- **原因**：Release 双击启动不弹出黑色控制台窗口；Debug 保留 `qDebug` 等标准输出的日志，便于排查。
+- **代价与边界**：Release 没有控制台，`qDebug` 与 `std::cerr` 的输出会被丢弃；该属性只在 Windows
+  链接时生效，其他平台没有这层区别。
+- **何时重新考虑**：需要在 Release 收集日志时——应写日志文件，而不是切回 Console 子系统。
+
+构建分支的细节见 [架构说明](ARCHITECTURE.md) 的平台分支。
+
+## CLI 的代码页
+
+- **选择**：`main_cli.cpp` 在 `_WIN32` 下调用 `SetConsoleOutputCP(CP_UTF8)` 与
+  `SetConsoleCP(CP_UTF8)`；两者任一失败只打印告警，不终止程序。
+- **原因**：Windows 控制台默认代码页通常不是 UTF-8，直接输出中文与棋盘符号会乱码；用 Win32 API
+  切换而不是 `system("chcp 65001")`，既不启动子进程，也避免 `chcp` 读走被重定向的 stdin 第一行。
+- **代价与边界**：只影响控制台显示，不影响程序写出的字节；重定向到文件时仍是 UTF-8 字节流。
+  终端字体缺字时仍可能显示方块。
+- **何时重新考虑**：需要支持非 UTF-8 终端，或统一走 `WriteConsoleW` 时。
 
 ## Botzone 错误处理
 
