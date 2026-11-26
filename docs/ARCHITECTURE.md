@@ -97,8 +97,8 @@ AI 回合：
 
 `core::apply_move_and_settle(const GameState&, Pos, Pos)` 是“落子 → 判胜 → 换手 → 清骰”的
 唯一实现，`Game::make_move()` 与 AI 内部的着法搜索都复用它。这样 GUI、CLI、Botzone 与搜索
-不会各自维护一套“走完子之后怎么变”的逻辑。胜负判定本身在 `rules::check_winner`，顺序是
-全灭优先、其次占角。
+不会各自维护一套“走完子之后怎么变”的逻辑。胜负条件与优先级见
+[棋盘规则](RULES.md) 第 6 节。
 
 ## 6. 校验分层
 
@@ -127,5 +127,12 @@ AI 回合：
 
 ## 8. 平台分支
 
-唯一的平台相关代码是 `src/ui/cli/main_cli.cpp` 里的 Windows 控制台代码页设置，用于让 UTF-8
-中文提示正常显示；其余代码不区分平台。
+平台差异只出现在两处，都不影响规则与存档格式：
+
+- **源码分支**：`src/ui/cli/main_cli.cpp` 用 `#ifdef _WIN32` 打开 Windows 控制台代码页，
+  让 UTF-8 中文提示在终端正常显示。
+- **构建分支**：`src/ui/gui/CMakeLists.txt` 的 `WIN32_EXECUTABLE "$<CONFIG:Release>"`，
+  Release 使用 Windows GUI 子系统、双击不附带控制台窗口，Debug 保留 Console 子系统以便
+  查看日志与调试输出。
+
+其余源码不区分平台。

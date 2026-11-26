@@ -7,6 +7,7 @@
 [![SQLite](https://img.shields.io/badge/SQLite-3.54.1-blue.svg?style=flat-square&logo=sqlite)](https://sqlite.org/)
 [![nlohmann/json](https://img.shields.io/badge/nlohmann%2Fjson-3.12.0-ff69b4.svg?style=flat-square)](https://github.com/nlohmann/json)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-red.svg?style=flat-square&logo=cmake)](https://cmake.org/)
+[![Verified on Windows · MSYS2 UCRT64](https://img.shields.io/badge/Verified-Windows%20%C2%B7%20MSYS2%20UCRT64-lightgrey.svg?style=flat-square)](docs/BUILD.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![CI](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml)
 
@@ -35,7 +36,8 @@
 - **走子方向**：红方向下、向右、向右下；蓝方向向上、向左、向左上，每步一格且不能越出棋盘。
 - **可以吃己方棋子**：落点上的棋子无论敌我都会被移除。这是规则允许的合法着法，不是实现缺漏，
   也不是本项目添加的变体。
-- **胜负**：一方棋子被全部吃光，或任一枚棋子到达对方目标角即获胜；全灭优先于占角。
+- **胜负**：一方棋子被全部吃光，或任一枚棋子到达对方目标角即获胜；两个条件不会指向不同
+  胜者，判定顺序不影响结果。
 
 ## 🚀 快速开始
 
@@ -69,6 +71,8 @@ cmake --build build --parallel 8
 
 ```text
 .
+├── .clang-format         # 格式基线，CI 用它做 --dry-run 检查
+├── .github/workflows/    # CI：构建、测试与格式检查
 ├── docs/                 # 规则、使用、构建、架构、存档、取舍、性能、协议、缺陷台账
 ├── src/
 │   ├── core/             # 纯 C++：棋盘、规则、局面校验、对局对象
@@ -102,7 +106,8 @@ cmake --build build --parallel 8
 
 - **AI 两档**：`ai::Level` 选择档位，默认档是搜索档；随机档在合法着法中均匀随机。搜索为固定
   深度的 Expectiminimax，不含 alpha-beta、置换表与时间预算。完整说明见 [设计取舍](docs/DESIGN.md)。
-- **验证平台单一**：只在 Windows + MSYS2 UCRT64（GCC 16.2、Qt 6.11）上实测，CI 也只覆盖该平台。
+- **验证平台单一**：构建、测试与运行只在 Windows + MSYS2 UCRT64（GCC 16.2、Qt 6.11）上验证，
+  CI 也只覆盖该平台；Linux 与 macOS 未验证，其他编译器在 `-Werror` 下的告警差异可能带来额外修改。
 - **Toast 是绝对定位浮层**：坐标只在弹出时计算一次，父窗口缩放后提示条会停在上一次的位置。
 
 ## 📄 许可证
