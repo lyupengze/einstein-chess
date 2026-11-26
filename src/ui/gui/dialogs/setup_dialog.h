@@ -10,6 +10,7 @@
 #include <array>
 
 #include "ai/ai.h"
+#include "core/board.h"
 
 namespace gui {
 
@@ -28,14 +29,14 @@ public:
     /// @return 1 表示红方（先手 / 左上），2 表示蓝方（后手 / 右下）
     /// @note 1/2 只是本对话框的约定，MainWindow 会按 1、2 显式映射到 core::Side，
     ///       不依赖 Side 的枚举数值。
-    int get_selected_side() const;
+    [[nodiscard]] int get_selected_side() const;
     /// @brief 六个编号的布阵结果。
     /// @return 下标 0~5 与 Board::setup_custom 的落位顺序一一对应
     /// @note 只有 accept() 之后取才有意义；对话框已保证六个编号互不重复且在 1~6。
-    std::array<int, 6> get_layout() const;
+    [[nodiscard]] std::array<int, core::Board::kChessCount> get_layout() const;
     /// @brief 玩家选择的电脑档位（界面文字称“强度”）。
     /// @return 下拉框当前项对应的 ai::Level；初值为 ai::kDefaultLevel
-    ai::Level get_selected_level() const;
+    [[nodiscard]] ai::Level get_selected_level() const;
 
 private slots:
     /// @brief 确认按钮：先查重复编号，全部通过才 accept()。
@@ -48,12 +49,13 @@ private slots:
     void on_grid_clicked(int x, int y);
 
 private:
-    QRadioButton* red_radio_;   ///< 红方（先手 / 左上），默认选中
-    QRadioButton* blue_radio_;  ///< 蓝方（后手 / 右下）
-    QComboBox* level_combo_;    ///< 电脑档位，条目由 ai::kAllLevels 生成
+    QRadioButton* red_radio_ = nullptr;   ///< 红方（先手 / 左上），默认选中
+    QRadioButton* blue_radio_ = nullptr;  ///< 蓝方（后手 / 右下）
+    QComboBox* level_combo_ = nullptr;    ///< 电脑档位，条目由 ai::kAllLevels 生成
 
-    QPushButton* grid_btns_[5][5];  ///< 网格按钮，下标即 x、y，与 Pos 同序
-    std::array<int, 6> layout_;     ///< 布阵结果；0 表示“该格尚未分配编号”
+    QPushButton* grid_btns_[core::Board::kSize]
+                           [core::Board::kSize]{};        ///< 网格按钮，下标即 x、y，与 Pos 同序
+    std::array<int, core::Board::kChessCount> layout_{};  ///< 布阵结果；0 表示“该格尚未分配编号”
 
     /// @brief 按当前阵营重画 5x5 网格：活动格着色并显示编号，其余格禁用清空。
     void update_grid_ui();

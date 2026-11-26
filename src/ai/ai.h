@@ -68,7 +68,7 @@ struct SearchConfig {
 /// 下标 i 对应己方第 i 个初始格（红方自左上、蓝方自右下按固定顺序排列）。
 /// @note 两个档位共用同一套随机布阵策略，因此本接口不接受 `Level`；
 ///       档位差异只体现在走子决策上。
-[[nodiscard]] std::array<int, 6> decide_layout();
+[[nodiscard]] std::array<int, core::Board::kChessCount> decide_layout();
 
 /// @brief 显式设置随机种子，便于测试/复现。
 /// 随机源本身是线程局部的，因此该种子只影响调用线程；

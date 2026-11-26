@@ -58,7 +58,7 @@ struct Piece {
 /// @brief 阵营的中文名，供 CLI 文本输出与 GUI 状态栏显示。
 /// @return 无 / 红方 / 蓝方 / 未知；返回值已带“方”字，拼接文案时不要再补。
 ///         default 分支兜住未来新增的阵营值，避免界面显示空串。
-inline std::string side_name(Side s) {
+[[nodiscard]] inline std::string side_name(Side s) {
     switch (s) {
         case Side::None:
             return "无";

@@ -41,11 +41,12 @@ private:
     /// @brief 从当前透明度渐变到全透明，结束后隐藏；定时器超时时调用。
     void fade_out();
 
-    QLabel* label_;                           ///< 文字与背景，样式表 QLabel#toast 的命中对象
-    QGraphicsOpacityEffect* opacity_effect_;  ///< 挂在容器上的透明度效果，动画驱动它的 opacity
-    QPropertyAnimation* animation_;           ///< 淡入/淡出共用一个动画，换方向时只改起止值
-    QTimer* timer_;                           ///< 单发定时器：超时后开始淡出；父对象是本控件
-    bool fading_out_ = false;                 ///< 动画结束时据此区分“淡入完”与“该隐藏了”
+    QLabel* label_ = nullptr;  ///< 文字与背景，样式表 QLabel#toast 的命中对象
+    QGraphicsOpacityEffect* opacity_effect_ =
+        nullptr;                               ///< 挂在容器上的透明度效果，动画驱动它的 opacity
+    QPropertyAnimation* animation_ = nullptr;  ///< 淡入/淡出共用一个动画，换方向时只改起止值
+    QTimer* timer_ = nullptr;                  ///< 单发定时器：超时后开始淡出；父对象是本控件
+    bool fading_out_{false};                   ///< 动画结束时据此区分“淡入完”与“该隐藏了”
 };
 
 }  // namespace gui

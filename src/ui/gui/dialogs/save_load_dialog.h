@@ -31,20 +31,20 @@ public:
     /// @return Save 模式的存档名
     /// @throws std::logic_error 在 Load 模式调用；这是调用方违反契约，
     ///         不应伪装成合法的空名字
-    std::string get_save_name() const;
+    [[nodiscard]] std::string get_save_name() const;
 
     /// @brief 取出列表里当前选中的存档名。
     /// @return 选中的名字；没有选中任何一项时返回空串
-    std::string get_selected_name() const;
+    [[nodiscard]] std::string get_selected_name() const;
 
 private slots:
     /// @brief 确认按钮：先做“名称非空 / 必须选中一项 / 同名覆盖确认”的校验，通过才 accept()。
     void on_confirm_clicked();
 
 private:
-    DialogMode mode_;                  ///< 形态标记，所有分支都靠它区分
-    QListWidget* list_widget_;         ///< 已有存档名列表，内容来自 SaveManager::list_saves
-    QLineEdit* name_input_ = nullptr;  ///< 仅 Save 模式创建的名称输入框
+    DialogMode mode_;                     ///< 形态标记，所有分支都靠它区分
+    QListWidget* list_widget_ = nullptr;  ///< 已有存档名列表，内容来自 SaveManager::list_saves
+    QLineEdit* name_input_ = nullptr;     ///< 仅 Save 模式创建的名称输入框
 };
 
 }  // namespace gui

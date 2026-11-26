@@ -346,9 +346,9 @@ void set_random_seed(unsigned int seed) {
     engine() = std::mt19937(seed);
 }
 
-std::array<int, 6> decide_layout() {
+std::array<int, core::Board::kChessCount> decide_layout() {
     // 先构造顺序排列再打乱，结果天然是 1~6 的合法排列，无需额外校验。
-    std::array<int, 6> layout{1, 2, 3, 4, 5, 6};
+    std::array<int, core::Board::kChessCount> layout{1, 2, 3, 4, 5, 6};
     std::shuffle(layout.begin(), layout.end(), engine());
     return layout;
 }

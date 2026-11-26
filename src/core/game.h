@@ -33,7 +33,7 @@ public:
     /// @throws std::logic_error 不在 LayOut 阶段、该方已提交过布阵
     /// @throws std::invalid_argument side 不是红蓝，或 layout 不是 1~6 的排列
     /// @note 双方都就绪后自动进入 ThrowingDice
-    void submit_layout(Side side, const std::array<int, 6>& layout);
+    void submit_layout(Side side, const std::array<int, Board::kChessCount>& layout);
 
     /// @brief 从存档恢复整局状态。
     /// @throws std::invalid_argument 状态不满足 core::validate_state 的约束

@@ -82,7 +82,8 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai
     toast_ = new ToastWidget(this);
 }
 
-void GameWidget::start_new_game(core::Side human_side, const std::array<int, 6>& human_layout,
+void GameWidget::start_new_game(core::Side human_side,
+                                const std::array<int, core::Board::kChessCount>& human_layout,
                                 ai::Level ai_level) {
     // 先取消上一局排队的回调，否则旧的对局意图会落到新局。
     cancel_pending_actions();
@@ -161,7 +162,7 @@ void GameWidget::on_roll_dice_timeout() {
     } catch (const std::exception& e) {
         // 正常路径不可达（按钮按阶段禁用）；失败后也必须 update_ui()，否则按钮停在禁用态。
         qDebug() << "掷骰子失败:" << e.what();
-        show_message(QString("掷骰失败: ") + e.what());
+        show_message(QStringLiteral("掷骰失败: ") + QString::fromUtf8(e.what()));
         update_ui();
     }
 }
@@ -239,14 +240,14 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
 
             // 用快照读终点：落子后棋盘那格已是己方棋子，只有快照还留着被吃的棋子。
             auto target_piece = state.board.at(pos);
-            QString log = QString("你: (%1,%2)->(%3,%4)")
+            QString log = QStringLiteral("你: (%1,%2)->(%3,%4)")
                               .arg(from_pos.x)
                               .arg(from_pos.y)
                               .arg(pos.x)
                               .arg(pos.y);
             // 规则允许吃己方棋子，所以“吃”后面可能是己方编号。
             if (target_piece.side != core::Side::None) {
-                log += QString(" 吃 %1%2")
+                log += QStringLiteral(" 吃 %1%2")
                            .arg(target_piece.side == core::Side::Red ? "R" : "B")
                            .arg(target_piece.id);
             }
@@ -278,7 +279,7 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
             }
             selected_pos_ = std::nullopt;
             update_ui();
-            show_message(QString("移动失败: ") + e.what());
+            show_message(QStringLiteral("移动失败: ") + QString::fromUtf8(e.what()));
         }
     } else {
         // 未选中任何棋子：尝试选中点击格上的己方棋子。
@@ -385,7 +386,7 @@ void GameWidget::handle_ai_turn() {
                 game_.roll_dice();
             } catch (const std::exception& e) {
                 qDebug() << "电脑掷骰失败:" << e.what();
-                abort_game(QString("电脑掷骰失败: %1").arg(e.what()));
+                abort_game(QStringLiteral("电脑掷骰失败: %1").arg(QString::fromUtf8(e.what())));
                 return;
             }
             update_ui();
@@ -406,13 +407,13 @@ void GameWidget::handle_ai_turn() {
 
         // 落子前算好日志（落子后读不到被吃的棋子），但先不写列表，避免失败时留下假记录。
         auto target_piece = game_.get_state().board.at(move.to);
-        QString log = QString("电脑: (%1,%2)->(%3,%4)")
+        QString log = QStringLiteral("电脑: (%1,%2)->(%3,%4)")
                           .arg(move.from.x)
                           .arg(move.from.y)
                           .arg(move.to.x)
                           .arg(move.to.y);
         if (target_piece.side != core::Side::None) {
-            log += QString(" 吃 %1%2")
+            log += QStringLiteral(" 吃 %1%2")
                        .arg(target_piece.side == core::Side::Red ? "R" : "B")
                        .arg(target_piece.id);
         }
@@ -422,7 +423,7 @@ void GameWidget::handle_ai_turn() {
         update_ui();
     } catch (const std::exception& e) {
         qDebug() << "AI 异常:" << e.what();
-        abort_game(QString("电脑走子失败: %1").arg(e.what()));
+        abort_game(QStringLiteral("电脑走子失败: %1").arg(QString::fromUtf8(e.what())));
         return;
     }
 
@@ -458,7 +459,7 @@ void GameWidget::update_ui() {
     // 中止优先于一切：不显示回合文案，也不允许掷骰。
     if (game_aborted_) {
         status_label_->setText(
-            QString("⚠️ 对局异常：%1；请返回主页后重新开局或读档。").arg(abort_reason_));
+            QStringLiteral("⚠️ 对局异常：%1；请返回主页后重新开局或读档。").arg(abort_reason_));
         roll_btn_->setEnabled(false);
         return;
     }
@@ -466,8 +467,8 @@ void GameWidget::update_ui() {
     // 文案与按钮必须成对更新，否则会出现“请掷骰子”却按钮灰的矛盾界面。
     if (state.phase == core::Phase::GameOver) {
         // 终局：展示胜者并禁用掷骰后直接返回。
-        status_label_->setText(
-            QString("🏆 %1 获胜").arg(QString::fromStdString(core::side_name(state.winner))));
+        status_label_->setText(QStringLiteral("🏆 %1 获胜")
+                                   .arg(QString::fromStdString(core::side_name(state.winner))));
         roll_btn_->setEnabled(false);
         return;
     }
@@ -475,7 +476,7 @@ void GameWidget::update_ui() {
     // 思考阶段理论上必有骰子，但存档可能自相矛盾，用 "?" 兜底而不直接解引用
     // optional；成因见 `#save-unchecked-state`。
     const QString dice_text =
-        state.current_dice ? QString::number(*state.current_dice) : QString("?");
+        state.current_dice ? QString::number(*state.current_dice) : QStringLiteral("?");
 
     if (state.current_side == state.player1_side) {
         if (state.phase == core::Phase::ThrowingDice) {

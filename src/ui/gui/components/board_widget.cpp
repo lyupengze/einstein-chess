@@ -18,8 +18,11 @@ namespace gui {
 
 namespace {
 
+/// @brief 网格边长，取自 core::Board::kSize，绘制循环统一引用它。
+constexpr int kSide{static_cast<int>(core::Board::kSize)};
+
 // 棋盘几何参数。绘制与命中判定共用这一份计算，边界一律用 span：
-// span = cell_size * 5 才是棋盘实际覆盖的边长，min(w, h) 的整除余量不算棋盘。
+// span = cell_size * kSide 才是棋盘实际覆盖的边长，min(w, h) 的整除余量不算棋盘。
 // 若拿 board_size 判边界，最右/最下一小条会把点击换算成下标 5 并越界。
 struct BoardGeometry {
     int cell_size = 0;  ///< 单格边长。
@@ -31,8 +34,8 @@ struct BoardGeometry {
 BoardGeometry compute_geometry(int widget_width, int widget_height) {
     BoardGeometry geometry;
     const int board_size = std::min(widget_width, widget_height);
-    geometry.cell_size = board_size / 5;
-    geometry.span = geometry.cell_size * 5;
+    geometry.cell_size = board_size / kSide;
+    geometry.span = geometry.cell_size * kSide;
     // 按 span 而不是 board_size 居中：上限最多 4 像素的整除余量平均分到两侧，
     // 保证网格、区域填充与点击判定共用同一条边。
     geometry.offset_x = (widget_width - geometry.span) / 2;
@@ -81,8 +84,8 @@ void BoardWidget::paintEvent(QPaintEvent*) {
 
     // 第一层：25 个格子按 (row + col) 的奇偶交替填色，得到经典棋盘纹；
     // 这里的 row/col 就是 Pos.x / Pos.y，屏幕位置按 (列→横、行→纵) 摆放。
-    for (int row = 0; row < 5; ++row) {
-        for (int col = 0; col < 5; ++col) {
+    for (int row = 0; row < kSide; ++row) {
+        for (int col = 0; col < kSide; ++col) {
             QColor cell_color = ((row + col) % 2 == 0) ? QColor("#ecf0f1") : QColor("#bdc3c7");
             painter.fillRect(offset_x + col * cell_size, offset_y + row * cell_size, cell_size,
                              cell_size, cell_color);
@@ -123,7 +126,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
 
     // 第三层：6 横 + 6 纵的网格线（i 取 0~5，四条边也算在内），灰线 1 像素。
     painter.setPen(QPen(QColor("#95a5a6"), 1));
-    for (int i = 0; i <= 5; ++i) {
+    for (int i = 0; i <= kSide; ++i) {
         painter.drawLine(offset_x, offset_y + i * cell_size, offset_x + board_size,
                          offset_y + i * cell_size);
         painter.drawLine(offset_x + i * cell_size, offset_y, offset_x + i * cell_size,

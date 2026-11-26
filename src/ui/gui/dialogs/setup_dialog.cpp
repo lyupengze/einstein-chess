@@ -16,6 +16,15 @@
 
 namespace gui {
 
+namespace {
+
+/// @brief 网格边长，取自 core::Board::kSize。
+constexpr int kSide{static_cast<int>(core::Board::kSize)};
+/// @brief 每方棋子数，取自 core::Board::kChessCount。
+constexpr int kPieces{static_cast<int>(core::Board::kChessCount)};
+
+}  // namespace
+
 SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle("布阵阶段");
     // 固定尺寸：网格是 5 列各 60px 的按钮，窗口可缩放会把按钮压变形。
@@ -61,8 +70,8 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     auto* grid_layout = new QGridLayout();
     grid_layout->setSpacing(2);
 
-    for (int i = 0; i < 5; ++i) {
-        for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < kSide; ++i) {
+        for (int j = 0; j < kSide; ++j) {
             grid_btns_[i][j] = new QPushButton(this);
             grid_btns_[i][j]->setFixedSize(60, 60);
             grid_btns_[i][j]->setStyleSheet(
@@ -159,8 +168,8 @@ void SetupDialog::on_side_changed() {
 void SetupDialog::update_grid_ui() {
     bool is_red = red_radio_->isChecked();
 
-    for (int i = 0; i < 5; ++i) {
-        for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < kSide; ++i) {
+        for (int j = 0; j < kSide; ++j) {
             bool active = is_red ? is_red_region(i, j) : is_blue_region(i, j);
 
             if (active) {
@@ -175,8 +184,9 @@ void SetupDialog::update_grid_ui() {
 
                 // 活动格用阵营色区分（红 #e74c3c / 蓝 #3498db），文字用白色。
                 grid_btns_[i][j]->setStyleSheet(
-                    QString("background-color: %1; color: white; border-radius: 4px; font-size: "
-                            "20px; font-weight: bold;")
+                    QStringLiteral(
+                        "background-color: %1; color: white; border-radius: 4px; font-size: "
+                        "20px; font-weight: bold;")
                         .arg(is_red ? "#e74c3c" : "#3498db"));
             } else {
                 // 非活动格：禁用、清空文字、压成深灰底，视觉上退到背景里去。
@@ -199,14 +209,14 @@ void SetupDialog::on_grid_clicked(int x, int y) {
 
     // (v % 6) + 1 实现 1->2->…->6->1 的循环：取值域始终是 1~6，0 只作为“未分配”存在。
     // 注意: 这里只改被点的那一格，不会替别的格子避让，重复编号留到确认时校验。
-    layout_[idx] = (layout_[idx] % 6) + 1;
+    layout_[idx] = (layout_[idx] % kPieces) + 1;
     grid_btns_[x][y]->setText(QString::number(layout_[idx]));
 }
 
 void SetupDialog::on_confirm_clicked() {
     // seen 直接用编号当下标（1~6），索引 0 空置不用。
-    bool seen[7] = {false};
-    for (int i = 0; i < 6; ++i) {
+    std::array<bool, kPieces + 1> seen{};
+    for (int i = 0; i < kPieces; ++i) {
         if (seen[layout_[i]]) {
             // 有重复就留在对话框里，让玩家继续点格子调整。
             QMessageBox::warning(this, "布阵错误", "棋子编号不能重复，请点击棋盘上的格子调整。");
@@ -224,7 +234,7 @@ int SetupDialog::get_selected_side() const {
     return red_radio_->isChecked() ? 1 : 2;
 }
 
-std::array<int, 6> SetupDialog::get_layout() const {
+std::array<int, core::Board::kChessCount> SetupDialog::get_layout() const {
     return layout_;
 }
 

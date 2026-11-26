@@ -170,7 +170,9 @@ foreach(rel IN LISTS tracked)
         continue()
     endif()
     get_filename_component(extension "${rel}" EXT)
-    if(extension MATCHES "^\\.(h|cpp|cmake|txt)$" OR rel MATCHES "^docs/.*\\.md$" OR rel STREQUAL "README.md")
+    if(extension MATCHES "^\\.(h|cpp|cmake|txt)$"
+       OR rel MATCHES "^docs/.*\\.md$"
+       OR rel STREQUAL "README.md")
         read_lines("${REPO_ROOT}/${rel}" lines)
         foreach(word IN LISTS BANNED_WORDS)
             find_lines(lines "${word}" hit_lines)

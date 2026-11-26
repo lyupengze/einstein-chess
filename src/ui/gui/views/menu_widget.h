@@ -26,8 +26,8 @@ signals:
     void load_game_clicked();
 
 private:
-    QPushButton* start_btn_;  ///< 开始新游戏，沿用 style.qss 的蓝色主按钮配色
-    QPushButton* load_btn_;   ///< 读取存档，单独压成灰底以弱化视觉权重
+    QPushButton* start_btn_ = nullptr;  ///< 开始新游戏，沿用 style.qss 的蓝色主按钮配色
+    QPushButton* load_btn_ = nullptr;   ///< 读取存档，单独压成灰底以弱化视觉权重
 };
 
 }  // namespace gui

@@ -332,7 +332,7 @@ int main(int argc, char* argv[]) {
             }
 
             std::cout << "【可用存档】\n";
-            for (size_t i = 0; i < saves.size(); ++i) {
+            for (std::size_t i = 0; i < saves.size(); ++i) {
                 std::cout << i + 1 << ". " << saves[i] << "\n";
             }
             std::cout << "请选择要读取的存档编号: ";
@@ -435,7 +435,7 @@ int main(int argc, char* argv[]) {
                 std::cout << "\n输入已结束，退出。\n";
                 return 0;
             }
-            std::array<int, 6> player_layout{};
+            std::array<int, core::Board::kChessCount> player_layout{};
             if (!cli::parse_int_array(layout_input, player_layout)) {
                 std::cout << "命令不合法\n\n";
                 continue;

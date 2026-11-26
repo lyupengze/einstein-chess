@@ -19,3 +19,4 @@ DerivePointerAlignment: false
 NamespaceIndentation: None
 AccessModifierOffset: -4
 SortIncludes: CaseSensitive
+InsertNewlineAtEOF: true

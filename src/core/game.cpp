@@ -31,7 +31,7 @@ void Game::prepare_new_game(Side player1_side) {
     game_state_.phase = Phase::LayOut;
 }
 
-void Game::submit_layout(Side side, const std::array<int, 6>& layout) {
+void Game::submit_layout(Side side, const std::array<int, Board::kChessCount>& layout) {
     // 只有布阵阶段可以提交；否则会在对局中途覆盖棋盘，甚至让 GameOver "复活"。
     if (game_state_.phase != Phase::LayOut) {
         throw std::logic_error("提交布阵要求处于布阵阶段");

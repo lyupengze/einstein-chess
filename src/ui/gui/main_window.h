@@ -23,9 +23,9 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
 
 private:
-    QStackedWidget* stacked_widget_;  ///< 页面栈，切页只换 currentWidget，不重建页面
-    MenuWidget* menu_widget_;         ///< 菜单页，常驻栈中
-    GameWidget* game_widget_;         ///< 对局页，常驻栈中，返回主页后 game_ 仍保留
+    QStackedWidget* stacked_widget_ = nullptr;  ///< 页面栈，切页只换 currentWidget，不重建页面
+    MenuWidget* menu_widget_ = nullptr;         ///< 菜单页，常驻栈中
+    GameWidget* game_widget_ = nullptr;         ///< 对局页，常驻栈中，返回主页后 game_ 仍保留
 };
 
 }  // namespace gui

@@ -37,7 +37,8 @@ public:
     /// @param human_side 人类的阵营，另一阵营自动交给 AI
     /// @param human_layout 人类布阵，下标 0~5 对应 Board::setup_custom 的落位顺序
     /// @param ai_level 本局电脑档位，来自布阵对话框；整局保持不变
-    void start_new_game(core::Side human_side, const std::array<int, 6>& human_layout,
+    void start_new_game(core::Side human_side,
+                        const std::array<int, core::Board::kChessCount>& human_layout,
                         ai::Level ai_level);
     /// @brief 用存档快照覆盖当前对局；若快照停在 AI 回合会立刻把回合交给 AI。
     /// @param state 从 SaveManager 读出的完整状态
@@ -114,19 +115,19 @@ private:
     /// @return 由 core::rules::check_move 逐格试出的结果，含己方棋子所在格
     std::vector<core::Pos> get_reachable_positions(core::Pos from) const;
 
-    core::Game game_;                         ///< 唯一的对局对象，所有规则进出的门
-    ai::Level ai_level_ = ai::kDefaultLevel;  ///< 本局电脑档位；开新局/读档时写入，之后不变
-    bool game_aborted_ = false;               ///< true 时对局因电脑回合异常而中止，禁止继续操作
-    QString abort_reason_;                    ///< 中止原因，仅在 game_aborted_ 为 true 时有效
-    BoardWidget* board_widget_;               ///< 棋盘绘制者，也是 cell_clicked 的来源
-    DiceWidget* dice_widget_;                 ///< 骰子点数展示，nullopt 表示未掷
-    QLabel* status_label_;                    ///< 顶部状态文案
-    ToastWidget* toast_;                      ///< 悬浮提示，构造末尾创建并先隐藏
-    QPushButton* roll_btn_;                   ///< 掷骰子，可用性完全由 update_ui() 决定
-    QPushButton* exit_btn_;                   ///< 返回主页，任何时候都可用
-    QPushButton* save_btn_;                   ///< 保存；未开局/中止时禁用，其余时刻可点
-    QListWidget* history_list_;               ///< 走子历史，按发生顺序追加
-    std::optional<core::Pos> selected_pos_;   ///< 人类已选起点；nullopt 表示未选
+    core::Game game_;                        ///< 唯一的对局对象，所有规则进出的门
+    ai::Level ai_level_{ai::kDefaultLevel};  ///< 本局电脑档位；开新局/读档时写入，之后不变
+    bool game_aborted_{false};               ///< true 时对局因电脑回合异常而中止，禁止继续操作
+    QString abort_reason_;                   ///< 中止原因，仅在 game_aborted_ 为 true 时有效
+    BoardWidget* board_widget_ = nullptr;    ///< 棋盘绘制者，也是 cell_clicked 的来源
+    DiceWidget* dice_widget_ = nullptr;      ///< 骰子点数展示，nullopt 表示未掷
+    QLabel* status_label_ = nullptr;         ///< 顶部状态文案
+    ToastWidget* toast_ = nullptr;           ///< 悬浮提示，构造末尾创建并先隐藏
+    QPushButton* roll_btn_ = nullptr;        ///< 掷骰子，可用性完全由 update_ui() 决定
+    QPushButton* exit_btn_ = nullptr;        ///< 返回主页，任何时候都可用
+    QPushButton* save_btn_ = nullptr;        ///< 保存；未开局/中止时禁用，其余时刻可点
+    QListWidget* history_list_ = nullptr;    ///< 走子历史，按发生顺序追加
+    std::optional<core::Pos> selected_pos_;  ///< 人类已选起点；nullopt 表示未选
 
     /// 延迟动作全部用成员 QTimer 而不是 QTimer::singleShot：
     /// singleShot 没有句柄，开了新局或读了档也取消不掉，旧回调会落到新局上。
@@ -136,9 +137,9 @@ private:
     /// 三段延迟允许测试通过 set_action_delays 覆盖；产品默认值即下面的初值，
     /// 写成成员而不是散在 on_roll_dice_clicked / trigger_ai_if_needed / handle_ai_turn
     /// 里的字面量，测试才能把整条链路压到毫秒级而不必 sleep 真实时长。
-    int roll_delay_ms_ = 400;        ///< on_roll_dice_clicked 里真正掷骰前的等待
-    int after_move_delay_ms_ = 500;  ///< 人类走子后到 AI 开始回合的等待
-    int think_delay_ms_ = 800;       ///< AI 掷骰后到落子的等待
+    int roll_delay_ms_{400};        ///< on_roll_dice_clicked 里真正掷骰前的等待
+    int after_move_delay_ms_{500};  ///< 人类走子后到 AI 开始回合的等待
+    int think_delay_ms_{800};       ///< AI 掷骰后到落子的等待
 };
 
 }  // namespace gui
