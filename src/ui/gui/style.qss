@@ -86,14 +86,16 @@ QLineEdit {
     font-size: 14px;
 }
 
-/* 下拉框（电脑强度）：与输入框同一套深色底 + 蓝色描边 */
+/* 下拉框（电脑强度）：与输入框同一套深色底 + 蓝色描边。
+   字号必须用 pt：写成 px 时，弹出列表在展开时套用一个 pointSize 为 -1
+   的字体，Qt 会打印 QFont::setPointSize 警告。 */
 QComboBox {
     background-color: #1a252f;
     color: #ecf0f1;
     border: 1px solid #3498db;
     border-radius: 5px;
     padding: 6px 10px;
-    font-size: 14px;
+    font-size: 10.5pt;
     min-width: 160px;
 }
 
