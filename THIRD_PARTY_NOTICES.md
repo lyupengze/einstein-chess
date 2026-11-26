@@ -1,45 +1,24 @@
 # 第三方组件与许可证说明
 
-本项目自身以 **MIT License** 发布，完整文本见根目录 [LICENSE](LICENSE)。
+本项目以 **MIT License** 发布，全文见 [项目许可证](LICENSE)。本文件说明仓库里包含哪些第三方代码、构建时依赖哪些组件，以及分发二进制时需要附带什么。它不是法律意见；具体义务以各许可证原文为准。
 
-本文件列出项目使用或依赖的第三方组件、版本、许可证与分发方式，供使用者、二次分发者和课程评审参考。它不是法律意见；如果要把本项目打包成二进制分发，请按下面各节的要求保留相应声明。
+## 仓库内置的第三方代码
 
-## Qt 6
+这些文件随仓库一起分发，使用时需要保留各自的许可证与版权声明。
 
-- **版本**：Qt 6.11.2（开发环境实测版本）；CI 由 MSYS2 包管理器安装 Qt6，不固定小版本
-- **使用模块**：Qt6 Widgets（及其依赖的 Core、Gui 模块）
-- **许可证**：LGPLv3（本项目按 Qt 的 LGPLv3 选项使用；Qt 同时提供 GPLv3 与商业许可）
-- **分发方式**：**构建时外部依赖，本仓库不包含 Qt 的源码、DLL、静态库或其他二进制文件。** 构建 GUI 时由 CMake 的 `find_package(Qt6)` 在用户环境中查找 Qt。
-- **链接方式**：当前构建按动态链接使用 Qt 库；动态链接满足 LGPLv3 对“用户可以替换库”的要求。
-- **项目主页**：<https://www.qt.io/>
-- **LGPLv3 文本**：<https://www.gnu.org/licenses/lgpl-3.0.html>
-- **Qt 源码**：<https://code.qt.io/>
-
-### 如果分发包含 Qt 的二进制
-
-仅发布本仓库源码时，不需要在仓库中附带 LGPLv3 全文；但**如果发布便携包，或在压缩包中附带 `Qt6Core.dll`、`Qt6Widgets.dll` 等 Qt 二进制**，则需要：
-
-1. 附上 LGPLv3 全文（以及 LGPLv3 所引用的 GPLv3 文本）；
-2. 保留 Qt 的版权声明与许可证声明；
-3. 保留用户替换 Qt 动态库的能力（不要用静态链接或反规避手段锁死）；
-4. 按 LGPLv3 的要求提供 Qt 源码的获取方式，或附上相应源码/书面要约；
-5. 在显著位置说明该二进制使用了 Qt，并给出获取 Qt 源码与许可证的途径。
-
-使用 `windeployqt` 生成便携包时，建议把上述材料放在 `licenses/` 目录，并与 `THIRD_PARTY_NOTICES.md` 一起分发。
-
-## SQLite
+### SQLite
 
 - **版本**：3.54.1
 - **许可证**：Public Domain（SQLite 作者明确声明放弃版权）
-- **分发方式**：源码内置，位于 `third_party/sqlite/`，以 amalgamation 形式随仓库提供。
+- **位置**：`third_party/sqlite/`，以 amalgamation 形式内置
 - **项目主页**：<https://www.sqlite.org/>
-- **说明**：Public Domain 不要求署名或附带许可证文本；此处列出是出于透明与致谢。项目自身不修改 SQLite 的许可证声明。
+- **说明**：Public Domain 不要求署名或附带许可证文本；此处列出是出于透明与致谢。项目不修改 SQLite 的许可证声明。
 
-## nlohmann/json
+### nlohmann/json
 
 - **版本**：3.12.0
 - **许可证**：MIT
-- **分发方式**：单头文件内置，位于 `third_party/nlohmann/json.hpp`。
+- **位置**：`third_party/nlohmann/json.hpp`，单头文件内置
 - **项目主页**：<https://github.com/nlohmann/json>
 - **版权声明**：Copyright (c) 2013-2026 Niels Lohmann
 
@@ -69,6 +48,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## 工具链
+## 构建时依赖
 
-CMake、GCC/MinGW、Ninja/Make 等构建工具不随本项目源码分发，也不属于运行时依赖；它们的许可证不适用于本项目的源码。若分发由这些工具生成的二进制，只需遵守上面 Qt、SQLite、nlohmann/json 的条款。
+这些组件不随仓库分发，由构建环境提供。只使用源码时，不需要在仓库里附带它们的许可证全文。
+
+### Qt 6
+
+- **版本**：6.11.2（开发与测试环境实测版本）；CI 由 MSYS2 包管理器安装 Qt6，不固定小版本
+- **使用模块**：Core、Gui、Widgets
+- **许可证**：LGPLv3（本项目按 Qt 的 LGPLv3 选项使用；Qt 同时提供 GPLv3 与商业许可）
+- **获取方式**：构建 GUI 时由 CMake 的 `find_package(Qt6)` 在用户环境中查找；仓库不包含 Qt 的源码、DLL 或静态库
+- **链接方式**：动态链接，用户可替换 Qt 库
+- **项目主页**：<https://www.qt.io/>
+- **LGPLv3 文本**：<https://www.gnu.org/licenses/lgpl-3.0.html>
+- **GPLv3 文本**：<https://www.gnu.org/licenses/gpl-3.0.html>
+- **Qt 源码**：<https://code.qt.io/>
+- **说明**：本项目使用的 Core、Gui、Widgets 不在 Qt 的 GPL-only 模块清单内。
+
+### 编译器与构建工具
+
+- **构建工具**：CMake ≥3.20、支持 C++17 的编译器、Ninja 或 Make。它们不随仓库分发，其许可证不约束本项目的源码。
+- **验证环境**：Windows + MSYS2 UCRT64 的 GCC 16.2 与 Qt 6.11，详见 [构建说明](docs/BUILD.md)。
+- **运行时**：生成的二进制会链接编译器运行时，分发时的义务取决于实际工具链，见下一节。
+
+## 分发二进制时
+
+只发布源码时无需附许可证全文；把 `einstein_gui.exe` 等可执行文件与相关 DLL 打包分发时，按下面的条目处理。
+
+1. **Qt**：附 LGPLv3 与 GPLv3 两份文本，保留 Qt 的版权与许可证声明，保留用户替换 Qt 动态库的能力，提供 Qt 源码的获取方式或书面要约，并在显著位置说明该二进制使用了 Qt。
+2. **编译器运行时**：GCC/MinGW-w64 的 `libstdc++` 与 `libgcc` 为 GPLv3 加 GCC Runtime Library Exception，例外条款让本项目自身不受 GPL 约束，但单独分发这两个 DLL 要附 GPLv3 文本，并按 GPLv3 第 6 节提供源码或书面要约；`libwinpthread` 与 mingw-w64 运行时为 BSD 式许可，需保留版权与许可声明。MSVC 运行时按微软的可再分发条款处理；Clang/libc++ 为 Apache-2.0 WITH LLVM-exception。
+3. **`windeployqt` 复制的内容**：除 Qt 库外还会带上 Qt 的第三方依赖，每个组件各有许可证。清单随 Qt 发行版而变，以 `windeployqt` 的实际输出为准。
+4. **Windows 系统组件**：UCRT、KERNEL32 等属于操作系统，不属于再分发内容。
+
+新增第三方代码或调整依赖时，同步更新本文件对应的条目。
