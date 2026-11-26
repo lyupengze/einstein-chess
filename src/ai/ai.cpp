@@ -325,9 +325,9 @@ core::Move choose_random_move(const core::GameState& state) {
 std::string level_name(Level level) {
     switch (level) {
         case Level::kRandom:
-            return "随机（第一版）";
+            return "随机";
         case Level::kSearch:
-            return "搜索（第二版）";
+            return "搜索";
         default:
             // 兜住通过 static_cast 传入的越界值，避免界面显示空串。
             return "未知";
@@ -364,7 +364,7 @@ core::Move decide_move(const core::GameState& state, Level level) {
             return choose_move(state, SearchConfig{});
         default:
             // 枚举值由调用方 static_cast 伪造时显式报错，而不是静默降级到某个档位。
-            throw std::invalid_argument("未知的 AI 版本");
+            throw std::invalid_argument("未知的 AI 档位");
     }
 }
 
