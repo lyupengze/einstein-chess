@@ -70,8 +70,8 @@ apply_move_and_settle() 无胜者   → 换边并回到 ThrowingDice
 apply_move_and_settle() 有胜者   → GameOver
 ```
 
-`Game::load_game()` 在接管外部局面之前会再跑一次 `require_valid_state`：存档来自磁盘，
-不能假设调用方已经校验过。
+`Game::load_game()` 在校验并拷贝外部局面之前会再跑一次 `require_valid_state`：存档来自磁盘，
+不能假设调用方已经校验过；校验失败时对局对象保持原局面。
 
 ## 4. 一次回合的调用路径
 

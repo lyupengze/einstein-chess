@@ -36,9 +36,10 @@ public:
     void submit_layout(Side side, const std::array<int, Board::kChessCount>& layout);
 
     /// @brief 从存档恢复整局状态。
+    /// @param game_state 局面快照；拷贝进对局对象，调用方的局面不受影响
     /// @throws std::invalid_argument 状态不满足 core::validate_state 的约束
     /// @note 即使调用方来自 storage，这里也会重新校验，非法局面不会进入对局对象
-    void load_game(GameState game_state);
+    void load_game(const GameState& game_state);
 
     /// @brief 掷骰子并进入对应方的走子阶段。
     /// @throws std::logic_error 当前不在 ThrowingDice 阶段，或 current_side 无效

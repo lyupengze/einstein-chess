@@ -63,9 +63,10 @@ void Game::submit_layout(Side side, const std::array<int, Board::kChessCount>& l
     check_both_ready();
 }
 
-void Game::load_game(GameState game_state) {
+void Game::load_game(const GameState& game_state) {
     // 即使调用方来自 storage 也重新校验：非法局面在进入对局对象前被拒绝。
     require_valid_state(game_state);
+    // 校验通过后才落盘到成员，失败时保留原局面（强异常保证）。
     game_state_ = game_state;
 }
 
