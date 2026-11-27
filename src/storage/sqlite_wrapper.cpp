@@ -31,15 +31,18 @@ Database::Database(const std::string& db_path) {
     int rc = sqlite3_open(db_path.c_str(), &db_);
     if (rc != SQLITE_OK) {
         std::string err_msg = sqlite3_errmsg(db_);
-        sqlite3_close(db_);
+        sqlite3_close_v2(db_);
         db_ = nullptr;
         throw std::runtime_error("打开数据库失败: " + err_msg);
     }
 }
 
 Database::~Database() {
+    // 用 close_v2：还有未 finalize 的语句时把连接转成 zombie，等最后一条语句释放后
+    // 自动关闭。sqlite3_close 在这种情况下返回 SQLITE_BUSY 并把连接留在打开状态，
+    // 返回值一丢就是静默泄漏。
     if (db_ != nullptr) {
-        sqlite3_close(db_);
+        sqlite3_close_v2(db_);
         db_ = nullptr;
     }
 }
@@ -51,9 +54,9 @@ Database::Database(Database&& other) noexcept : db_(other.db_) {
 
 Database& Database::operator=(Database&& other) noexcept {
     if (this != &other) {
-        // 先释放自己持有的连接，否则被覆盖后泄漏。
+        // 先释放自己持有的连接，否则被覆盖后泄漏；语句若还活着由 close_v2 延后关闭。
         if (db_ != nullptr) {
-            sqlite3_close(db_);
+            sqlite3_close_v2(db_);
         }
         db_ = other.db_;
         other.db_ = nullptr;
@@ -128,8 +131,10 @@ bool Statement::step() {
 }
 
 void Statement::reset() {
-    // clear_bindings 不能省：reset 只复位执行状态，不会清理已绑定的参数。
+    // sqlite3_reset 的返回值是上一次 step 的错误码，那条错误已经由 step() 抛出；
+    // 复位本身不会失败，也没有“半复位”状态，所以这里不重复上报。
     sqlite3_reset(stmt_);
+    // clear_bindings 不能省：reset 只复位执行状态，不会清理已绑定的参数。
     sqlite3_clear_bindings(stmt_);
 }
 

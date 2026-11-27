@@ -18,6 +18,8 @@ namespace storage {
 
 /// @brief 数据库连接，构造即打开（文件不存在则创建），析构自动关闭。
 /// @note 拷贝被禁用，只允许移动：连接是独占资源，不应出现两份所有权。
+/// @note 析构走 `sqlite3_close_v2`：若还有语句未 finalize，连接延后到语句释放时关闭，
+///       不会因 `SQLITE_BUSY` 留在打开状态。
 class Database {
 public:
     /// @param db_path 数据库文件路径（SQLite 语义：不存在则新建）
@@ -66,6 +68,8 @@ public:
     bool step();
 
     /// 复位语句并清空全部绑定，便于重新绑定后再执行。
+    /// @note 不抛异常：`sqlite3_reset` 的返回值是上一次 `step()` 的错误码，该错误已由
+    ///       `step()` 上报；复位本身不会失败。
     void reset();
 
     /// 读取结果列。col 是 0-based（与 bind 的 1-based 规则相反）。

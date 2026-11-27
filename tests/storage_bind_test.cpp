@@ -102,6 +102,29 @@ int main() {
         expect(message.find("绑定参数失败") != std::string::npos, "失败信息说明是参数绑定出错");
 
         expect(row_count(db) == rows_before, "绑定失败没有写入新行");
+
+        // reset 后可重新绑定并再次执行；绑定值必须被清空，否则第二次会带着上一次的文本。
+        {
+            storage::Statement stmt(db, kInsertSql);
+            stmt.bind(1, 7);
+            stmt.bind(2, 2.5);
+            stmt.bind(3, std::string("first"));
+            stmt.bind_null(4);
+            expect(!stmt.step(), "第一次执行写入一行");
+
+            stmt.reset();
+            stmt.bind(1, 8);
+            stmt.bind(2, 3.5);
+            expect(!stmt.step(), "reset 后重新绑定可以再次执行");
+        }
+        {
+            storage::Statement stmt(db, "SELECT i, r, t, n IS NULL FROM sample WHERE i = 8;");
+            expect(stmt.step(), "能读回 reset 后写入的行");
+            expect(stmt.column_int(0) == 8 && stmt.column_double(1) == 3.5,
+                   "重新绑定的列按新值写入");
+            expect(stmt.column_text(2).empty() && stmt.column_int(3) == 1,
+                   "reset 清空了上一次的文本与 NULL 绑定");
+        }
     }
     std::remove(kDbPath);
 
