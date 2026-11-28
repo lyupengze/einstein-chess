@@ -99,7 +99,8 @@
 - **选择**：只在 Windows + MSYS2 UCRT64（GCC 16.2、Qt 6.11）上实测；CI 覆盖 Windows 完整构建、
   无 GUI 构建与 clang-format。
 - **原因**：课程环境固定；Qt 与 MinGW 的 ABI 在 MSYS2 UCRT64 下最省事。
-- **代价与边界**：Linux/macOS 未做构建验证；其他编译器的告警差异可能触发 `-Werror`。
+- **代价与边界**：Linux/macOS 未做构建验证；其他编译器的告警差异可能触发 `-Werror`。CMake 为
+  MSVC 配置了 `/utf-8` 与 `/W4 /WX`，但这只是让它有机会编译，不代表该路径被验证过。
 - **何时重新考虑**：需要跨平台发布，或接入 Linux CI 时。
 
 ## 相关文档
