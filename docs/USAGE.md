@@ -1,7 +1,8 @@
 # 使用说明
 
 项目提供三个可执行入口：图形界面 `einstein_gui`、命令行 `einstein_cli`、Botzone 适配器
-`einstein_botzone`。三者共用 `core`、`ai`、`storage`，规则与存档完全一致，区别只在交互方式。
+`einstein_botzone`。`einstein_gui` 与 `einstein_cli` 共用 `core`、`ai`、`storage`，规则与存档
+一致；`einstein_botzone` 只用 `core` 与 `ai`，规则相同但不读写存档。区别只在交互方式。
 
 ## 1. 图形界面
 
