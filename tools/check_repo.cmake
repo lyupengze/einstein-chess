@@ -69,7 +69,7 @@ endfunction()
 
 # 只认受版本控制的文件：build/ 等生成目录天然被排除。
 execute_process(
-    COMMAND git -C "${REPO_ROOT}" ls-files -- src tests benchmarks docs README.md
+    COMMAND git -C "${REPO_ROOT}" ls-files -- src tests benchmarks docs tools README.md CMakeLists.txt
     OUTPUT_VARIABLE tracked
     RESULT_VARIABLE git_result
     OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -160,6 +160,51 @@ foreach(rel IN LISTS tracked)
 endforeach()
 report_section("注释语法" "${before_syntax}")
 
+# 1d. 头文件保护统一用 #pragma once（不用 ifndef/define/endif 三件套）。
+problem_count(before_pragma)
+foreach(rel IN LISTS tracked)
+    get_filename_component(extension "${rel}" EXT)
+    if(NOT extension STREQUAL ".h")
+        continue()
+    endif()
+    read_lines("${REPO_ROOT}/${rel}" lines)
+    find_lines(lines "#pragma once" pragma_lines)
+    if(NOT pragma_lines)
+        add_problem("${rel}:1: 头文件缺少 #pragma once")
+    endif()
+endforeach()
+report_section("头文件保护" "${before_pragma}")
+
+# 1e. 文本卫生：不带 BOM、不用 CRLF、不含制表符与行尾空白。
+# 二进制文件与第三方源码（原样保留上游）不参与。
+problem_count(before_hygiene)
+foreach(rel IN LISTS all_tracked)
+    if(rel MATCHES "^third_party/"
+       OR rel MATCHES "\\.(png|jpg|jpeg|gif|ico|db|exe|dll)$")
+        continue()
+    endif()
+    file(READ "${REPO_ROOT}/${rel}" raw LIMIT 3 HEX)
+    if(raw STREQUAL "efbbbf")
+        add_problem("${rel}:1: 文件带 UTF-8 BOM")
+    endif()
+    file(READ "${REPO_ROOT}/${rel}" content)
+    if(content MATCHES "\r\n")
+        add_problem("${rel}:1: 使用 CRLF 换行，应改为 LF")
+    endif()
+    read_lines("${REPO_ROOT}/${rel}" lines)
+    set(number 0)
+    foreach(line IN LISTS lines)
+        math(EXPR number "${number} + 1")
+        if(line MATCHES "\t")
+            add_problem("${rel}:${number}: 含制表符，改用空格")
+        endif()
+        if(line MATCHES "[ \t]$")
+            add_problem("${rel}:${number}: 行尾有多余空白")
+        endif()
+    endforeach()
+endforeach()
+report_section("文本卫生" "${before_hygiene}")
+
 # 2. 禁词扫描：源码、脚本与文档；规范本身与缺陷台账按定义要写这些词，跳过。
 set(BANNED_WORDS
     旧实现
@@ -188,13 +233,17 @@ set(BANNED_WORDS
 )
 problem_count(before_words)
 foreach(rel IN LISTS tracked)
-    if(rel STREQUAL "docs/COMMENTING.md" OR rel STREQUAL "docs/HISTORY.md")
+    if(rel STREQUAL "docs/COMMENTING.md"
+       OR rel STREQUAL "docs/HISTORY.md"
+       OR rel STREQUAL "tools/check_repo.cmake")
         continue()
     endif()
     get_filename_component(extension "${rel}" EXT)
     if(extension MATCHES "^\\.(h|cpp|cmake|txt)$"
        OR rel MATCHES "^docs/.*\\.md$"
-       OR rel STREQUAL "README.md")
+       OR rel MATCHES "^tools/.*\\.cmake$"
+       OR rel STREQUAL "README.md"
+       OR rel STREQUAL "CMakeLists.txt")
         read_lines("${REPO_ROOT}/${rel}" lines)
         foreach(word IN LISTS BANNED_WORDS)
             find_lines(lines "${word}" hit_lines)

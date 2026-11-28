@@ -114,7 +114,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`：
 - `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑全部用例（24 个，见 `tests/CMakeLists.txt`）；
 - `windows-ucrt64-nogui`：同一环境但不装 Qt，`-DEINSTEIN_BUILD_GUI=OFF`，跑除 `gui` 标签外的全部用例；
 - `format`：Ubuntu + Python，固定 `clang-format==23.1.1`，对 `src/`、`tests/`、`benchmarks/` 下受跟踪的 C++ 文件做 `--dry-run --Werror`；
-- `docs`：Ubuntu + CMake，运行 `cmake -P tools/check_repo.cmake`，检查文件头、禁词、缺陷锚点、相对链接与测试数口径。
+- `docs`：Ubuntu + CMake，运行 `cmake -P tools/check_repo.cmake`，检查文件头、脚本头、注释语法、头文件保护、文本卫生、禁词、缺陷锚点、相对链接与测试数口径。
 
 测试数量以 `tests/CMakeLists.txt` 为准；CI 的 Qt 版本由 MSYS2 包管理器决定，不固定小版本。
 

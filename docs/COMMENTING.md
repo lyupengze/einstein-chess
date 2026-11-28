@@ -272,6 +272,8 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 | ---------------------------------------------------------------- | --------------------------------- |
 | §2 禁 `/** */`；`@file` 在第 1 行且路径一致；无 `@author` 等字段 | `cmake -P tools/check_repo.cmake` |
 | §2 脚本头：`CMakeLists.txt` / `.cmake` 首行是 `#` 注释           | `cmake -P tools/check_repo.cmake` |
+| §2 头文件保护统一用 `#pragma once`                                | `cmake -P tools/check_repo.cmake` |
+| §2 文本卫生：无 BOM、无 CRLF、无制表符与行尾空白                  | `cmake -P tools/check_repo.cmake` |
 | §3.4 回归锚点在 `docs/HISTORY.md` 有同名标题                     | `cmake -P tools/check_repo.cmake` |
 | §4.4 链接文字不是目标文件名本身                                  | `cmake -P tools/check_repo.cmake` |
 | §6.2 禁词表零命中（含 `docs/*.md` 与 README）                    | `cmake -P tools/check_repo.cmake` |

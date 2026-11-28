@@ -20,7 +20,7 @@ add_subdirectory(third_party/sqlite)
 
 # 公共告警选项以 INTERFACE 库下发：任何 target 链接它即继承同一套编译参数。
 # -Werror 表示新增代码不允许引入任何告警；Debug 用 -Og -g，其余配置用 -O2。
-# MSVC 不认 -Wall/-Wextra/-Wpedantic，必须换成 /W4 + /permissive-；源码是 UTF-8
+# MSVC 不认 -Wall/-Wextra/-Wpedantic，只接受 /W4 + /permissive-；源码是 UTF-8
 # 且含中文字面量，还要 /utf-8 指定源与执行字符集，否则按本地代码页解释会报 C4819。
 add_library(einstein_warnings INTERFACE)
 if(MSVC)
