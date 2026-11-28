@@ -19,14 +19,19 @@ inline int failures = 0;
 ///
 /// 无论成功失败都打印，这样 CTest 的失败输出里能直接看到执行到了哪一步；
 /// 失败只累加计数、不抛异常，让同一个用例里的后续断言继续跑完，
-/// 一次运行就能暴露多个问题。
+/// 一次运行就能暴露多个问题。失败行带上调用点的文件与行号，便于定位。
 /// @param condition 断言条件
 /// @param what 这条断言在验证什么
-inline void expect(bool condition, std::string_view what) {
-    std::cout << (condition ? "通过 " : "失败 ") << what << '\n';
-    if (!condition) {
-        ++failures;
+/// @param file 调用点文件，由编译器在调用处填入
+/// @param line 调用点行号，由编译器在调用处填入
+inline void expect(bool condition, std::string_view what, const char* file = __builtin_FILE(),
+                   int line = __builtin_LINE()) {
+    if (condition) {
+        std::cout << "通过 " << what << '\n';
+        return;
     }
+    std::cout << "失败 " << file << ':' << line << ": " << what << '\n';
+    ++failures;
 }
 
 /// @brief 打印测试总结并返回适合 main 的退出码；总结行可被 CTest 直接阅读。

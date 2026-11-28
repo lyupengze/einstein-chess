@@ -44,26 +44,77 @@ void sort_moves(std::vector<core::Move>& moves) {
     std::sort(moves.begin(), moves.end(), move_less);
 }
 
+/// @brief 按规则文档手写的可选编号：骰点在场只选它，否则取上下最近的两个。
+///
+/// 这里刻意复用 `core::rules`，与 `generate_legal_moves` 共享同一套实现会让
+/// “生成器与规则一致”变成自证；本函数是独立编码，用作对照。
+std::vector<int> selectable_ids_manual(const core::GameState& state) {
+    std::vector<int> ids;
+    for (std::size_t x = 0; x < core::Board::kSize; ++x) {
+        for (std::size_t y = 0; y < core::Board::kSize; ++y) {
+            const core::Piece piece = state.board.at({x, y});
+            if (piece.side == state.current_side) {
+                ids.push_back(piece.id);
+            }
+        }
+    }
+    std::sort(ids.begin(), ids.end());
+
+    const int dice = state.current_dice.value_or(0);
+    if (std::binary_search(ids.begin(), ids.end(), dice)) {
+        return {dice};
+    }
+
+    int lower = -1;
+    int upper = -1;
+    for (const int id : ids) {
+        if (id < dice) {
+            lower = id;  // 升序遍历，最后留下的就是小于骰点的最大值
+        } else if (id > dice && upper == -1) {
+            upper = id;  // 第一个大于骰点的就是大于侧最近的编号
+        }
+    }
+
+    std::vector<int> result;
+    if (lower != -1) {
+        result.push_back(lower);
+    }
+    if (upper != -1) {
+        result.push_back(upper);
+    }
+    return result;
+}
+
 std::vector<core::Move> brute_force_moves(const core::GameState& state) {
     std::vector<core::Move> moves;
+    if (!state.current_dice) {
+        return moves;
+    }
+    const std::vector<int> selectable = selectable_ids_manual(state);
+    const std::vector<std::pair<int, int>> steps =
+        state.current_side == core::Side::Red
+            ? std::vector<std::pair<int, int>>{{0, 1}, {1, 0}, {1, 1}}
+            : std::vector<std::pair<int, int>>{{0, -1}, {-1, 0}, {-1, -1}};
+
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
             const core::Pos from{x, y};
-            if (state.board.at(from).side != state.current_side) {
+            const core::Piece piece = state.board.at(from);
+            if (piece.side != state.current_side) {
                 continue;
             }
-            for (int dx = -1; dx <= 1; ++dx) {
-                for (int dy = -1; dy <= 1; ++dy) {
-                    if (dx == 0 && dy == 0) {
-                        continue;
-                    }
-                    const int nx = static_cast<int>(x) + dx;
-                    const int ny = static_cast<int>(y) + dy;
-                    const core::Pos to{static_cast<std::size_t>(nx), static_cast<std::size_t>(ny)};
-                    if (core::rules::check_move(state, from, to).empty()) {
-                        moves.push_back({from, to});
-                    }
+            if (std::find(selectable.begin(), selectable.end(), piece.id) == selectable.end()) {
+                continue;
+            }
+            for (const auto& step : steps) {
+                const int nx = static_cast<int>(x) + step.first;
+                const int ny = static_cast<int>(y) + step.second;
+                if (nx < 0 || ny < 0 || nx >= static_cast<int>(core::Board::kSize) ||
+                    ny >= static_cast<int>(core::Board::kSize)) {
+                    continue;
                 }
+                moves.push_back(
+                    {from, {static_cast<std::size_t>(nx), static_cast<std::size_t>(ny)}});
             }
         }
     }
@@ -97,6 +148,41 @@ bool same_state(const core::GameState& a, const core::GameState& b) {
            a.current_side == b.current_side && a.phase == b.phase &&
            a.current_dice == b.current_dice && a.winner == b.winner &&
            a.player1_ready == b.player1_ready && a.player2_ready == b.player2_ready;
+}
+
+/// @brief 按规则文档手写“走一步并结算”的期望结果，用作 apply_move_and_settle 的独立对照。
+///
+/// 不调用 core::rules 的判胜或结算函数：这里直接按“落子覆盖、对方全灭、抵达目标角、
+/// 换手清骰”四条规则重算一遍，避免被测实现与对照实现共享同一段代码。
+core::GameState expected_settle(const core::GameState& state, const core::Move& move) {
+    core::GameState next = state;
+    const core::Piece moving = state.board.at(move.from);
+    next.board.at(move.from) = {};
+    next.board.at(move.to) = moving;
+    next.current_dice = std::nullopt;
+
+    const bool red_gone = next.board.count_pieces(core::Side::Red) == 0;
+    const bool blue_gone = next.board.count_pieces(core::Side::Blue) == 0;
+    core::Side winner = core::Side::None;
+    if (red_gone) {
+        winner = core::Side::Blue;
+    } else if (blue_gone) {
+        winner = core::Side::Red;
+    } else if (next.board.at({4, 4}).side == core::Side::Red) {
+        winner = core::Side::Red;
+    } else if (next.board.at({0, 0}).side == core::Side::Blue) {
+        winner = core::Side::Blue;
+    }
+
+    next.winner = winner;
+    if (winner == core::Side::None) {
+        next.current_side =
+            state.current_side == core::Side::Red ? core::Side::Blue : core::Side::Red;
+        next.phase = core::Phase::ThrowingDice;
+    } else {
+        next.phase = core::Phase::GameOver;
+    }
+    return next;
 }
 
 }  // namespace
@@ -163,7 +249,7 @@ int main() {
         expect(state.board.count_pieces(core::Side::Red) == 1, "吃己方棋子后目标子消失");
     }
 
-    // 5. 结算等价：apply_move_and_settle == Game::make_move。
+    // 5. 结算：落子、判胜、换手、清骰逐项对照手写期望。
     {
         core::GameState state = base_state(core::Side::Red, 1);
         put(state, {0, 0}, core::Side::Red, 1);
@@ -174,12 +260,14 @@ int main() {
         const std::vector<core::Move> moves = core::rules::generate_legal_moves(state);
         expect(!moves.empty(), "结算用例存在合法着法");
         for (const core::Move& move : moves) {
-            const core::GameState expected = core::apply_move_and_settle(state, move.from, move.to);
+            const core::GameState expected = expected_settle(state, move);
+            expect(same_state(expected, core::apply_move_and_settle(state, move.from, move.to)),
+                   "apply_move_and_settle 与手写结算一致");
+
             core::Game game;
             game.load_game(state);
             game.make_move(move.from, move.to);
-            expect(same_state(expected, game.get_state()),
-                   "apply_move_and_settle 与 Game::make_move 一致");
+            expect(same_state(expected, game.get_state()), "Game::make_move 与手写结算一致");
         }
     }
 

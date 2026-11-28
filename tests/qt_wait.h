@@ -56,14 +56,13 @@ inline bool expect_remains_false(const std::function<bool()>& predicate, int dur
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(duration_ms);
     while (std::chrono::steady_clock::now() < deadline) {
         if (predicate()) {
-            std::cout << "UNEXPECTED: " << what << " happened within " << duration_ms << " ms\n";
+            std::cout << "意外: " << what << " 在 " << duration_ms << " ms 内发生了\n";
             return false;
         }
         spin_events(5);
     }
     if (predicate()) {
-        std::cout << "UNEXPECTED: " << what << " happened at the edge of " << duration_ms
-                  << " ms\n";
+        std::cout << "意外: " << what << " 恰好在 " << duration_ms << " ms 的边界发生\n";
         return false;
     }
     return true;

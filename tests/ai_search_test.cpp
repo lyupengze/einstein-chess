@@ -18,6 +18,7 @@
 #include "core/game_state.h"
 #include "core/rules.h"
 #include "core/types.h"
+#include "core/validation.h"
 #include "test_support.h"
 
 using test_support::expect;
@@ -213,9 +214,10 @@ int main() {
         ai::SearchConfig config;
         config.max_depth = 2;
         bool okay = true;
+        bool all_states_valid = true;
         int made_moves = 0;
 
-        for (int turn = 0; turn < 80; ++turn) {
+        for (int ply = 0; ply < 200; ++ply) {
             const core::GameState& state = game.get_state();
             if (state.phase == core::Phase::GameOver) {
                 break;
@@ -238,14 +240,25 @@ int main() {
                 }
                 game.make_move(move.from, move.to);
                 ++made_moves;
+                if (!core::validate_state(game.get_state()).empty()) {
+                    all_states_valid = false;
+                    break;
+                }
             } catch (const std::exception&) {
                 okay = false;
                 break;
             }
         }
 
+        const core::GameState& final_state = game.get_state();
         expect(okay, "整局对弈只产生合法着法");
-        expect(made_moves > 0, "整局确实走了若干步");
+        expect(all_states_valid, "每一步之后的局面都通过状态校验");
+        expect(final_state.phase == core::Phase::GameOver, "两边都用搜索档时会在 200 手内分出胜负");
+        if (final_state.phase == core::Phase::GameOver) {
+            expect(final_state.winner == core::rules::check_winner(final_state),
+                   "终局记录的胜者与规则判定一致");
+        }
+        expect(made_moves >= 5, "整局至少走了若干步");
     }
 
     return test_support::finish();

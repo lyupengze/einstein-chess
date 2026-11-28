@@ -120,48 +120,82 @@ core::GameState make_ai_thinking_state() {
     return game.get_state();
 }
 
-/// @brief 在保存对话框打开 delay_ms 后检查局面未推进，并确认或取消。
-void drive_save_dialog(int delay_ms, QListWidget* history, const QString& name, bool accept) {
-    QTimer::singleShot(delay_ms, [history, name, accept]() {
-        auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
-        if (dialog == nullptr) {
-            for (QWidget* widget : QApplication::topLevelWidgets()) {
-                auto* candidate = qobject_cast<QDialog*>(widget);
-                if (candidate != nullptr && candidate->isVisible()) {
-                    dialog = candidate;
-                    break;
+/// @brief 找当前可见的模态对话框；没有打开时返回 nullptr。
+QDialog* find_modal_dialog() {
+    if (auto* modal = qobject_cast<QDialog*>(QApplication::activeModalWidget())) {
+        return modal;
+    }
+    for (QWidget* widget : QApplication::topLevelWidgets()) {
+        auto* candidate = qobject_cast<QDialog*>(widget);
+        if (candidate != nullptr && candidate->isVisible()) {
+            return candidate;
+        }
+    }
+    return nullptr;
+}
+
+/// @brief 轮询等待保存对话框出现，确认暂停生效后再接受或取消。
+///
+/// 固定延时在慢机器上可能先于对话框运行，这里每 10 ms 检查一次、最长等 3 秒；
+/// 对话框出现后再观察一个超过 AI 剩余延迟的窗口，确认排队的动作没有落地。
+/// @param history 对局页的历史列表，用于确认 AI 没有在对话框背后走子
+/// @param name 保存名，取消路径可传空串
+/// @param accept true 确认保存，false 取消
+/// @param pause_window_ms 对话框保持打开时的观察窗口，应大于 AI 的剩余延迟
+void drive_save_dialog(QListWidget* history, const QString& name, bool accept,
+                       int pause_window_ms) {
+    auto* poll = new QTimer();
+    poll->setInterval(10);
+    auto* attempts = new int{0};
+    QObject::connect(
+        poll, &QTimer::timeout, poll, [poll, attempts, history, name, accept, pause_window_ms]() {
+            ++*attempts;
+            QDialog* dialog = find_modal_dialog();
+            if (dialog == nullptr) {
+                if (*attempts <= 300) {
+                    return;
                 }
-            }
-        }
-        expect(dialog != nullptr, "打开保存对话框时游戏暂停");
-        if (dialog == nullptr) {
-            return;
-        }
-
-        // 若保存没有暂停定时器，AI 会在对话框背后走完一步，这里能直接抓到。
-        expect(history == nullptr || history->count() == 0, "保存对话框打开时排队的 AI 动作不执行");
-
-        if (!accept) {
-            dialog->reject();
-            return;
-        }
-
-        auto* input = dialog->findChild<QLineEdit*>();
-        expect(input != nullptr, "保存对话框有名称输入框");
-        if (input == nullptr) {
-            dialog->reject();
-            return;
-        }
-        input->setText(name);
-        for (QPushButton* button : dialog->findChildren<QPushButton*>()) {
-            if (button->text() == QString::fromUtf8("确认")) {
-                button->click();
+                poll->stop();
+                delete attempts;
+                poll->deleteLater();
+                expect(false, "保存操作弹出了模态对话框");
                 return;
             }
-        }
-        expect(false, "保存对话框有确认按钮");
-        dialog->reject();
-    });
+
+            poll->stop();
+            delete attempts;
+            poll->deleteLater();
+
+            expect(history == nullptr || history->count() == 0, "对话框刚打开时 AI 还没有走子");
+
+            // 若保存没有暂停定时器，AI 会在对话框背后走完一步，这里能直接抓到。
+            expect(test_support::expect_remains_false(
+                       [history] { return history != nullptr && history->count() != 0; },
+                       pause_window_ms, "保存对话框打开期间 AI 走子"),
+                   "保存期间 AI 定时器保持暂停");
+
+            if (!accept) {
+                dialog->reject();
+                return;
+            }
+
+            auto* input = dialog->findChild<QLineEdit*>();
+            expect(input != nullptr, "保存对话框有名称输入框");
+            if (input == nullptr) {
+                dialog->reject();
+                return;
+            }
+            input->setText(name);
+            for (QPushButton* button : dialog->findChildren<QPushButton*>()) {
+                if (button->text() == QString::fromUtf8("确认")) {
+                    button->click();
+                    return;
+                }
+            }
+            expect(false, "保存对话框有确认按钮");
+            dialog->reject();
+        });
+    poll->start();
 }
 
 /// @brief 构造一个可序列化的最小局面，仅用于填充存档列表。
@@ -341,7 +375,7 @@ int main(int argc, char* argv[]) {
         expect(save != nullptr, "保存暂停用例暴露保存按钮");
         widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel, core::RngState{});
 
-        drive_save_dialog(900, history, "paused", true);
+        drive_save_dialog(history, "paused", true, 900);
         if (save != nullptr) {
             save->click();  // 进入保存对话框；定时器应被暂停到对话框关闭
         }
@@ -365,7 +399,7 @@ int main(int argc, char* argv[]) {
         expect(save != nullptr, "取消暂停用例暴露保存按钮");
         widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel, core::RngState{});
 
-        drive_save_dialog(900, history, QString(), false);
+        drive_save_dialog(history, QString(), false, 900);
         if (save != nullptr) {
             save->click();
         }

@@ -92,16 +92,27 @@ int main() {
         expect(bind_fails(db, [](storage::Statement& s) { s.bind_null(5); }),
                "NULL 绑定的越界下标被拒绝");
 
-        std::string message;
+        // 绑定失败必须抛 std::runtime_error，且不能污染连接：随后新建的语句仍要能写入。
+        bool bind_rejected = false;
         try {
             storage::Statement stmt(db, kInsertSql);
             stmt.bind(5, 1);
         } catch (const std::runtime_error& error) {
-            message = error.what();
+            bind_rejected = true;
+            const std::string message = error.what();
+            expect(message.find("绑定参数失败") != std::string::npos, "失败信息说明是参数绑定出错");
         }
-        expect(message.find("绑定参数失败") != std::string::npos, "失败信息说明是参数绑定出错");
+        expect(bind_rejected, "越界下标在绑定阶段就抛异常");
 
-        expect(row_count(db) == rows_before, "绑定失败没有写入新行");
+        {
+            storage::Statement stmt(db, kInsertSql);
+            stmt.bind(1, 7);
+            stmt.bind(2, 0.5);
+            stmt.bind(3, std::string("after-fail"));
+            stmt.bind_null(4);
+            expect(!stmt.step(), "绑定失败之后连接仍可写入");
+        }
+        expect(row_count(db) == rows_before + 1, "失败之后的新写入确实落库");
 
         // reset 后可重新绑定并再次执行；绑定值必须被清空，否则第二次会带着上一次的文本。
         {
