@@ -43,7 +43,7 @@ public:
     /// @brief 用存档快照覆盖当前对局；若快照停在 AI 回合会立刻把回合交给 AI。
     /// @param state 从 SaveManager 读出的完整状态
     /// @param ai_level 存档记录的电脑档位，读档后整局沿用，保证与存档时一致
-    void load_game_state(const core::GameState& state, ai::Level ai_level);
+    void load_game_state(const core::GameState& state, ai::Level ai_level, core::RngState rng);
     /// @brief 测试专用：覆盖三段界面延迟，默认值保持产品节奏。
     /// @param roll_ms 点击掷骰到真正掷骰的延迟（默认 400）
     /// @param after_move_ms 人类走子后到 AI 掷骰的延迟（默认 500）

@@ -78,5 +78,28 @@ int main() {
         expect(counted.roll_count() == 2, "再掷一次后计数为 2");
     }
 
+    // 读档等价：先掷三次记下随机流，再在另一局里还原，下一掷必须与原来相同。
+    core::Game original = make_ready_game(2026);
+    for (int i = 0; i < 3; ++i) {
+        original.roll_dice();
+        const std::vector<core::Move> played =
+            core::rules::generate_legal_moves(original.get_state());
+        if (played.empty()) {
+            break;
+        }
+        original.make_move(played.front().from, played.front().to);
+    }
+    const core::RngState snapshot = original.rng_state();
+    const std::uint64_t rolls_before = original.roll_count();
+    original.roll_dice();
+    const int expected = *original.get_state().current_dice;
+
+    core::Game restored = make_ready_game(999);
+    restored.restore_rng_state(snapshot);
+    expect(restored.roll_count() == rolls_before, "还原后已掷次数一致");
+    restored.roll_dice();
+    expect(restored.get_state().current_dice && *restored.get_state().current_dice == expected,
+           "还原随机流后下一掷与原来一致");
+
     return test_support::finish();
 }

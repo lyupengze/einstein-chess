@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
 
         auto* history = widget.findChild<QListWidget*>();
         expect(history != nullptr, "对局页暴露历史列表");
-        widget.load_game_state(thinking, ai::kDefaultLevel);
+        widget.load_game_state(thinking, ai::kDefaultLevel, core::RngState{});
 
         expect(test_support::wait_until([&] { return history != nullptr && history->count() == 1; },
                                         3000, "载入后 AI 完成该回合"),
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
         expect(board != nullptr, "对局页暴露棋盘");
         expect(roll != nullptr, "对局页暴露掷骰按钮");
         expect(save != nullptr, "对局页暴露保存按钮");
-        widget.load_game_state(thinking, static_cast<ai::Level>(99));
+        widget.load_game_state(thinking, static_cast<ai::Level>(99), core::RngState{});
 
         expect(test_support::wait_until(
                    [&] { return any_contains(label_texts(widget), QString::fromUtf8("对局异常")); },
@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
         expect(save != nullptr && !save->isEnabled(), "中止态禁用保存按钮");
 
         // 中止态必须能被下一次读档清除，否则玩家只能重启程序。
-        widget.load_game_state(thinking, ai::kDefaultLevel);
+        widget.load_game_state(thinking, ai::kDefaultLevel, core::RngState{});
         expect(test_support::wait_until([&] { return history != nullptr && history->count() == 1; },
                                         3000, "中止后读档能继续完成回合"),
                "合法读档清除中止态");
@@ -154,7 +154,8 @@ int main(int argc, char** argv) {
 
         auto* history = widget.findChild<QListWidget*>();
         expect(history != nullptr, "对局页暴露历史列表");
-        widget.load_game_state(thinking, ai::kDefaultLevel);  // 排一个 150ms 的 AI 回调
+        widget.load_game_state(thinking, ai::kDefaultLevel,
+                               core::RngState{});  // 排一个 150ms 的 AI 回调
         widget.start_new_game(core::Side::Blue, {1, 2, 3, 4, 5, 6}, ai::Level::Search);
 
         expect(test_support::expect_remains_false(
@@ -184,7 +185,8 @@ int main(int argc, char** argv) {
         auto* exit = find_button(widget, "返回主页");
         expect(history != nullptr, "对局页暴露历史列表");
         expect(exit != nullptr, "对局页暴露返回主页按钮");
-        widget.load_game_state(thinking, ai::kDefaultLevel);  // 排一个 150ms 的 AI 回调
+        widget.load_game_state(thinking, ai::kDefaultLevel,
+                               core::RngState{});  // 排一个 150ms 的 AI 回调
         exit->click();
 
         expect(test_support::expect_remains_false(

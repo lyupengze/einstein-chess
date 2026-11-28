@@ -72,7 +72,7 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
             if (saved) {
                 // 档位取自存档本身，而不是当前菜单或上一次新局的选择：
                 // 同一个存档无论读多少次、中间开过什么档位的新局，电脑档位都不变。
-                game_widget_->load_game_state(saved->state, saved->ai_level);
+                game_widget_->load_game_state(saved->state, saved->ai_level, saved->rng);
                 stacked_widget_->setCurrentWidget(game_widget_);
             } else {
                 // 记录可能在对话框打开后已被删除，所以查不到不算异常。

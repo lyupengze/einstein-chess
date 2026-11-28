@@ -93,6 +93,11 @@ void GameWidget::start_new_game(core::Side human_side,
     // 档位是整局配置，开新局时写入一次。
     ai_level_ = ai_level;
 
+    // 每局换一个随机流：Game 的种子同时播种 AI，界面上不显示种子，但存档会记录，
+    // 读档与复现都依赖它。
+    game_ = core::Game();
+    ai::set_random_seed(game_.seed());
+
     game_.prepare_new_game(human_side);
     game_.submit_layout(human_side, human_layout);
 
@@ -109,7 +114,8 @@ void GameWidget::start_new_game(core::Side human_side,
     trigger_ai_if_needed();
 }
 
-void GameWidget::load_game_state(const core::GameState& state, ai::Level ai_level) {
+void GameWidget::load_game_state(const core::GameState& state, ai::Level ai_level,
+                                 core::RngState rng) {
     // 先取消排队中的旧动作，再整体覆盖对局。
     cancel_pending_actions();
 
@@ -119,6 +125,10 @@ void GameWidget::load_game_state(const core::GameState& state, ai::Level ai_leve
     // load_game 整体覆盖、可能因局面不合法而抛异常；只有成功后才清除中止态，
     // 否则失败的读档会把中止中的旧局误恢复成可操作。
     game_.load_game(state);
+    // 随机流同样来自存档：种子与已掷次数一起还原，AI 用同一个种子重新播种，
+    // 读档后的骰序与 AI 决策才和存档前一致。
+    game_.restore_rng_state(rng);
+    ai::set_random_seed(rng.seed);
     game_aborted_ = false;
     abort_reason_.clear();
     selected_pos_ = std::nullopt;
@@ -189,7 +199,7 @@ void GameWidget::on_save_clicked() {
         }
         std::string name = dialog.get_save_name();
         storage::SaveManager save_manager(storage::kDefaultDbPath);
-        save_manager.save_game(name, game_.get_state(), ai_level_);
+        save_manager.save_game(name, game_.get_state(), ai_level_, game_.rng_state());
         show_message("游戏已保存");
     } catch (const std::exception& e) {
         QMessageBox::critical(this, "保存失败", e.what());

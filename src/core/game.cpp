@@ -144,6 +144,22 @@ std::uint64_t Game::roll_count() const noexcept {
     return roll_count_;
 }
 
+RngState Game::rng_state() const noexcept {
+    return RngState{seed_, roll_count_};
+}
+
+void Game::restore_rng_state(RngState rng) {
+    // 已掷次数来自存档，必须先挡住离谱的值：discard 是线性开销，手改出的
+    // 十亿次会让读档卡死。
+    if (rng.rolls > kMaxRollCount) {
+        throw std::invalid_argument("已掷次数超出 0.." + std::to_string(kMaxRollCount));
+    }
+    seed_ = rng.seed;
+    roll_count_ = rng.rolls;
+    gen_ = std::mt19937(rng.seed);
+    gen_.discard(roll_count_);
+}
+
 void Game::check_both_ready() {
     // 只有布阵阶段才允许由"双方就绪"触发开局。否则 GameOver 之后再次提交
     // 会把阶段改回 ThrowingDice，让已经结束的对局复活。

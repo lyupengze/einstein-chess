@@ -6,8 +6,11 @@
 
 #include "save_manager.h"
 
+#include <array>
 #include <charconv>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -17,6 +20,7 @@
 #include <vector>
 
 #include "core/board.h"
+#include "core/game.h"
 #include "core/game_state.h"
 #include "core/types.h"
 #include "core/validation.h"
@@ -72,10 +76,51 @@ int parse_checked(const std::string& token, const std::string& label) {
     return value;
 }
 
+/// @brief 无符号整数 token 的解析结果；区分“不是整数”与“溢出 64 位”。
+enum class UIntParse { Ok, NotInteger, Overflow };
+
+/// @brief 把整段文本解析成 64 位无符号整数，成功时写回 value。
+///
+/// 无符号解析不接受前导 `-`，因此 `-1` 会落到 NotInteger；负数零另有专门检查，
+/// 目的是给出比“不是整数”更准确的拒绝原因。
+[[nodiscard]] UIntParse parse_unsigned_token(std::string_view token, std::uint64_t& value) {
+    const auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (ec == std::errc::result_out_of_range) {
+        return UIntParse::Overflow;
+    }
+    if (ec != std::errc{} || ptr != token.data() + token.size()) {
+        return UIntParse::NotInteger;
+    }
+    return UIntParse::Ok;
+}
+
+/// @brief 解析一个无符号整数 token，失败按数据损坏抛出；label 用来定位字段。
+std::uint64_t parse_checked_unsigned(const std::string& token, const std::string& label,
+                                     std::uint64_t max_value) {
+    if (is_negative_zero(token)) {
+        throw std::runtime_error("反序列化失败: " + label + " 不能写成 -0");
+    }
+    std::uint64_t value{};
+    switch (parse_unsigned_token(token, value)) {
+        case UIntParse::Overflow:
+            throw std::runtime_error("反序列化失败: " + label + " 超出 64 位无符号整数");
+        case UIntParse::NotInteger:
+            throw std::runtime_error("反序列化失败: " + label + " 不是整数");
+        case UIntParse::Ok:
+            break;
+    }
+    if (value > max_value) {
+        throw std::runtime_error("反序列化失败: " + label + " 超出 0.." +
+                                 std::to_string(max_value));
+    }
+    return value;
+}
+
 // 格式的准确定义见 `docs/SAVE_FORMAT.md`：7 个元数据、25 个棋盘格，最后追加
-// 必填的 AI 档位。枚举按底层整数值写出，dice 无值写 kNoDice，棋盘格正数红、
-// 负数蓝、0 空。档位缺失或非法直接报错，不静默回落到默认档。
-[[nodiscard]] std::string serialize(const core::GameState& state, ai::Level level) {
+// AI 档位、随机种子与已掷次数。枚举按底层整数值写出，dice 无值写 kNoDice，
+// 棋盘格正数红、负数蓝、0 空。档位缺失或非法直接报错，不静默回落到默认档。
+[[nodiscard]] std::string serialize(const core::GameState& state, ai::Level level,
+                                    core::RngState rng) {
     // 写库前先校验档位与局面：非法档位不能写进数据库，否则会在读档时才暴露，
     // 还可能覆盖掉同名槽位里的好档。
     if (!ai::is_valid_level(level)) {
@@ -89,6 +134,11 @@ int parse_checked(const std::string& token, const std::string& label) {
     if (!issues.empty()) {
         throw std::invalid_argument("局面状态不合法: " + issues.front().field + ": " +
                                     issues.front().message);
+    }
+
+    // 随机流是读档续玩的一部分：种子或已掷次数超出范围，说明调用方传错了。
+    if (rng.rolls > core::kMaxRollCount) {
+        throw std::invalid_argument("已掷次数超出 0.." + std::to_string(core::kMaxRollCount));
     }
 
     std::ostringstream oss;
@@ -112,8 +162,9 @@ int parse_checked(const std::string& token, const std::string& label) {
             oss << val << ' ';
         }
     }
-    // 末尾追加 AI 档位。棋盘最后一格后面已经有一个空格，这里直接写数字即可分隔。
-    oss << static_cast<int>(level) << '\n';
+    // 末尾追加 AI 档位、随机种子与已掷次数。棋盘最后一格后面已经有一个空格，
+    // 这里直接写数字即可分隔。
+    oss << static_cast<int>(level) << ' ' << rng.seed << ' ' << rng.rolls << '\n';
     return oss.str();
 }
 
@@ -204,30 +255,34 @@ SavedGame deserialize(const std::string& data) {
         }
     }
 
-    // 第八个字段（AI 档位）必填。先取走尾部再整段解析，避免把半截数字当成 EOF。
+    // 第二行剩余部分：AI 档位、随机种子、已掷次数，三个字段都必填。按行取 token
+    // 再逐个解析，缺字段与多字段都能单独报出来。
     std::string tail;
     if (!std::getline(iss, tail)) {
         throw std::runtime_error("反序列化失败: 缺少 AI 档位");
     }
-    const std::size_t first = tail.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos) {
-        throw std::runtime_error("反序列化失败: 缺少 AI 档位");
+    std::istringstream tail_stream(tail);
+    constexpr std::array<const char*, 3> kTailNames{"AI 档位", "随机种子", "已掷次数"};
+    std::array<std::string, kTailNames.size()> tail_tokens;
+    for (std::size_t i = 0; i < tail_tokens.size(); ++i) {
+        if (!(tail_stream >> tail_tokens[i])) {
+            throw std::runtime_error("反序列化失败: 缺少" + std::string(kTailNames[i]));
+        }
     }
-    const std::size_t last = tail.find_last_not_of(" \t\r\n");
-    const std::string_view token(tail.data() + first, last - first + 1);
-
-    if (token.find_first_of(" \t\r\n") != std::string_view::npos) {
+    if (std::string extra; tail_stream >> extra) {
         throw std::runtime_error("反序列化失败: AI 档位之后还有额外内容");
     }
-    const int level_int = parse_checked(std::string(token), "AI 档位");
+
+    const int level_int = parse_checked(tail_tokens[0], "AI 档位");
     const ai::Level level = static_cast<ai::Level>(level_int);
     if (!ai::is_valid_level(level)) {
         throw std::runtime_error("反序列化失败: AI 档位 " + std::to_string(level_int) +
                                  " 不在可选范围内");
     }
-    if (std::string extra; iss >> extra) {
-        throw std::runtime_error("反序列化失败: AI 档位之后还有额外内容");
-    }
+    const std::uint32_t seed = static_cast<std::uint32_t>(parse_checked_unsigned(
+        tail_tokens[1], "随机种子", std::numeric_limits<std::uint32_t>::max()));
+    const std::uint64_t rolls =
+        parse_checked_unsigned(tail_tokens[2], "已掷次数", core::kMaxRollCount);
 
     // 字段都还原后统一交给 validate_state 做状态机校验，这里不重复检查阶段与骰子的关系。
     const std::vector<core::StateIssue> issues = core::validate_state(state);
@@ -242,7 +297,7 @@ SavedGame deserialize(const std::string& data) {
         throw std::runtime_error("反序列化失败: 布阵阶段的对局不能读档");
     }
 
-    return SavedGame{state, level};
+    return SavedGame{state, level, core::RngState{seed, rolls}};
 }
 
 }  // namespace
@@ -258,11 +313,11 @@ SaveManager::SaveManager(std::string_view db_path) : db_(std::string(db_path)) {
 }
 
 void SaveManager::save_game(const std::string& slot_name, const core::GameState& state,
-                            ai::Level level) {
+                            ai::Level level, core::RngState rng) {
     // INSERT OR REPLACE：主键冲突时先删旧行再插入新行，timestamp 也随之刷新。
     Statement stmt(db_, "INSERT OR REPLACE INTO saves (name, data) VALUES (?, ?);");
     stmt.bind(1, slot_name);
-    stmt.bind(2, serialize(state, level));
+    stmt.bind(2, serialize(state, level, rng));
     stmt.step();
 }
 

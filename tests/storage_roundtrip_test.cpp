@@ -144,8 +144,8 @@ int main() {
         const core::GameState layout = make_layout_state();
         const core::GameState game_over = make_game_over_state();
 
-        manager.save_game("完整对局", full, ai::Level::Random);
-        manager.save_game("终局", game_over, ai::kDefaultLevel);
+        manager.save_game("完整对局", full, ai::Level::Random, core::RngState{});
+        manager.save_game("终局", game_over, ai::kDefaultLevel, core::RngState{});
 
         // 1. 两种可恢复阶段各自完整往返，棋盘每一格与可选骰子都要一致。
         const auto full_saved = manager.load_game("完整对局");
@@ -158,7 +158,7 @@ int main() {
         expect(over_saved && over_saved->ai_level == ai::kDefaultLevel, "终局存档恢复默认档");
 
         // 2. 同名保存必须覆盖旧局面，而不是新增一行或保留旧数据。
-        manager.save_game("完整对局", game_over, ai::Level::Search);
+        manager.save_game("完整对局", game_over, ai::Level::Search, core::RngState{});
         const auto overwritten = manager.load_game("完整对局");
         expect(overwritten && same_state(overwritten->state, game_over), "同名存档覆盖旧局面");
         expect(overwritten && overwritten->ai_level == ai::Level::Search,
@@ -182,7 +182,7 @@ int main() {
         invalid.player1_side = core::Side::None;
         bool save_threw = false;
         try {
-            manager.save_game("非法局面", invalid, ai::kDefaultLevel);
+            manager.save_game("非法局面", invalid, ai::kDefaultLevel, core::RngState{});
         } catch (const std::invalid_argument&) {
             save_threw = true;
         }
@@ -191,7 +191,7 @@ int main() {
         // 6. 布阵阶段没有可恢复的 UI 流程，必须在写库前拒绝。
         bool layout_save_threw = false;
         try {
-            manager.save_game("布阵阶段", layout, ai::Level::Search);
+            manager.save_game("布阵阶段", layout, ai::Level::Search, core::RngState{});
         } catch (const std::invalid_argument&) {
             layout_save_threw = true;
         }
@@ -200,7 +200,7 @@ int main() {
         // 7. 非法 AI 档位不能写进库，也不能覆盖同名槽位。
         bool invalid_level_threw = false;
         try {
-            manager.save_game("终局", game_over, static_cast<ai::Level>(99));
+            manager.save_game("终局", game_over, static_cast<ai::Level>(99), core::RngState{});
         } catch (const std::invalid_argument&) {
             invalid_level_threw = true;
         }
@@ -317,8 +317,8 @@ int main() {
     {
         storage::SaveManager manager(kSortDbPath);
         const core::GameState state = make_full_state();
-        manager.save_game("beta", state, ai::kDefaultLevel);
-        manager.save_game("alpha", state, ai::kDefaultLevel);
+        manager.save_game("beta", state, ai::kDefaultLevel, core::RngState{});
+        manager.save_game("alpha", state, ai::kDefaultLevel, core::RngState{});
     }
     {
         storage::Database db(kSortDbPath);

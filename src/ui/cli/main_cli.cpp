@@ -41,9 +41,10 @@ bool read_line(std::string& line) {
     return static_cast<bool>(std::getline(std::cin, line));
 }
 
-// 询问存档名并立即保存，直接回车使用 autosave；level 是当局档位，一并写入存档。
-// 返回 false 表示输入已结束，调用方应结束本局。
-bool save(storage::SaveManager& save_manager, const core::GameState& state, ai::Level level) {
+// 询问存档名并立即保存，直接回车使用 autosave；level 与 rng 是当局的档位与随机流，
+// 一并写入存档。返回 false 表示输入已结束，调用方应结束本局。
+bool save(storage::SaveManager& save_manager, const core::GameState& state, ai::Level level,
+          core::RngState rng) {
     std::cout << "请输入存档名 (直接回车默认名为 autosave) : ";
     std::string save_name;
     if (!read_line(save_name)) {
@@ -55,7 +56,7 @@ bool save(storage::SaveManager& save_manager, const core::GameState& state, ai::
     // 同名槽位会被覆盖（见 SaveManager::save_game）。写库失败不应该终止进程，
     // 打印原因后继续对局，由玩家决定是否重试。
     try {
-        save_manager.save_game(save_name, state, level);
+        save_manager.save_game(save_name, state, level, rng);
         std::cout << "存档成功\n";
     } catch (const std::exception& e) {
         std::cout << "存档失败: " << e.what() << "\n";
@@ -118,7 +119,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                 }
 
                 if (pause == "save") {
-                    if (!save(save_manager, game.get_state(), ai_level)) {
+                    if (!save(save_manager, game.get_state(), ai_level, game.rng_state())) {
                         return;
                     }
                     // 回到循环开头重新提示掷骰。
@@ -158,7 +159,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
 
                 // save / exit 在等待走子时同样可用。
                 if (move_input == "save") {
-                    if (!save(save_manager, game.get_state(), ai_level)) {
+                    if (!save(save_manager, game.get_state(), ai_level, game.rng_state())) {
                         return;
                     }
                     continue;
@@ -321,11 +322,10 @@ int main(int argc, char* argv[]) {
         // 每轮新建一个 Game 对象承载当前对局：
         // 无论走"读档"还是"新局"，后续逻辑都只操作这个实例。
         // 骰子与 AI 两个随机源必须同时按同一种子重置：只播种一个，另一侧仍会
-        // 随上一局的状态漂移，同种子也就复现不出同一局。
+        // 随上一局的状态漂移，同种子也就复现不出同一局。新局统一用 Game 的种子
+        // 播种 AI，这样开局的同一条打印就能复现两侧。
         core::Game game = cli_seed ? core::Game(*cli_seed) : core::Game();
-        if (cli_seed) {
-            ai::set_random_seed(*cli_seed);
-        }
+        ai::set_random_seed(game.seed());
         if (choice_str == "2") {
             // 列存档只依赖数据库；表结构损坏、被锁或 IO 失败都不应终止进程，
             // 打印原因后回到主菜单，玩家仍可开新局或退出。
@@ -367,6 +367,10 @@ int main(int argc, char* argv[]) {
                 auto saved = save_manager->load_game(slot);
                 if (saved) {
                     game.load_game(saved->state);
+                    // 随机流来自存档：只有还原种子与已掷次数，续玩才会走出与存档前
+                    // 相同的骰序；AI 的随机源用同一个种子重新播种。
+                    game.restore_rng_state(saved->rng);
+                    ai::set_random_seed(saved->rng.seed);
                     // 档位来自存档本身：同一份档案每次读都恢复成同一个档位，
                     // 不受主菜单里临时选择的档位影响。
                     std::cout << "已开始游戏 (电脑强度: " << ai::level_name(saved->ai_level)

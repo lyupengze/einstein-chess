@@ -1,19 +1,24 @@
 /// @file tests/save_level_test.cpp
-/// @brief 存档档位回归：档位随存档保存、读档原样恢复，非法档位被拒绝。
+/// @brief 存档档位与随机流回归：随存档往返，缺失或损坏时按数据损坏拒绝。
 ///
-/// 直接操作临时 SQLite 文件：先用 SaveManager 正常存档，再借 sqlite_wrapper 把
-/// data 列写入缺字段或损坏值，观察 SaveManager 的解析行为。档位是必填字段，
-/// 缺失、越界或非整数都按损坏数据拒绝。相关背景见 `#save-level-overflow`。
+/// 直接操作临时 SQLite 文件：先用 SaveManager 正常存档，再借 sqlite_wrapper 改写
+/// data 列，观察 SaveManager 的解析行为。第二行末尾的三个字段（AI 档位、随机种子、
+/// 已掷次数）都是必填字段，缺失、越界或非整数都按损坏数据拒绝。
+/// 相关背景见 `#save-level-overflow` 与 `#seed-not-affecting-dice`。
 
+#include <cstddef>
 #include <cstdio>
 #include <exception>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "ai/ai.h"
+#include "core/game.h"
 #include "core/game_state.h"
 #include "core/types.h"
 #include "storage/save_manager.h"
@@ -57,34 +62,63 @@ void write_data(storage::Database& db, const std::string& slot, const std::strin
     stmt.step();
 }
 
-/// @brief 定位最后一个字段（AI 档位）前的空格，跳过末尾换行。
-std::size_t last_field_start(const std::string& data) {
-    const auto newline = data.find_last_of('\n');
-    const auto end = (newline == std::string::npos) ? data.size() : newline;
-    const auto space = data.find_last_of(' ', end);
-    if (space == std::string::npos) {
+/// @brief 拆开的存档文本：第一行原样保留，第二行按空格拆成 token。
+struct SplitData {
+    std::string head;
+    std::vector<std::string> tokens;
+};
+
+SplitData split_tail(const std::string& data) {
+    const auto newline = data.find('\n');
+    if (newline == std::string::npos) {
         throw std::runtime_error("测试数据格式异常");
     }
-    return space;
+    SplitData split;
+    split.head = data.substr(0, newline + 1);
+    std::istringstream line(data.substr(newline + 1));
+    for (std::string token; line >> token;) {
+        split.tokens.push_back(token);
+    }
+    return split;
 }
 
-/// @brief 去掉尾部的 AI 档位字段，模拟缺少必需字段的损坏存档。
-std::string strip_ai_level(std::string data) {
-    const auto space = last_field_start(data);
-    const auto newline = data.find_last_of('\n');
-    const auto end = (newline == std::string::npos) ? data.size() : newline;
-    data.erase(space, end - space);
-    return data;
+std::string join_tail(const SplitData& split) {
+    std::string text = split.head;
+    for (std::size_t i = 0; i < split.tokens.size(); ++i) {
+        if (i != 0) {
+            text += ' ';
+        }
+        text += split.tokens[i];
+    }
+    text += '\n';
+    return text;
 }
 
-/// @brief 把尾部 AI 档位写成任意文本，构造越界值与非法文本两种损坏。
-std::string replace_ai_level(std::string data, const std::string& replacement) {
-    const auto space = last_field_start(data);
-    const auto newline = data.find_last_of('\n');
-    const auto end = (newline == std::string::npos) ? data.size() : newline;
-    data.replace(space, end - space, " " + replacement);
-    return data;
+/// @brief 改写第二行第 index 个 token（0 起算）。
+std::string replace_tail_token(const std::string& data, std::size_t index,
+                               const std::string& replacement) {
+    SplitData split = split_tail(data);
+    if (index >= split.tokens.size()) {
+        throw std::runtime_error("测试数据缺少指定的 token");
+    }
+    split.tokens[index] = replacement;
+    return join_tail(split);
 }
+
+/// @brief 删除第二行第 index 个 token（0 起算）。
+std::string erase_tail_token(const std::string& data, std::size_t index) {
+    SplitData split = split_tail(data);
+    if (index >= split.tokens.size()) {
+        throw std::runtime_error("测试数据缺少指定的 token");
+    }
+    split.tokens.erase(split.tokens.begin() + static_cast<std::ptrdiff_t>(index));
+    return join_tail(split);
+}
+
+/// @brief 第二行里三个尾部字段的下标：25 个棋盘格之后依次是档位、种子、已掷次数。
+constexpr std::size_t kLevelIndex = core::Board::kSize * core::Board::kSize;
+constexpr std::size_t kSeedIndex = kLevelIndex + 1;
+constexpr std::size_t kRollsIndex = kLevelIndex + 2;
 
 }  // namespace
 
@@ -93,11 +127,12 @@ int main() {
     std::remove(kDbPath);
 
     const core::GameState state = make_state();
+    constexpr core::RngState kRng{7, 3};
 
     {
         storage::SaveManager manager(kDbPath);
-        manager.save_game("random", state, ai::Level::Random);
-        manager.save_game("search", state, ai::Level::Search);
+        manager.save_game("random", state, ai::Level::Random, kRng);
+        manager.save_game("search", state, ai::Level::Search, kRng);
 
         // 1. 档位必须随存档往返，且两种档位各自独立。
         const auto random_saved = manager.load_game("random");
@@ -107,58 +142,52 @@ int main() {
         const auto search_saved = manager.load_game("search");
         expect(search_saved && search_saved->ai_level == ai::Level::Search, "搜索档存档恢复搜索档");
 
-        // 2. 局面本身不能被档位字段影响。
+        // 2. 随机流必须随存档往返：种子与已掷次数都原样恢复。
+        expect(random_saved && random_saved->rng.seed == kRng.seed, "随机种子随存档往返");
+        expect(random_saved && random_saved->rng.rolls == kRng.rolls, "已掷次数随存档往返");
+
+        // 3. 局面本身不能被尾部字段影响。
         expect(random_saved && random_saved->state.phase == state.phase &&
                    random_saved->state.current_dice == state.current_dice,
                "局面随档位一起往返");
 
-        // 下面用原始 SQL 伪造缺失字段与损坏档，因此先把 data 取出来。
+        // 下面用原始 SQL 伪造缺失字段与损坏值，因此先把 data 取出来。
         {
             storage::Database db(kDbPath);
             const std::string data = read_data(db, "random");
 
-            // 3. 缺少尾部档位字段：必填字段缺失，不能静默回落。
-            write_data(db, "missing-level", strip_ai_level(data));
-            // 4. 档位越界：视为数据损坏，不能静默降级。
-            write_data(db, "bad-level", replace_ai_level(data, "9"));
-            // 5. 档位不是整数：同样视为数据损坏。
-            write_data(db, "garbage", replace_ai_level(data, "abc"));
-            // 6. 超出 int 的整数：operator>> 会置 failbit|eofbit，
-            //    若按 EOF 处理会静默回落到默认档，因此必须拒绝。
-            write_data(db, "overflow-level", replace_ai_level(data, "2147483648"));
+            write_data(db, "missing-level", erase_tail_token(data, kLevelIndex));
+            write_data(db, "missing-seed", erase_tail_token(data, kSeedIndex));
+            write_data(db, "missing-rolls", erase_tail_token(data, kRollsIndex));
+            write_data(db, "bad-level", replace_tail_token(data, kLevelIndex, "9"));
+            write_data(db, "garbage-level", replace_tail_token(data, kLevelIndex, "abc"));
+            write_data(db, "overflow-level", replace_tail_token(data, kLevelIndex, "2147483648"));
+            write_data(db, "negative-zero-seed", replace_tail_token(data, kSeedIndex, "-0"));
+            write_data(db, "overflow-seed", replace_tail_token(data, kSeedIndex, "4294967296"));
+            write_data(db, "overflow-rolls", replace_tail_token(data, kRollsIndex, "1000001"));
+            write_data(db, "garbage-rolls", replace_tail_token(data, kRollsIndex, "1abc"));
         }
 
-        bool missing_level_threw = false;
-        try {
-            [[maybe_unused]] const auto& ignored = manager.load_game("missing-level");
-        } catch (const std::runtime_error&) {
-            missing_level_threw = true;
-        }
-        expect(missing_level_threw, "缺少档位的存档被拒绝");
+        const auto expect_rejected = [&manager](const std::string& slot, std::string_view what) {
+            bool threw = false;
+            try {
+                [[maybe_unused]] const auto& ignored = manager.load_game(slot);
+            } catch (const std::runtime_error&) {
+                threw = true;
+            }
+            expect(threw, what);
+        };
 
-        bool bad_level_threw = false;
-        try {
-            [[maybe_unused]] const auto& ignored = manager.load_game("bad-level");
-        } catch (const std::runtime_error&) {
-            bad_level_threw = true;
-        }
-        expect(bad_level_threw, "越界档位被拒绝");
-
-        bool garbage_threw = false;
-        try {
-            [[maybe_unused]] const auto& ignored = manager.load_game("garbage");
-        } catch (const std::runtime_error&) {
-            garbage_threw = true;
-        }
-        expect(garbage_threw, "非整数档位被拒绝");
-
-        bool overflow_threw = false;
-        try {
-            [[maybe_unused]] const auto& ignored = manager.load_game("overflow-level");
-        } catch (const std::runtime_error&) {
-            overflow_threw = true;
-        }
-        expect(overflow_threw, "溢出档位被拒绝");
+        expect_rejected("missing-level", "缺少档位的存档被拒绝");
+        expect_rejected("missing-seed", "缺少随机种子的存档被拒绝");
+        expect_rejected("missing-rolls", "缺少已掷次数的存档被拒绝");
+        expect_rejected("bad-level", "越界档位被拒绝");
+        expect_rejected("garbage-level", "非整数档位被拒绝");
+        expect_rejected("overflow-level", "溢出档位被拒绝");
+        expect_rejected("negative-zero-seed", "负数零种子被拒绝");
+        expect_rejected("overflow-seed", "超出 32 位的种子被拒绝");
+        expect_rejected("overflow-rolls", "超出上限的已掷次数被拒绝");
+        expect_rejected("garbage-rolls", "非整数已掷次数被拒绝");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。

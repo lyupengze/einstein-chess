@@ -28,6 +28,7 @@
 | [`#save-level-overflow`](#save-level-overflow)             | 档位溢出被当成缺少档位           |
 | [`#layout-save-unrecoverable`](#layout-save-unrecoverable) | 布阵阶段的存档读不回来           |
 | [`#save-level-unvalidated`](#save-level-unvalidated)       | 写入端不校验档位                 |
+| [`#seed-not-affecting-dice`](#seed-not-affecting-dice)     | `--seed` 只影响 AI，骰子仍随机   |
 | [`#cli-db-open-crash`](#cli-db-open-crash)                 | 存档库打不开时异常穿出 main      |
 | [`#cli-eof-loop`](#cli-eof-loop)                           | stdin 关闭后菜单无限刷屏         |
 | [`#botzone-invalid-piece`](#botzone-invalid-piece)         | 非法棋子编号被当作真实棋子       |
@@ -67,6 +68,19 @@
 - **修复**：`aee4b6a` 为五个入口补齐阶段检查，并新增 `game_state_guard` 覆盖非法调用。
 - **回归**：`game_state_guard`。
 - **来源**：外部评审记录（2026-11-25）第 2 条。
+
+### `#seed-not-affecting-dice` `--seed` 只影响 AI，骰子仍随机
+
+- **现象**：`--seed 42` 连续跑两局，骰子点数不同；读档继续后骰序与 AI 决策也接不上，
+  命令行与文档承诺的“复现同一局”不成立。
+- **触发**：带 `--seed` 开新局并记录骰点；或保存一局后读档继续。
+- **根因**：骰子随机源在 `core::Game` 构造里直接用 `std::random_device`，参数只播种了 AI；
+  存档既不记录种子，也不记录已掷骰次数，读档无法回到同一位置。
+- **修复**：`efa0fe8` 让 `Game` 支持显式种子并计数掷骰；`319f7b0` 让 CLI 用同一棵种子
+  同时播种两个随机源并打印本局种子；`4bb488f` 让 AI 只由“种子 + 局面”决定；
+  存档追加随机种子与已掷次数（见 [存档格式](SAVE_FORMAT.md)）。
+- **回归**：`game_seed`、`ai_random`、`save_level`。
+- **来源**：代码审查（2026-11-27，基线 `f3942aa`）第 1 条。
 
 ## 图形界面
 

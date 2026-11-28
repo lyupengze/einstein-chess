@@ -271,7 +271,7 @@ int main(int argc, char* argv[]) {
     // 6. 预置一个存档后，读取模式应选中最近一条，确认后返回 Accepted。
     {
         storage::SaveManager manager(storage::kDefaultDbPath);
-        manager.save_game("alpha", make_minimal_state(), ai::Level::Search);
+        manager.save_game("alpha", make_minimal_state(), ai::Level::Search, core::RngState{});
     }
     {
         gui::SaveLoadDialog dialog(gui::DialogMode::Load);
@@ -339,7 +339,7 @@ int main(int argc, char* argv[]) {
         auto* save = find_button(widget, QString::fromUtf8("保存"));
         expect(history != nullptr, "保存暂停用例暴露历史列表");
         expect(save != nullptr, "保存暂停用例暴露保存按钮");
-        widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel);
+        widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel, core::RngState{});
 
         drive_save_dialog(900, history, "paused", true);
         if (save != nullptr) {
@@ -363,7 +363,7 @@ int main(int argc, char* argv[]) {
         auto* save = find_button(widget, QString::fromUtf8("保存"));
         expect(history != nullptr, "取消暂停用例暴露历史列表");
         expect(save != nullptr, "取消暂停用例暴露保存按钮");
-        widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel);
+        widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel, core::RngState{});
 
         drive_save_dialog(900, history, QString(), false);
         if (save != nullptr) {

@@ -12,6 +12,17 @@
 
 namespace core {
 
+/// @brief 一局骰子随机流的快照：种子与已经掷骰的次数。
+/// @note 存档同时记录这两项，读档后丢弃前 rolls 个点数即可得到与存档时相同的下一掷，
+///       读档续玩因此与存档前完全一致。
+struct RngState {
+    std::uint32_t seed{};   ///< 骰子随机源的种子
+    std::uint64_t rolls{};  ///< 本局构造以来已经掷骰的次数
+};
+
+/// @brief 已掷次数的上限；超过它说明数据被手改过（正常对局远达不到）。
+inline constexpr std::uint64_t kMaxRollCount = 1000000;
+
 /// @brief 对局门面：持有 GameState 与随机数发生器。
 ///
 /// CLI、GUI、Botzone 都只通过本类驱动对局，不直接改 GameState；阶段约束
@@ -69,6 +80,15 @@ public:
     /// @brief 本局自构造以来掷骰的次数。
     /// @note 读档端在还原种子后按该次数丢弃前若干点数，得到与存档时相同的下一掷
     [[nodiscard]] std::uint64_t roll_count() const noexcept;
+
+    /// @brief 本局随机流的快照，可直接写进存档。
+    [[nodiscard]] RngState rng_state() const noexcept;
+
+    /// @brief 还原随机流：种子与已掷次数共同决定下一掷。
+    /// @param rng 存档里记录的随机流快照
+    /// @throws std::invalid_argument rng.rolls 超过 kMaxRollCount
+    /// @note 只还原骰子；AI 的随机源由调用方用同一个种子重新播种
+    void restore_rng_state(RngState rng);
 
 private:
     /// @brief 双方布阵都完成后，进入掷骰阶段并指定红方先手。

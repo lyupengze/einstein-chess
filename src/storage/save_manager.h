@@ -13,15 +13,17 @@
 #include <vector>
 
 #include "ai/ai.h"
+#include "core/game.h"
 #include "core/game_state.h"
 #include "sqlite_wrapper.h"
 
 namespace storage {
 
-/// @brief 一次读档的完整结果：局面 + 存档时记录的 AI 档位。
+/// @brief 一次读档的完整结果：局面 + 存档时记录的 AI 档位与随机流。
 struct SavedGame {
     core::GameState state;                   ///< 读出的对局局面，可直接交给 core::Game::load_game
     ai::Level ai_level = ai::kDefaultLevel;  ///< 存档时使用的 AI 档位；读档时必填
+    core::RngState rng;                      ///< 存档时的骰子随机流；读档端据此还原下一掷
 };
 
 /// 默认数据库文件名。是相对路径，实际位置取决于进程的当前工作目录
@@ -39,13 +41,16 @@ public:
     /// @param slot_name 槽位名（主键），同名即覆盖旧存档
     /// @param state 要保存的局面
     /// @param level 当局使用的 AI 档位，读档时原样恢复
-    /// @throws std::invalid_argument AI 档位非法、局面处于布阵阶段，或局面不自洽
+    /// @param rng 当局的骰子随机流，读档时原样恢复
+    /// @throws std::invalid_argument AI 档位非法、局面处于布阵阶段、局面不自洽，
+    ///         或 rng.rolls 超出 core::kMaxRollCount
     /// @throws std::runtime_error 数据库写入失败
-    void save_game(const std::string& slot_name, const core::GameState& state, ai::Level level);
+    void save_game(const std::string& slot_name, const core::GameState& state, ai::Level level,
+                   core::RngState rng);
 
     /// 读取指定槽位。
     /// @return 槽位不存在返回 std::nullopt；数据损坏抛 std::runtime_error
-    /// @note AI 档位是必填字段；缺字段、非法档位或布阵阶段局面都会被拒绝。
+    /// @note AI 档位与随机流都是必填字段；缺字段、非法档位或布阵阶段局面都会被拒绝。
     [[nodiscard]] std::optional<SavedGame> load_game(const std::string& slot_name);
 
     /// 列出全部存档名，按保存时间从新到旧；同一秒按名称升序。

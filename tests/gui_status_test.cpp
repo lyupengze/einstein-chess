@@ -75,7 +75,7 @@ core::GameState make_layout_state() {
 
 bool load_throws(gui::GameWidget& widget, const core::GameState& state) {
     try {
-        widget.load_game_state(state, ai::kDefaultLevel);
+        widget.load_game_state(state, ai::kDefaultLevel, core::RngState{});
     } catch (const std::invalid_argument&) {
         return true;
     }
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
         auto* roll = find_button(widget, QStringLiteral("掷骰子"));
         expect(roll != nullptr, "对局页暴露掷骰按钮");
 
-        widget.load_game_state(make_layout_state(), ai::kDefaultLevel);
+        widget.load_game_state(make_layout_state(), ai::kDefaultLevel, core::RngState{});
         expect(any_contains(label_texts(widget), QStringLiteral("?")),
                "无骰子局面显示 ? 而不是中止刷新");
         expect(roll != nullptr && !roll->isEnabled(), "无骰子局面不点亮掷骰按钮");
@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
         expect(history != nullptr, "对局页暴露历史列表");
         expect(roll != nullptr, "对局页暴露掷骰按钮");
 
-        widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel);
+        widget.load_game_state(make_ai_thinking_state(), ai::kDefaultLevel, core::RngState{});
 
         expect(QMetaObject::invokeMethod(&widget, "on_roll_dice_clicked", Qt::DirectConnection),
                "能直接触发掷骰槽");
