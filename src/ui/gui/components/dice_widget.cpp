@@ -69,7 +69,7 @@ void DiceWidget::paintEvent(QPaintEvent*) {
     // dx/dy 的正负号直接表示方向：负为左上，正为右下。
     auto draw_dot = [&](int dx, int dy) { painter.drawEllipse(QPoint(cx + dx, cy + dy), r, r); };
 
-    // 注意: 合法点数只会是 1~6；default 不是“没有骰子”，而是数据异常。
+    // 注意：合法点数只会是 1~6；default 不是“没有骰子”，而是数据异常。
     // 这里画一个红色问号，避免非法值看起来和“本回合还没掷骰”完全一样。
     switch (dice_val) {
         case 1:

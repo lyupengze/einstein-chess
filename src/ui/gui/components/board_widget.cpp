@@ -193,7 +193,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     }
 
     // 可达落点沿用上面那支绿虚线画笔（此处没有再 setPen），所以两者样式天然一致。
-    // 注意: 若把上面的 setPen 连同 selectable_pieces_ 循环一起删掉，这里的圈会沿用画
+    // 注意：若把上面的 setPen 连同 selectable_pieces_ 循环一起删掉，这里的圈会沿用画
     //       棋子编号时的白色实线画笔，与可动圈样式不一致。
     for (const auto& target : reachable_targets_) {
         QRect rect = rect_for(target).adjusted(-4, -4, 4, 4);

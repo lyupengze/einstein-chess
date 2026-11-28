@@ -35,7 +35,7 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai
     auto* right_panel = new QVBoxLayout();
 
     // 对应 style.qss 里的 QLabel#statusLabel。
-    status_label_ = new QLabel(QStringLiteral("等待开始游戏..."), this);
+    status_label_ = new QLabel(QStringLiteral("等待开始游戏…"), this);
     status_label_->setObjectName("statusLabel");
 
     roll_btn_ = new QPushButton(QStringLiteral("掷骰子"), this);
@@ -187,7 +187,7 @@ void GameWidget::on_roll_dice_clicked() {
     }
     // 立刻禁用，防止延迟期间被连点造成重复掷骰。
     roll_btn_->setEnabled(false);
-    status_label_->setText(QStringLiteral("🎲 正在掷骰子..."));
+    status_label_->setText(QStringLiteral("🎲 正在掷骰子…"));
 
     // 400ms 后才真正掷骰，让“正在掷骰”先渲染一帧；成员定时器便于新局或读档取消。
     roll_timer_.start(roll_delay_ms_);
@@ -533,10 +533,10 @@ void GameWidget::update_ui() {
     } else {
         // 电脑回合：两个子阶段都由定时器推进，按钮保持禁用。
         if (state.phase == core::Phase::ThrowingDice) {
-            status_label_->setText(QStringLiteral("🤖 电脑正在掷骰子..."));
+            status_label_->setText(QStringLiteral("🤖 电脑正在掷骰子…"));
         } else {
             status_label_->setText(QStringLiteral("🎲 电脑掷出了 ") + dice_text +
-                                   QStringLiteral("，正在思考..."));
+                                   QStringLiteral("，正在思考…"));
         }
         roll_btn_->setEnabled(false);
     }

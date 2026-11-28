@@ -112,7 +112,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
         if (current_side == game.get_state().player1_side) {
             if (game.get_state().phase == core::Phase::ThrowingDice) {
                 // 人类回合开始：先等一次回车再掷骰；这里同时兼作 save / exit 入口。
-                std::cout << "轮到你了. 按回车掷骰子...";
+                std::cout << "轮到你了，按回车掷骰子…";
                 std::string pause;
                 if (!read_line(pause)) {
                     std::cout << "\n输入已结束，本局结束。\n";
@@ -218,7 +218,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                 break;
             }
 
-            std::cout << "按回车继续...";
+            std::cout << "按回车继续…";
             std::string pause;
             if (!read_line(pause)) {
                 std::cout << "\n输入已结束，本局结束。\n";
@@ -232,7 +232,7 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
     std::cout << game.get_state().board.to_string() << "\n";
     auto winner = game.get_state().winner;
     std::cout << core::side_name(winner) << " 获胜\n";
-    std::cout << "按回车返回主菜单...";
+    std::cout << "按回车返回主菜单…";
     std::string pause;
     // 忽略返回值：EOF 时直接返回主菜单，不会卡住。
     read_line(pause);
@@ -248,7 +248,7 @@ int main(int argc, char* argv[]) {
     const bool output_ok = SetConsoleOutputCP(CP_UTF8) != 0;
     const bool input_ok = SetConsoleCP(CP_UTF8) != 0;
     if (!output_ok || !input_ok) {
-        std::cerr << "警告: 无法将 Windows 控制台切换到 UTF-8，中文可能显示异常。\n";
+        std::cerr << "警告：无法将 Windows 控制台切换到 UTF-8，中文可能显示异常。\n";
     }
 #endif
     std::cout << "=== 爱因斯坦棋 (CLI) ===\n";

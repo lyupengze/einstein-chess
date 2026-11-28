@@ -124,7 +124,7 @@ int SetupDialog::get_index_in_region(int x, int y) const {
 
 void SetupDialog::on_side_changed() {
     // 换阵营等于换三角区，旧的六个编号在新的区里无处安放，直接清空重来。
-    // 注意: 连的是 toggled，切换时两个单选按钮各发一次信号，本函数会被调用两次（幂等）。
+    // 注意：连的是 toggled，切换时两个单选按钮各发一次信号，本函数会被调用两次（幂等）。
     layout_.fill(0);
     update_grid_ui();
 }
@@ -172,7 +172,7 @@ void SetupDialog::on_grid_clicked(int x, int y) {
     }
 
     // (v % 6) + 1 实现 1->2->…->6->1 的循环：取值域始终是 1~6，0 只作为“未分配”存在。
-    // 注意: 这里只改被点的那一格，不会替别的格子避让，重复编号留到确认时校验。
+    // 注意：这里只改被点的那一格，不会替别的格子避让，重复编号留到确认时校验。
     layout_[idx] = (layout_[idx] % kPieces) + 1;
     grid_btns_[x][y]->setText(QString::number(layout_[idx]));
 }
