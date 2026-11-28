@@ -9,7 +9,7 @@
 [![CMake](https://img.shields.io/badge/CMake-3.20+-red.svg?style=flat-square&logo=cmake)](https://cmake.org/)
 [![Verified on Windows · MSYS2 UCRT64](https://img.shields.io/badge/Verified-Windows%20%C2%B7%20MSYS2%20UCRT64-lightgrey.svg?style=flat-square)](docs/BUILD.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![CI](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lyupengze/einstein-chess/actions/workflows/ci.yml)
+[![CI](https://github.com/SpamtoNEO/einstein-chess/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SpamtoNEO/einstein-chess/actions/workflows/ci.yml)
 
 **基于 C++17 与 Qt6 的 5×5 爱因斯坦棋人机对弈程序**
 
@@ -123,4 +123,6 @@ Qt 动态库的能力。
 
 ## 👥 作者
 
-- **Spamton NEO**（Lyu Pengze）：独立完成
+- **Spamton NEO**：项目发起、设计取舍、规则与协议实现、测试与文档的定稿。
+- 开发过程使用 AI 编程助手参与方案讨论、代码与注释起草、测试设计与代码审查；所有改动经作者
+  审阅并在本地构建、跑完全部测试后合入，错误由作者负责。
