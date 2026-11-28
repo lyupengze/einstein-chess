@@ -8,7 +8,9 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <random>
 #include <stdexcept>
@@ -40,12 +42,35 @@ constexpr double kTieEpsilon = 1.0e-9;
 using RaceDistribution = std::array<float, kRaceMaxStep + 1>;
 using RaceTable = std::vector<RaceDistribution>;
 
-// 随机源用线程局部而不是函数内 static：static 会被所有线程共享，
-// 而 std::mt19937 不保证线程安全，测试也无法用固定种子复现；
-// thread_local 保留“只播种一次”，又消除了共享。
-std::mt19937& engine() {
-    thread_local std::mt19937 gen(std::random_device{}());
-    return gen;
+// 全局只保存种子，抽签引擎在每次决策时按“种子 + 局面”现构造：同一局面在同一种子下
+// 必须给出同一决策，否则读档后的续玩会和存档前分叉，而存档里并没有 AI 的内部状态。
+// 用原子量保存种子，保证 `set_random_seed()` 与并发的只读决策之间没有数据竞争。
+std::atomic<std::uint32_t> g_seed{std::random_device{}()};
+
+// FNV-1a：把决定走法的局面字段混成一个 64 位值，作为引擎种子的一部分。
+std::uint64_t hash_state(const core::GameState& state) {
+    std::uint64_t hash = 1469598103934665603ULL;
+    const auto mix = [&hash](std::uint64_t value) {
+        hash ^= value;
+        hash *= 1099511628211ULL;
+    };
+    mix(static_cast<std::uint64_t>(state.current_side));
+    mix(static_cast<std::uint64_t>(state.phase));
+    mix(static_cast<std::uint64_t>(state.current_dice.value_or(-1)));
+    for (std::size_t x = 0; x < core::Board::kSize; ++x) {
+        for (std::size_t y = 0; y < core::Board::kSize; ++y) {
+            const core::Piece& piece = state.board.at({x, y});
+            mix(static_cast<std::uint64_t>(piece.side));
+            mix(static_cast<std::uint64_t>(piece.id));
+        }
+    }
+    return hash;
+}
+
+// 每个决策点一个独立引擎：输入只由种子与局面决定，因此决策与调用次数、调用顺序无关。
+std::mt19937 make_engine(const core::GameState& state) {
+    const std::uint64_t mixed = hash_state(state) ^ g_seed.load(std::memory_order_relaxed);
+    return std::mt19937(static_cast<std::uint32_t>(mixed ^ (mixed >> 32)));
 }
 
 // 到对方目标角的最少步数。斜走一格同时改变 x/y，所以是 Chebyshev 距离。
@@ -296,8 +321,9 @@ core::Move choose_move(const core::GameState& state, const SearchConfig& config)
     }
     const std::vector<core::Move>& candidates = diagonal.empty() ? closest : diagonal;
 
+    std::mt19937 gen = make_engine(state);
     std::uniform_int_distribution<std::size_t> dist(0, candidates.size() - 1);
-    return candidates[dist(engine())];
+    return candidates[dist(gen)];
 }
 
 // 所有档位共用的前置检查：走子只在“某一方思考中”的阶段有语义，放在分发之前，
@@ -316,8 +342,9 @@ core::Move choose_random_move(const core::GameState& state) {
     if (moves.empty()) {
         throw std::invalid_argument("局面没有合法着法可走");
     }
+    std::mt19937 gen = make_engine(state);
     std::uniform_int_distribution<std::size_t> dist(0, moves.size() - 1);
-    return moves[dist(engine())];
+    return moves[dist(gen)];
 }
 
 }  // namespace
@@ -343,13 +370,14 @@ double estimate_win_rate(const core::GameState& state) {
 }
 
 void set_random_seed(unsigned int seed) {
-    engine() = std::mt19937(seed);
+    g_seed.store(static_cast<std::uint32_t>(seed), std::memory_order_relaxed);
 }
 
 std::array<int, core::Board::kChessCount> decide_layout() {
     // 先构造顺序排列再打乱，结果天然是 1~6 的合法排列，无需额外校验。
     std::array<int, core::Board::kChessCount> layout{1, 2, 3, 4, 5, 6};
-    std::shuffle(layout.begin(), layout.end(), engine());
+    std::mt19937 gen(g_seed.load(std::memory_order_relaxed));
+    std::shuffle(layout.begin(), layout.end(), gen);
     return layout;
 }
 
