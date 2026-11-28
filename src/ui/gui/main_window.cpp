@@ -41,14 +41,20 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
 
         if (dialog.exec() == QDialog::Accepted) {
             // get_selected_side 的约定是 1=红、2=蓝，这里按 1/2 显式映射；
-            // 注意: 不要写成 static_cast<Side>(side_int)——那会依赖枚举的数值顺序。
-            int side_int = dialog.get_selected_side();
-            core::Side human_side = (side_int == 1) ? core::Side::Red : core::Side::Blue;
-            auto player_layout = dialog.get_layout();
+            // 注意：不要写成 static_cast<Side>(side_int)——那会依赖枚举的数值顺序。
+            const int side_int = dialog.get_selected_side();
+            const core::Side human_side = (side_int == 1) ? core::Side::Red : core::Side::Blue;
+            const auto player_layout = dialog.get_layout();
             // start_new_game 内部会同时提交人类与 AI 的布阵，返回时阶段已在 ThrowingDice。
             // 档位与布阵一起传入：对话框默认选 kDefaultLevel，整局沿用。
-            game_widget_->start_new_game(human_side, player_layout, dialog.get_selected_level());
-            stacked_widget_->setCurrentWidget(game_widget_);
+            try {
+                game_widget_->start_new_game(human_side, player_layout,
+                                             dialog.get_selected_level());
+                stacked_widget_->setCurrentWidget(game_widget_);
+            } catch (const std::exception& e) {
+                // 布阵或开局状态不合法时留在菜单页，避免界面停在一个半初始化的对局上。
+                QMessageBox::critical(this, "开局失败", e.what());
+            }
         }
     });
 

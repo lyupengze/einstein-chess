@@ -6,6 +6,7 @@
 /// 便于复现同一局；`--db` 指定存档库。所有输入都按整行读取再自行解析，避免
 /// `operator>>` 在输入缓冲区留下换行残渣。
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -211,7 +212,12 @@ void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level a
                 return;
             }
 
-            // 停一下，让玩家看清 AI 这一手再进入下一轮。
+            // 停一下，让玩家看清 AI 这一手再进入下一轮；若这一手已经分出胜负，
+            // 直接交给循环外的终局展示，省掉这次回车。
+            if (game.get_state().phase == core::Phase::GameOver) {
+                break;
+            }
+
             std::cout << "按回车继续...";
             std::string pause;
             if (!read_line(pause)) {
@@ -455,11 +461,15 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+            // 先把两边的布局都算出来再提交：decide_layout 若抛异常，此时棋盘上
+            // 还没有任何一方就绪，重试可以重新提交；否则人类已就绪、重试会被
+            // “该方提交过布阵”挡死。
+            const std::array<int, core::Board::kChessCount> ai_layout = ai::decide_layout();
             try {
                 // 排列是否合法（1~6 各一个）由 Board::setup_custom 校验；
                 // 抛异常时 Game 状态保持不变，可以放心重输。
                 game.submit_layout(player1_side, *player_layout);
-                game.submit_layout(player2_side, ai::decide_layout());
+                game.submit_layout(player2_side, ai_layout);
             } catch (const std::exception& e) {
                 std::cout << "布阵失败: " << e.what() << "\n\n";
                 continue;
