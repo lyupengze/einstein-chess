@@ -123,4 +123,4 @@ Qt 动态库的能力。
 
 ## 👥 作者
 
-- **Spamton NEO**：独立完成
+- **Spamton NEO**（Lyu Pengze）：独立完成
