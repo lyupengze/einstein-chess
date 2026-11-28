@@ -32,7 +32,7 @@ core::Pos to_pos(int x, int y) {
 }  // namespace
 
 SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
-    setWindowTitle("布阵阶段");
+    setWindowTitle(QStringLiteral("布阵阶段"));
     // 固定尺寸：网格是 5 列各 60px 的按钮，窗口可缩放会把按钮压变形。
     // 相比只有阵营行时加高 40px，给“电脑强度”下拉框留出一行。
     setFixedSize(400, 560);
@@ -44,9 +44,9 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
 
     // 阵营单选行：红方默认选中，右侧留白把整行推向左。
     auto* side_layout = new QHBoxLayout();
-    side_layout->addWidget(new QLabel("你的阵营："));
-    red_radio_ = new QRadioButton("红方 (先手 / 左上)");
-    blue_radio_ = new QRadioButton("蓝方 (后手 / 右下)");
+    side_layout->addWidget(new QLabel(QStringLiteral("你的阵营：")));
+    red_radio_ = new QRadioButton(QStringLiteral("红方 (先手 / 左上)"));
+    blue_radio_ = new QRadioButton(QStringLiteral("蓝方 (后手 / 右下)"));
     red_radio_->setChecked(true);
     side_layout->addWidget(red_radio_);
     side_layout->addWidget(blue_radio_);
@@ -57,7 +57,7 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     // 电脑强度：条目全部由 ai::kAllLevels 生成，界面不写死档位数量与名称；
     // 用整数值存进 itemData，避免为枚举注册 Qt 元类型。
     auto* level_layout = new QHBoxLayout();
-    level_layout->addWidget(new QLabel("电脑强度："));
+    level_layout->addWidget(new QLabel(QStringLiteral("电脑强度：")));
     level_combo_ = new QComboBox(this);
     for (const ai::Level level : ai::kAllLevels) {
         level_combo_->addItem(QString::fromStdString(ai::level_name(level)),
@@ -70,7 +70,7 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     main_layout->addLayout(level_layout);
     main_layout->addSpacing(10);
 
-    main_layout->addWidget(new QLabel("点击亮起的格子循环切换数字 1~6："));
+    main_layout->addWidget(new QLabel(QStringLiteral("点击亮起的格子循环切换数字 1~6：")));
 
     // 网格间距压到 2px，让 5x5 更接近一整块棋盘而不是散落的按钮。
     auto* grid_layout = new QGridLayout();
@@ -94,7 +94,7 @@ SetupDialog::SetupDialog(QWidget* parent) : QDialog(parent) {
     main_layout->addLayout(grid_layout);
     main_layout->addSpacing(15);
 
-    auto* confirm_btn = new QPushButton("确认布阵", this);
+    auto* confirm_btn = new QPushButton(QStringLiteral("确认布阵"), this);
     confirm_btn->setStyleSheet(
         "padding: 12px; font-size: 16px; background-color: #2ecc71; font-weight: bold;");
     main_layout->addWidget(confirm_btn);
@@ -183,7 +183,8 @@ void SetupDialog::on_confirm_clicked() {
     for (int i = 0; i < kPieces; ++i) {
         if (seen[layout_[i]]) {
             // 有重复就留在对话框里，让玩家继续点格子调整。
-            QMessageBox::warning(this, "布阵错误", "棋子编号不能重复，请点击棋盘上的格子调整。");
+            QMessageBox::warning(this, QStringLiteral("布阵错误"),
+                                 QStringLiteral("棋子编号不能重复，请点击棋盘上的格子调整。"));
             return;
         }
         seen[layout_[i]] = true;

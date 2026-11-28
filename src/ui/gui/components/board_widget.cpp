@@ -201,7 +201,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     }
 
     // 已选中：金色实线、线宽 4、只外扩 2 像素，比可达圈更内收；
-    // 同一格既是选中又是可落时，靠"实线 + 金色"与虚线圈区分开。画在最后，层级最高。
+    // 同一格既是选中又是可落时，靠QStringLiteral("实线 + 金色")与虚线圈区分开。画在最后，层级最高。
     if (selected_pos_) {
         painter.setPen(QPen(QColor("#f1c40f"), 4));
         QRect rect = rect_for(*selected_pos_).adjusted(-2, -2, 2, 2);

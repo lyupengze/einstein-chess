@@ -31,7 +31,7 @@ void DiceWidget::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // 没有点数就整帧不画，控件退化为一块空白，视觉上等价于"本回合还没掷骰"。
+    // 没有点数就整帧不画，控件退化为一块空白，视觉上等价于QStringLiteral("本回合还没掷骰")。
     if (!current_dice_.has_value()) {
         return;
     }
@@ -44,7 +44,7 @@ void DiceWidget::paintEvent(QPaintEvent*) {
 
     QRect dice_rect(x, y, size, size);
 
-    // 先画右下偏移 3 像素的半透明黑影，再让骰身把它盖住，得到"浮起"的立体感。
+    // 先画右下偏移 3 像素的半透明黑影，再让骰身把它盖住，得到QStringLiteral("浮起")的立体感。
     painter.setPen(Qt::NoPen);
     painter.setBrush(QColor(0, 0, 0, 50));
     painter.drawRoundedRect(dice_rect.translated(3, 3), size / 5, size / 5);

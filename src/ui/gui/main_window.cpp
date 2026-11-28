@@ -53,7 +53,7 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
                 stacked_widget_->setCurrentWidget(game_widget_);
             } catch (const std::exception& e) {
                 // 布阵或开局状态不合法时留在菜单页，避免界面停在一个半初始化的对局上。
-                QMessageBox::critical(this, "开局失败", e.what());
+                QMessageBox::critical(this, QStringLiteral("开局失败"), e.what());
             }
         }
     });
@@ -82,11 +82,12 @@ MainWindow::MainWindow(QWidget* parent) : QWidget(parent) {
                 stacked_widget_->setCurrentWidget(game_widget_);
             } else {
                 // 记录可能在对话框打开后已被删除，所以查不到不算异常。
-                QMessageBox::warning(this, "错误", "找不到该存档。");
+                QMessageBox::warning(this, QStringLiteral("错误"),
+                                     QStringLiteral("找不到该存档。"));
             }
         } catch (const std::exception& e) {
             // 数据库打不开或反序列化对损坏数据抛异常，报错并留在菜单页。
-            QMessageBox::critical(this, "读取失败", e.what());
+            QMessageBox::critical(this, QStringLiteral("读取失败"), e.what());
         }
     });
 

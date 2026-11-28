@@ -24,7 +24,7 @@ MenuWidget::MenuWidget(QWidget* parent) : QWidget(parent) {
     auto* layout = new QVBoxLayout(this);
     layout->setAlignment(Qt::AlignCenter);
 
-    auto* title = new QLabel("爱因斯坦棋", this);
+    auto* title = new QLabel(QStringLiteral("爱因斯坦棋"), this);
     title->setAlignment(Qt::AlignCenter);
     // 标题用 56px 加粗加字距，是本页唯一的视觉重点。
     title->setStyleSheet(
@@ -37,12 +37,12 @@ MenuWidget::MenuWidget(QWidget* parent) : QWidget(parent) {
         "font-size: 20px; color: #95a5a6; margin-bottom: 50px; font-style: italic;");
 
     // 两个按钮固定 240x60：不交给布局商量，保证等宽等高。
-    start_btn_ = new QPushButton("开始新游戏", this);
+    start_btn_ = new QPushButton(QStringLiteral("开始新游戏"), this);
     start_btn_->setFixedSize(240, 60);
     start_btn_->setStyleSheet("font-size: 18px;");
 
     // 灰底表示次要操作，与主按钮的蓝色形成主次对比。
-    load_btn_ = new QPushButton("读取存档", this);
+    load_btn_ = new QPushButton(QStringLiteral("读取存档"), this);
     load_btn_->setFixedSize(240, 60);
     load_btn_->setStyleSheet("font-size: 18px; background-color: #7f8c8d;");
 

@@ -20,7 +20,8 @@ namespace gui {
 
 SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(parent), mode_(mode) {
     // 标题与下方提示语都随模式切换，其余控件复用。
-    setWindowTitle(mode == DialogMode::Save ? "保存游戏" : "读取存档");
+    setWindowTitle(mode == DialogMode::Save ? QStringLiteral("保存游戏")
+                                            : QStringLiteral("读取存档"));
     setFixedSize(400, 300);
 
     auto* layout = new QVBoxLayout(this);
@@ -32,19 +33,19 @@ SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(paren
 
     if (mode_ == DialogMode::Save) {
         // 保存模式：名称输入框在上，列表在下，列表只作参考。
-        layout->addWidget(new QLabel("请输入存档名称："));
+        layout->addWidget(new QLabel(QStringLiteral("请输入存档名称：")));
         name_input_ = new QLineEdit(this);
-        name_input_->setPlaceholderText("例如：绝地反击");
+        name_input_->setPlaceholderText(QStringLiteral("例如：绝地反击"));
         layout->addWidget(name_input_);
 
         // 明确告知同名会被覆盖，避免玩家以为产生了第二个副本。
-        layout->addWidget(new QLabel("已有存档（同名将覆盖）："));
+        layout->addWidget(new QLabel(QStringLiteral("已有存档（同名将覆盖）：")));
     } else {
         // 读取模式：没有输入框，空库与非空库给不同提示语，避免出现空白列表让人困惑。
         if (saves.empty()) {
-            layout->addWidget(new QLabel("当前没有任何存档。"));
+            layout->addWidget(new QLabel(QStringLiteral("当前没有任何存档。")));
         } else {
-            layout->addWidget(new QLabel("请选择要读取的存档："));
+            layout->addWidget(new QLabel(QStringLiteral("请选择要读取的存档：")));
         }
     }
 
@@ -55,7 +56,7 @@ SaveLoadDialog::SaveLoadDialog(DialogMode mode, QWidget* parent) : QDialog(paren
     }
     layout->addWidget(list_widget_);
 
-    auto* confirm_btn = new QPushButton("确认", this);
+    auto* confirm_btn = new QPushButton(QStringLiteral("确认"), this);
     confirm_btn->setStyleSheet("background-color: #3498db; color: white; padding: 8px;");
     layout->addWidget(confirm_btn);
 
@@ -73,16 +74,16 @@ void SaveLoadDialog::on_confirm_clicked() {
     if (mode_ == DialogMode::Save) {
         const QString name = name_input_->text().trimmed();
         if (name.isEmpty()) {
-            QMessageBox::warning(this, "错误", "存档名不能为空");
+            QMessageBox::warning(this, QStringLiteral("错误"), QStringLiteral("存档名不能为空"));
             return;
         }
 
         // 同名保存最终由 SaveManager 的 INSERT OR REPLACE 覆盖；覆盖会丢失旧档，
         // 所以先让用户确认一次，默认按钮选 No，避免回车误覆盖。
         if (!list_widget_->findItems(name, Qt::MatchExactly).isEmpty()) {
-            const auto answer =
-                QMessageBox::question(this, "覆盖存档", "已存在同名存档，确定要覆盖吗？",
-                                      QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+            const auto answer = QMessageBox::question(
+                this, QStringLiteral("覆盖存档"), QStringLiteral("已存在同名存档，确定要覆盖吗？"),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
             if (answer != QMessageBox::Yes) {
                 return;
             }
@@ -91,7 +92,7 @@ void SaveLoadDialog::on_confirm_clicked() {
     } else {
         // 空库时列表没有任何项，这里就是唯一的拦截点。
         if (!list_widget_->currentItem()) {
-            QMessageBox::warning(this, "错误", "请选择一个存档");
+            QMessageBox::warning(this, QStringLiteral("错误"), QStringLiteral("请选择一个存档"));
             return;
         }
         accept();

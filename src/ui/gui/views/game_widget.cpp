@@ -35,12 +35,12 @@ GameWidget::GameWidget(QWidget* parent) : QWidget(parent), roll_timer_(this), ai
     auto* right_panel = new QVBoxLayout();
 
     // 对应 style.qss 里的 QLabel#statusLabel。
-    status_label_ = new QLabel("等待开始游戏...", this);
+    status_label_ = new QLabel(QStringLiteral("等待开始游戏..."), this);
     status_label_->setObjectName("statusLabel");
 
-    roll_btn_ = new QPushButton("掷骰子", this);
-    exit_btn_ = new QPushButton("返回主页", this);
-    save_btn_ = new QPushButton("保存", this);
+    roll_btn_ = new QPushButton(QStringLiteral("掷骰子"), this);
+    exit_btn_ = new QPushButton(QStringLiteral("返回主页"), this);
+    save_btn_ = new QPushButton(QStringLiteral("保存"), this);
     roll_btn_->setFixedSize(100, 40);
     exit_btn_->setFixedSize(100, 40);
     save_btn_->setFixedSize(100, 40);
@@ -187,7 +187,7 @@ void GameWidget::on_roll_dice_clicked() {
     }
     // 立刻禁用，防止延迟期间被连点造成重复掷骰。
     roll_btn_->setEnabled(false);
-    status_label_->setText("🎲 正在掷骰子...");
+    status_label_->setText(QStringLiteral("🎲 正在掷骰子..."));
 
     // 400ms 后才真正掷骰，让“正在掷骰”先渲染一帧；成员定时器便于新局或读档取消。
     roll_timer_.start(roll_delay_ms_);
@@ -208,7 +208,7 @@ void GameWidget::on_roll_dice_timeout() {
 
 void GameWidget::on_save_clicked() {
     if (game_aborted_) {
-        show_message("对局已中止，无法保存");
+        show_message(QStringLiteral("对局已中止，无法保存"));
         return;
     }
 
@@ -229,9 +229,9 @@ void GameWidget::on_save_clicked() {
         std::string name = dialog.get_save_name();
         storage::SaveManager save_manager(storage::kDefaultDbPath);
         save_manager.save_game(name, game_.get_state(), ai_level_, game_.rng_state());
-        show_message("游戏已保存");
+        show_message(QStringLiteral("游戏已保存"));
     } catch (const std::exception& e) {
-        QMessageBox::critical(this, "保存失败", e.what());
+        QMessageBox::critical(this, QStringLiteral("保存失败"), e.what());
     }
 }
 
@@ -340,7 +340,7 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
                 selected_pos_ = pos;
                 update_ui();
             } else {
-                show_message("这个棋子本回合不能动");
+                show_message(QStringLiteral("这个棋子本回合不能动"));
             }
         }
     }
@@ -523,18 +523,20 @@ void GameWidget::update_ui() {
     if (state.current_side == state.player1_side) {
         if (state.phase == core::Phase::ThrowingDice) {
             // 全局唯一点亮掷骰按钮的组合。
-            status_label_->setText("轮到你了，请掷骰子");
+            status_label_->setText(QStringLiteral("轮到你了，请掷骰子"));
             roll_btn_->setEnabled(true);
         } else {
-            status_label_->setText("🎲 你掷出了 " + dice_text + "，请走棋");
+            status_label_->setText(QStringLiteral("🎲 你掷出了 ") + dice_text +
+                                   QStringLiteral("，请走棋"));
             roll_btn_->setEnabled(false);
         }
     } else {
         // 电脑回合：两个子阶段都由定时器推进，按钮保持禁用。
         if (state.phase == core::Phase::ThrowingDice) {
-            status_label_->setText("🤖 电脑正在掷骰子...");
+            status_label_->setText(QStringLiteral("🤖 电脑正在掷骰子..."));
         } else {
-            status_label_->setText("🎲 电脑掷出了 " + dice_text + "，正在思考...");
+            status_label_->setText(QStringLiteral("🎲 电脑掷出了 ") + dice_text +
+                                   QStringLiteral("，正在思考..."));
         }
         roll_btn_->setEnabled(false);
     }

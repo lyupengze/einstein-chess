@@ -21,7 +21,8 @@ public:
     explicit DiceWidget(QWidget* parent = nullptr);
 
     /// @brief 设置要显示的点数并请求重绘。
-    /// @param dice 1~6 的合法点数；std::nullopt 表示"本回合还没掷骰"，控件随即变空白
+    /// @param dice 1~6 的合法点数；std::nullopt
+    /// 表示QStringLiteral("本回合还没掷骰")，控件随即变空白
     /// @note 此处不做范围校验：传入 0 或大于 6 时骰身照画，点阵画成红色问号。
     void set_dice(std::optional<int> dice);
 
