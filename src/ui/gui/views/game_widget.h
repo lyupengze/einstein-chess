@@ -11,6 +11,7 @@
 #include <QWidget>
 #include <array>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "ai/ai.h"
@@ -18,6 +19,7 @@
 #include "components/dice_widget.h"
 #include "components/toast_widget.h"
 #include "core/game.h"
+#include "storage/save_manager.h"
 
 namespace gui {
 
@@ -50,6 +52,10 @@ public:
     /// @param think_ms AI 掷骰后到落子的延迟（默认 800）
     /// @note 只给回归测试压缩等待时间；产品代码不调用，因此默认体验不变。
     void set_action_delays(int roll_ms, int after_move_ms, int think_ms);
+    /// @brief 测试专用：改现场快照的数据库路径；空串表示关闭快照。
+    /// @param path 快照数据库的相对或绝对路径
+    /// @note 产品代码不调用，默认路径见 storage::kDefaultSceneDbPath。
+    void set_scene_db_path(const std::string& path);
 
 signals:
 
@@ -106,6 +112,9 @@ private:
     /// @brief 向历史列表追加一行并滚动到底部。
     /// @param text 形如“你: (0,1)->(1,1) 吃 B3”的一行文本
     void add_history_log(const QString& text);
+    /// @brief 把当前局面、档位与随机流写进现场快照；失败只告警一次，不打断对局。
+    /// @note 布阵阶段的局面会被 save_game 拒绝，这里当作“暂无可用快照”直接跳过。
+    void snapshot_scene() noexcept;
 
     /// @brief 本回合允许移动的己方棋子所在格，供棋盘画可动圈。
     /// @return 阶段不是 Player1Thinking 时返回空
@@ -140,6 +149,11 @@ private:
     int roll_delay_ms_{400};        ///< on_roll_dice_clicked 里真正掷骰前的等待
     int after_move_delay_ms_{500};  ///< 人类走子后到 AI 开始回合的等待
     int think_delay_ms_{800};       ///< AI 掷骰后到落子的等待
+
+    std::string scene_db_path_{std::string(storage::kDefaultSceneDbPath)};  ///< 现场快照数据库路径
+    std::optional<storage::SaveManager>
+        scene_save_;            ///< 首次写快照时才打开，避免启动即依赖可写目录
+    bool scene_warned_{false};  ///< 快照写入失败只告警一次
 };
 
 }  // namespace gui

@@ -12,12 +12,14 @@
 #include <QMetaObject>
 #include <QPushButton>
 #include <QString>
+#include <cstdio>
 #include <stdexcept>
 #include <vector>
 
 #include "ai/ai.h"
 #include "core/game.h"
 #include "qt_wait.h"
+#include "storage/save_manager.h"
 #include "test_support.h"
 #include "views/game_widget.h"
 
@@ -152,6 +154,38 @@ int main(int argc, char** argv) {
                    [&] { return any_contains(label_texts(widget), QStringLiteral("你掷出了")); },
                    3000, "恢复后能正常掷骰"),
                "恢复后的按钮可以完成一次真实掷骰");
+    }
+
+    {
+        // 现场快照：开局后必须自动写出一份可读的存档，供开发者用 CLI 续跑复现。
+        constexpr const char* kSceneDb = "test_gui_status_scene.db";
+        std::remove(kSceneDb);
+
+        gui::GameWidget widget;
+        widget.set_action_delays(1, 1, 1);
+        widget.set_scene_db_path(kSceneDb);
+        widget.resize(900, 700);
+        widget.show();
+        app.processEvents();
+
+        widget.start_new_game(core::Side::Red, {1, 2, 3, 4, 5, 6}, ai::Level::Search);
+
+        bool snapshot_written = false;
+        core::RngState snapshot_rng;
+        try {
+            storage::SaveManager manager(kSceneDb);
+            const auto saved = manager.load_game(std::string(storage::kSceneSlot));
+            snapshot_written = saved.has_value();
+            if (saved) {
+                snapshot_rng = saved->rng;
+            }
+        } catch (const std::exception&) {
+            snapshot_written = false;
+        }
+        expect(snapshot_written, "开局后写出可读的现场快照");
+        expect(snapshot_rng.rolls == 0, "现场快照记录已掷次数为 0");
+
+        std::remove(kSceneDb);
     }
 
     return test_support::finish();

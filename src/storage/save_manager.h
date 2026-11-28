@@ -30,6 +30,12 @@ struct SavedGame {
 /// （GUI 启动时会把工作目录切到 exe 所在目录，CLI 则跟随启动目录）。
 constexpr std::string_view kDefaultDbPath = "einstein_save.db";
 
+/// GUI 自动现场快照的固定槽位名。快照文件与用户存档分开，槽位名固定，每次覆盖。
+constexpr std::string_view kSceneSlot = "scene";
+
+/// GUI 自动现场快照的默认数据库文件名，与用户存档分开存放。
+constexpr std::string_view kDefaultSceneDbPath = "einstein_scene.db";
+
 /// 存档管理器。构造时打开数据库并确保表结构存在。
 class SaveManager {
 public:

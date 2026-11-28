@@ -109,6 +109,7 @@ void GameWidget::start_new_game(core::Side human_side,
     selected_pos_ = std::nullopt;
     history_list_->clear();
     update_ui();
+    snapshot_scene();
 
     // 人类执蓝时红方先手是电脑，必须主动启动 AI 回合。
     trigger_ai_if_needed();
@@ -134,6 +135,7 @@ void GameWidget::load_game_state(const core::GameState& state, ai::Level ai_leve
     selected_pos_ = std::nullopt;
     history_list_->clear();
     update_ui();
+    snapshot_scene();
 
     // 存档可能停在 AI 回合，载入后同样检查是否该轮到电脑。
     trigger_ai_if_needed();
@@ -144,6 +146,32 @@ void GameWidget::set_action_delays(int roll_ms, int after_move_ms, int think_ms)
     roll_delay_ms_ = roll_ms;
     after_move_delay_ms_ = after_move_ms;
     think_delay_ms_ = think_ms;
+}
+
+void GameWidget::set_scene_db_path(const std::string& path) {
+    scene_db_path_ = path;
+    // 路径变了，之前打开的连接与目标文件对不上，必须丢弃。
+    scene_save_.reset();
+    scene_warned_ = false;
+}
+
+void GameWidget::snapshot_scene() noexcept {
+    if (scene_db_path_.empty()) {
+        return;
+    }
+    try {
+        if (!scene_save_) {
+            scene_save_.emplace(scene_db_path_);
+        }
+        scene_save_->save_game(std::string(storage::kSceneSlot), game_.get_state(), ai_level_,
+                               game_.rng_state());
+    } catch (const std::exception& error) {
+        // 快照是排查辅助，写不进去不能打断对局；只提示一次，避免刷屏。
+        if (!scene_warned_) {
+            scene_warned_ = true;
+            qWarning() << "现场快照写入失败:" << error.what();
+        }
+    }
 }
 
 void GameWidget::on_exit_clicked() {
@@ -169,6 +197,7 @@ void GameWidget::on_roll_dice_timeout() {
     try {
         game_.roll_dice();
         update_ui();
+        snapshot_scene();
     } catch (const std::exception& e) {
         // 正常路径不可达（按钮按阶段禁用）；失败后也必须 update_ui()，否则按钮停在禁用态。
         qDebug() << "掷骰子失败:" << e.what();
@@ -264,6 +293,7 @@ void GameWidget::on_cell_clicked(core::Pos pos) {
 
             add_history_log(log);
             update_ui();
+            snapshot_scene();
 
             // 人类分支的唯一出口：走完可能轮到电脑。
             trigger_ai_if_needed();
@@ -400,6 +430,7 @@ void GameWidget::handle_ai_turn() {
                 return;
             }
             update_ui();
+            snapshot_scene();
             // 掷骰后等 800ms 再要着法，让提示可见；重入时落到 Player2Thinking 分支。
             ai_timer_.start(think_delay_ms_);
             return;
@@ -431,6 +462,7 @@ void GameWidget::handle_ai_turn() {
         game_.make_move(move.from, move.to);
         add_history_log(log);
         update_ui();
+        snapshot_scene();
     } catch (const std::exception& e) {
         qDebug() << "AI 异常:" << e.what();
         abort_game(QStringLiteral("电脑走子失败: %1").arg(QString::fromUtf8(e.what())));
