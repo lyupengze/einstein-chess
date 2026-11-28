@@ -116,9 +116,9 @@ std::uint64_t parse_checked_unsigned(const std::string& token, const std::string
     return value;
 }
 
-// 格式的准确定义见 `docs/SAVE_FORMAT.md`：第一行是 10 个标量（7 个元数据、AI 档位、
-// 随机种子、已掷次数），第二行恰好是 25 个棋盘格。枚举按底层整数值写出，dice 无值写
-// kNoDice，棋盘格正数红、负数蓝、0 空。档位缺失或非法直接报错，不静默回落到默认档。
+// 格式的准确定义见 `docs/SAVE_FORMAT.md`：第一行是标量头，第二行是棋盘格。枚举按底层
+// 整数值写出，dice 无值写 kNoDice，棋盘格正数红、负数蓝、0 空。档位缺失或非法直接
+// 报错，不静默回落到默认档。
 [[nodiscard]] std::string serialize(const core::GameState& state, ai::Level level,
                                     core::RngState rng) {
     // 写库前先校验档位与局面：非法档位不能写进数据库，否则会在读档时才暴露，
@@ -150,7 +150,7 @@ std::uint64_t parse_checked_unsigned(const std::string& token, const std::string
         << ' ' << static_cast<int>(state.player2_ready) << ' ' << static_cast<int>(level) << ' '
         << rng.seed << ' ' << rng.rolls << '\n';
 
-    // 第二行：只有棋盘，恰好 25 个整数，格间一个空格、行尾不留空格。
+    // 第二行：只有棋盘，格间一个空格、行尾不留空格。
     bool first_cell = true;
     for (std::size_t x = 0; x < core::Board::kSize; ++x) {
         for (std::size_t y = 0; y < core::Board::kSize; ++y) {
@@ -182,7 +182,7 @@ SavedGame deserialize(const std::string& data) {
     std::istringstream iss(data);
     core::GameState state;
 
-    // 第一步：第一行的 10 个标量必须全部到位，且每个都是完整的整数。按行取 token，
+    // 第一步：第一行的标量必须全部到位，且每个都是完整的整数。按行取 token，
     // 缺字段不会吃掉第二行的棋盘格，多出来的字段也能单独报出来。
     constexpr std::array<const char*, 7> kMetadataNames{
         "player1_side", "current_side",  "phase",        "dice",
@@ -198,7 +198,7 @@ SavedGame deserialize(const std::string& data) {
     std::array<std::string, kMetadataNames.size()> metadata_tokens;
     for (auto& token : metadata_tokens) {
         if (!(header_stream >> token)) {
-            throw std::runtime_error("反序列化失败: 头部字段不足 10 个");
+            throw std::runtime_error("反序列化失败: 头部字段数量不足");
         }
     }
     std::array<std::string, kHeaderTailNames.size()> header_tail_tokens;
@@ -254,7 +254,7 @@ SavedGame deserialize(const std::string& data) {
     const std::uint64_t rolls =
         parse_checked_unsigned(header_tail_tokens[2], "已掷次数", core::kMaxRollCount);
 
-    // 第二步：第二行必须是完整的 25 个格子，多一个少一个都按损坏拒绝。
+    // 第二步：第二行必须是完整棋盘，多一个少一个都按损坏拒绝。
     constexpr int kMaxChessId = core::Board::kChessCount;
     std::string board_line;
     if (!std::getline(iss, board_line)) {

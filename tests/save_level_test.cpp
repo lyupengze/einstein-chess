@@ -3,8 +3,7 @@
 ///
 /// 直接操作临时 SQLite 文件：先用 SaveManager 正常存档，再借 sqlite_wrapper 改写
 /// data 列，观察 SaveManager 的解析行为。第一行末尾的三个字段（AI 档位、随机种子、
-/// 已掷次数）都是必填字段，缺失、越界或非整数都按损坏数据拒绝；第二行必须恰好是
-/// 25 个棋盘格。
+/// 已掷次数）都是必填字段，缺失、越界或非整数都按损坏数据拒绝；第二行必须是完整棋盘。
 /// 相关背景见 `#save-level-overflow` 与 `#seed-not-affecting-dice`。
 
 #include <cstddef>
@@ -127,7 +126,7 @@ std::string append_board_token(const std::string& data, const std::string& token
     return join_header(split);
 }
 
-/// @brief 第一行里三个尾部字段的下标：7 个元数据之后依次是档位、种子、已掷次数。
+/// @brief 第一行里三个尾部字段的下标：元数据之后依次是档位、种子、已掷次数。
 constexpr std::size_t kLevelIndex = 7;
 constexpr std::size_t kSeedIndex = 8;
 constexpr std::size_t kRollsIndex = 9;

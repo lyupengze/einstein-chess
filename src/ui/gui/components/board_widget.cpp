@@ -91,7 +91,7 @@ void BoardWidget::paintEvent(QPaintEvent*) {
     const int offset_x = geometry.offset_x;
     const int offset_y = geometry.offset_y;
 
-    // 第一层：25 个格子按 (row + col) 的奇偶交替填色，得到经典棋盘纹；
+    // 第一层：每个格子按 (row + col) 的奇偶交替填色，得到经典棋盘纹；
     // 这里的 row/col 就是 Pos.x / Pos.y，屏幕位置按 (列→横、行→纵) 摆放。
     for (int row = 0; row < kSide; ++row) {
         for (int col = 0; col < kSide; ++col) {
