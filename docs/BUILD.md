@@ -72,7 +72,7 @@ ctest --test-dir build --output-on-failure
 
 ## 测试
 
-默认构建注册 23 个用例（清单、标签与超时以 `tests/CMakeLists.txt` 为准），测试可执行文件与产品可执行文件一样输出到 `build/bin/`，并由 CTest 在各自的工作目录中运行：
+默认构建注册 24 个用例（清单、标签与超时以 `tests/CMakeLists.txt` 为准），测试可执行文件与产品可执行文件一样输出到 `build/bin/`，并由 CTest 在各自的工作目录中运行：
 
 | 用例                | 覆盖内容                                   | 标签      | 超时（秒） |
 | ------------------- | ------------------------------------------ | --------- | ---------: |
@@ -94,6 +94,7 @@ ctest --test-dir build --output-on-failure
 | `dice_widget`       | 骰子点数绘制与非法值错误标记               | `gui`     |         60 |
 | `gui_dialogs`       | 布阵与存档对话框、同名覆盖确认             | `gui`     |         60 |
 | `gui_style`         | 下拉框字体带点字号，展开候选列表无字体警告 | `gui`     |         60 |
+| `gui_game_widget`   | 棋盘点击走子与历史记录同步                 | `gui`     |         60 |
 | `cli_input`         | CLI 参数与整行数字解析边界                 | `cli`     |         30 |
 | `cli_eof`           | EOF 处理                                   | `cli`     |         30 |
 | `cli_exit`          | 退出菜单                                   | `cli`     |         30 |
@@ -110,7 +111,7 @@ ctest --test-dir build --output-on-failure
 
 GitHub Actions 工作流位于 `.github/workflows/ci.yml`：
 
-- `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑全部用例（23 个，见 `tests/CMakeLists.txt`）；
+- `windows-ucrt64`：Windows + MSYS2 UCRT64，安装 GCC、CMake、Ninja 与 Qt6，完整构建并跑全部用例（24 个，见 `tests/CMakeLists.txt`）；
 - `windows-ucrt64-nogui`：同一环境但不装 Qt，`-DEINSTEIN_BUILD_GUI=OFF`，跑除 `gui` 标签外的全部用例；
 - `format`：Ubuntu + Python，固定 `clang-format==23.1.1`，对 `src/`、`tests/`、`benchmarks/` 下受跟踪的 C++ 文件做 `--dry-run --Werror`；
 - `docs`：Ubuntu + CMake，运行 `cmake -P tools/check_repo.cmake`，检查文件头、禁词、缺陷锚点、相对链接与测试数口径。

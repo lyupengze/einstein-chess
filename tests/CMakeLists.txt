@@ -131,6 +131,13 @@ if(EINSTEIN_BUILD_GUI)
                       ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
                       RESOURCE_LOCK qt_gui)
 
+    add_executable(test_gui_game_widget gui_game_widget_test.cpp)
+    target_link_libraries(test_gui_game_widget PRIVATE einstein_gui_lib einstein_warnings)
+    einstein_add_test(gui_game_widget test_gui_game_widget
+                      TIMEOUT 60 LABEL gui
+                      ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                      RESOURCE_LOCK qt_gui)
+
     add_executable(test_toast_fade toast_fade_test.cpp)
     target_link_libraries(test_toast_fade PRIVATE einstein_gui_lib einstein_warnings)
     einstein_add_test(toast_fade test_toast_fade

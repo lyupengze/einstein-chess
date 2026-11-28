@@ -283,7 +283,7 @@ endforeach()
 report_section("Markdown 链接" "${before_links}")
 
 # 5. 测试数量：两条注册路径都要算，且与文档口径一致。
-set(EXPECTED_TEST_COUNT 23)
+set(EXPECTED_TEST_COUNT 24)
 read_lines("${REPO_ROOT}/tests/CMakeLists.txt" registry_lines)
 set(registered "")
 foreach(line IN LISTS registry_lines)
