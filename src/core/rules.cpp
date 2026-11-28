@@ -144,10 +144,17 @@ void apply_move(GameState& state, Pos from, Pos to) {
 
 Side check_winner(const GameState& state) {
     // 先判"全灭"：允许吃己方的子，因此一方可能主动把自己吃光而判负。
-    if (state.board.count_pieces(Side::Red) == 0) {
+    // 双方同时为 0 只可能来自手工构造的局面（走一步必有一枚棋子落格），
+    // 这种局面没有胜者，返回 None 比按对称顺序判蓝方胜更说得通。
+    const int red_count = state.board.count_pieces(Side::Red);
+    const int blue_count = state.board.count_pieces(Side::Blue);
+    if (red_count == 0 && blue_count == 0) {
+        return Side::None;
+    }
+    if (red_count == 0) {
         return Side::Blue;
     }
-    if (state.board.count_pieces(Side::Blue) == 0) {
+    if (blue_count == 0) {
         return Side::Red;
     }
 

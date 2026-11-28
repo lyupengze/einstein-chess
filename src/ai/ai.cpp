@@ -164,10 +164,23 @@ RaceTable build_race_table() {
             total_expected += best_expected + 1.0;
         }
 
+        double mass = 0.0;
         for (int step = 1; step <= kRaceMaxStep; ++step) {
+            const double value =
+                tmp[static_cast<std::size_t>(step)] / static_cast<double>(kPieceCount);
             table[static_cast<std::size_t>(code)][static_cast<std::size_t>(step)] =
-                static_cast<float>(tmp[static_cast<std::size_t>(step)] /
-                                   static_cast<double>(kPieceCount));
+                static_cast<float>(value);
+            mass += value;
+        }
+        // 分布在 kRaceMaxStep 处截断，尾部概率没有计入；按行归一化，让 win_rate 得到
+        // “在截断范围内结束”的条件概率，而不是一个偏小的累计值。
+        if (mass > 0.0) {
+            for (int step = 1; step <= kRaceMaxStep; ++step) {
+                table[static_cast<std::size_t>(code)][static_cast<std::size_t>(step)] =
+                    static_cast<float>(
+                        table[static_cast<std::size_t>(code)][static_cast<std::size_t>(step)] /
+                        mass);
+            }
         }
         expected_time[static_cast<std::size_t>(code)] =
             total_expected / static_cast<double>(kPieceCount);
@@ -205,6 +218,8 @@ double win_rate(const core::GameState& state, core::Side root) {
             cumulative *
             table[static_cast<std::size_t>(opponent_state)][static_cast<std::size_t>(step)];
     }
+    // 浮点累加的舍入可能轻微越界，夹到 [0,1] 后再转成胜负评估。
+    mover_win = std::clamp(mover_win, 0.0, 1.0);
     return mover == root ? mover_win : 1.0 - mover_win;
 }
 

@@ -388,6 +388,11 @@ int main() {
         expect(core::rules::check_winner(state) == core::Side::Red, "红方占据 (4,4) 判胜");
     }
     {
+        // 双方都被吃光只可能来自手工构造；这种局面没有胜者。
+        core::GameState state = base_state(core::Side::Red, 1);
+        expect(core::rules::check_winner(state) == core::Side::None, "双方都没有棋子时无胜者");
+    }
+    {
         core::GameState state = base_state(core::Side::Blue, 1);
         put(state, {0, 0}, core::Side::Blue, 1);
         put(state, {0, 4}, core::Side::Red, 1);

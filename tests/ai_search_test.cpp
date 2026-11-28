@@ -102,6 +102,19 @@ int main() {
         put(blue_to_move, {4, 0}, core::Side::Blue, 1);  // 蓝 d4
         expect(std::abs(ai::estimate_win_rate(blue_to_move) - 0.0) < 1e-6,
                "竞速：胜率跟随当前行棋方");
+
+        // 满盘时两边的分布都被截断，胜率仍必须落在 [0,1]。
+        core::GameState full = base_state(core::Side::Red, 1);
+        full.board.setup_custom(core::Side::Red, {1, 2, 3, 4, 5, 6});
+        full.board.setup_custom(core::Side::Blue, {1, 2, 3, 4, 5, 6});
+        const double full_rate = ai::estimate_win_rate(full);
+        expect(full_rate >= 0.0 && full_rate <= 1.0, "竞速：满盘胜率在 0 到 1 之间");
+
+        core::GameState sparse = base_state(core::Side::Blue, 1);
+        sparse.board.setup_custom(core::Side::Red, {1, 4, 6, 2, 5, 3});
+        sparse.board.setup_custom(core::Side::Blue, {6, 3, 1, 5, 2, 4});
+        const double sparse_rate = ai::estimate_win_rate(sparse);
+        expect(sparse_rate >= 0.0 && sparse_rate <= 1.0, "竞速：蓝方先手胜率在 0 到 1 之间");
     }
 
     // 5. 送子：吃掉己方更靠前的 2 号，让 1 号直接进入 d1；竞速模型不扣"材料分"。
