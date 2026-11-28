@@ -271,27 +271,27 @@ int main() {
         return cells;
     }();
 
-    //    思考阶段却写 -1（无骰子）。
-    write_raw("缺少骰子", "0 0 2 -1 0 1 1 " + empty_board + "1\n");
+    //    思考阶段却写 -1（无骰子）。第一行是 10 个标量，第二行是 25 个格子。
+    write_raw("缺少骰子", "0 0 2 -1 0 1 1 1 42 0\n" + empty_board + "\n");
     //    掷骰阶段却带着点数 3。
-    write_raw("多余骰子", "0 0 1 3 0 1 1 " + empty_board + "1\n");
-    //    棋盘只写了两格就结束。
-    write_raw("棋盘残缺", "0 0 0 -1 0 0 0 1 2\n");
+    write_raw("多余骰子", "0 0 1 3 0 1 1 1 42 0\n" + empty_board + "\n");
+    //    棋盘行只写了两格就结束。
+    write_raw("棋盘残缺", "0 0 0 -1 0 0 0 1 42 0\n1 2\n");
     //    Player2Thinking 却轮到 player1_side：GUI 会显示人类可走但点击被忽略。
-    write_raw("思考方错位", "1 1 3 1 0 1 1 " + two_piece_board + "1\n");
+    write_raw("思考方错位", "1 1 3 1 0 1 1 1 42 0\n" + two_piece_board + "\n");
     //    current_side=None 却处于思考阶段：CLI 会在 decide_move 抛异常。
-    write_raw("当前方缺失", "1 0 3 1 0 1 1 " + two_piece_board + "1\n");
+    write_raw("当前方缺失", "1 0 3 1 0 1 1 1 42 0\n" + two_piece_board + "\n");
     //    GameOver 却没有胜者：界面会显示无胜者。
-    write_raw("终局无胜者", "1 0 4 -1 0 1 1 " + two_piece_board + "1\n");
+    write_raw("终局无胜者", "1 0 4 -1 0 1 1 1 42 0\n" + two_piece_board + "\n");
     //    布阵阶段局面本身合法，但读档后没有可恢复的界面流程，必须在边界拒绝。
-    write_raw("布阵阶段", "1 0 0 -1 0 0 1 " + two_piece_board + "1\n");
+    write_raw("布阵阶段", "1 0 0 -1 0 0 1 1 42 0\n" + two_piece_board + "\n");
     //    整数格式越界：元数据溢出、棋盘格溢出、棋盘格写成 -0、档位写成 -0。
-    write_raw("元数据溢出", "99999999999999999999 1 3 1 0 1 1 " + two_piece_board + "1\n");
-    write_raw("格子溢出", "1 1 3 1 0 1 1 " + overflow_cell_board + "1\n");
-    write_raw("格子负数零", "1 1 3 1 0 1 1 " + negative_zero_board + "1\n");
-    write_raw("档位负数零", "1 1 3 1 0 1 1 " + two_piece_board + "-0\n");
-    //    档位之后还有第三行：数据只有两行，多出来的行按损坏拒绝。
-    write_raw("档位后多出内容", "1 1 3 1 0 1 1 " + two_piece_board + "1\n0\n");
+    write_raw("元数据溢出", "99999999999999999999 1 3 1 0 1 1 1 42 0\n" + two_piece_board + "\n");
+    write_raw("格子溢出", "1 1 3 1 0 1 1 1 42 0\n" + overflow_cell_board + "\n");
+    write_raw("格子负数零", "1 1 3 1 0 1 1 1 42 0\n" + negative_zero_board + "\n");
+    write_raw("档位负数零", "1 1 3 1 0 1 1 -0 42 0\n" + two_piece_board + "\n");
+    //    棋盘行之后还有第三行：数据只有两行，多出来的行按损坏拒绝。
+    write_raw("棋盘行后多出内容", "1 1 3 1 0 1 1 1 42 0\n" + two_piece_board + "\n0\n");
 
     {
         storage::SaveManager manager(kDbPath);
@@ -306,7 +306,7 @@ int main() {
         expect(load_throws(manager, "格子溢出"), "棋盘格溢出 32 位被拒绝");
         expect(load_throws(manager, "格子负数零"), "棋盘格写成 -0 被拒绝");
         expect(load_throws(manager, "档位负数零"), "档位写成 -0 被拒绝");
-        expect(load_throws(manager, "档位后多出内容"), "档位之后多出内容被拒绝");
+        expect(load_throws(manager, "棋盘行后多出内容"), "棋盘行之后多出内容被拒绝");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。

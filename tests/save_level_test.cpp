@@ -2,8 +2,9 @@
 /// @brief 存档档位与随机流回归：随存档往返，缺失或损坏时按数据损坏拒绝。
 ///
 /// 直接操作临时 SQLite 文件：先用 SaveManager 正常存档，再借 sqlite_wrapper 改写
-/// data 列，观察 SaveManager 的解析行为。第二行末尾的三个字段（AI 档位、随机种子、
-/// 已掷次数）都是必填字段，缺失、越界或非整数都按损坏数据拒绝。
+/// data 列，观察 SaveManager 的解析行为。第一行末尾的三个字段（AI 档位、随机种子、
+/// 已掷次数）都是必填字段，缺失、越界或非整数都按损坏数据拒绝；第二行必须恰好是
+/// 25 个棋盘格。
 /// 相关背景见 `#save-level-overflow` 与 `#seed-not-affecting-dice`。
 
 #include <cstddef>
@@ -62,63 +63,74 @@ void write_data(storage::Database& db, const std::string& slot, const std::strin
     stmt.step();
 }
 
-/// @brief 拆开的存档文本：第一行原样保留，第二行按空格拆成 token。
+/// @brief 拆开的存档文本：第一行按空格拆成 token，第二行原样保留。
 struct SplitData {
-    std::string head;
-    std::vector<std::string> tokens;
+    std::vector<std::string> header;
+    std::string body;
 };
 
-SplitData split_tail(const std::string& data) {
+SplitData split_header(const std::string& data) {
     const auto newline = data.find('\n');
     if (newline == std::string::npos) {
         throw std::runtime_error("测试数据格式异常");
     }
     SplitData split;
-    split.head = data.substr(0, newline + 1);
-    std::istringstream line(data.substr(newline + 1));
+    std::istringstream line(data.substr(0, newline));
     for (std::string token; line >> token;) {
-        split.tokens.push_back(token);
+        split.header.push_back(token);
     }
+    split.body = data.substr(newline + 1);
     return split;
 }
 
-std::string join_tail(const SplitData& split) {
-    std::string text = split.head;
-    for (std::size_t i = 0; i < split.tokens.size(); ++i) {
+std::string join_header(const SplitData& split) {
+    std::string text;
+    for (std::size_t i = 0; i < split.header.size(); ++i) {
         if (i != 0) {
             text += ' ';
         }
-        text += split.tokens[i];
+        text += split.header[i];
     }
     text += '\n';
+    text += split.body;
     return text;
 }
 
-/// @brief 改写第二行第 index 个 token（0 起算）。
-std::string replace_tail_token(const std::string& data, std::size_t index,
-                               const std::string& replacement) {
-    SplitData split = split_tail(data);
-    if (index >= split.tokens.size()) {
+/// @brief 改写第一行第 index 个 token（0 起算）。
+std::string replace_header_token(const std::string& data, std::size_t index,
+                                 const std::string& replacement) {
+    SplitData split = split_header(data);
+    if (index >= split.header.size()) {
         throw std::runtime_error("测试数据缺少指定的 token");
     }
-    split.tokens[index] = replacement;
-    return join_tail(split);
+    split.header[index] = replacement;
+    return join_header(split);
 }
 
-/// @brief 删除第二行第 index 个 token（0 起算）。
-std::string erase_tail_token(const std::string& data, std::size_t index) {
-    SplitData split = split_tail(data);
-    if (index >= split.tokens.size()) {
+/// @brief 删除第一行第 index 个 token（0 起算）。
+std::string erase_header_token(const std::string& data, std::size_t index) {
+    SplitData split = split_header(data);
+    if (index >= split.header.size()) {
         throw std::runtime_error("测试数据缺少指定的 token");
     }
-    split.tokens.erase(split.tokens.begin() + static_cast<std::ptrdiff_t>(index));
-    return join_tail(split);
+    split.header.erase(split.header.begin() + static_cast<std::ptrdiff_t>(index));
+    return join_header(split);
 }
 
-/// @brief 第二行里三个尾部字段的下标：25 个棋盘格之后依次是档位、种子、已掷次数。
-constexpr std::size_t kLevelIndex = core::Board::kSize * core::Board::kSize;
-constexpr std::size_t kSeedIndex = kLevelIndex + 1;
-constexpr std::size_t kRollsIndex = kLevelIndex + 2;
+/// @brief 在棋盘行末尾追加一个 token，用来验证“恰好 25 格”的边界。
+std::string append_board_token(const std::string& data, const std::string& token) {
+    SplitData split = split_header(data);
+    if (!split.body.empty() && split.body.back() == '\n') {
+        split.body.pop_back();
+    }
+    split.body += ' ' + token + '\n';
+    return join_header(split);
+}
+
+/// @brief 第一行里三个尾部字段的下标：7 个元数据之后依次是档位、种子、已掷次数。
+constexpr std::size_t kLevelIndex = 7;
+constexpr std::size_t kSeedIndex = 8;
+constexpr std::size_t kRollsIndex = 9;
 
 }  // namespace
 
@@ -156,16 +168,19 @@ int main() {
             storage::Database db(kDbPath);
             const std::string data = read_data(db, "random");
 
-            write_data(db, "missing-level", erase_tail_token(data, kLevelIndex));
-            write_data(db, "missing-seed", erase_tail_token(data, kSeedIndex));
-            write_data(db, "missing-rolls", erase_tail_token(data, kRollsIndex));
-            write_data(db, "bad-level", replace_tail_token(data, kLevelIndex, "9"));
-            write_data(db, "garbage-level", replace_tail_token(data, kLevelIndex, "abc"));
-            write_data(db, "overflow-level", replace_tail_token(data, kLevelIndex, "2147483648"));
-            write_data(db, "negative-zero-seed", replace_tail_token(data, kSeedIndex, "-0"));
-            write_data(db, "overflow-seed", replace_tail_token(data, kSeedIndex, "4294967296"));
-            write_data(db, "overflow-rolls", replace_tail_token(data, kRollsIndex, "1000001"));
-            write_data(db, "garbage-rolls", replace_tail_token(data, kRollsIndex, "1abc"));
+            write_data(db, "missing-level", erase_header_token(data, kLevelIndex));
+            write_data(db, "missing-seed", erase_header_token(data, kSeedIndex));
+            write_data(db, "missing-rolls", erase_header_token(data, kRollsIndex));
+            write_data(db, "bad-level", replace_header_token(data, kLevelIndex, "9"));
+            write_data(db, "garbage-level", replace_header_token(data, kLevelIndex, "abc"));
+            write_data(db, "overflow-level", replace_header_token(data, kLevelIndex, "2147483648"));
+            write_data(db, "negative-zero-seed", replace_header_token(data, kSeedIndex, "-0"));
+            write_data(db, "overflow-seed", replace_header_token(data, kSeedIndex, "4294967296"));
+            write_data(db, "overflow-rolls", replace_header_token(data, kRollsIndex, "1000001"));
+            write_data(db, "garbage-rolls", replace_header_token(data, kRollsIndex, "1abc"));
+            write_data(db, "extra-cell", append_board_token(data, "1"));
+            const SplitData split = split_header(data);
+            write_data(db, "missing-board", join_header(SplitData{split.header, std::string()}));
         }
 
         const auto expect_rejected = [&manager](const std::string& slot, std::string_view what) {
@@ -188,6 +203,8 @@ int main() {
         expect_rejected("overflow-seed", "超出 32 位的种子被拒绝");
         expect_rejected("overflow-rolls", "超出上限的已掷次数被拒绝");
         expect_rejected("garbage-rolls", "非整数已掷次数被拒绝");
+        expect_rejected("extra-cell", "棋盘行多一个格子被拒绝");
+        expect_rejected("missing-board", "缺少棋盘的存档被拒绝");
     }
 
     // 连接全部析构后再删文件，否则 Windows 上会因文件被占用而失败。
