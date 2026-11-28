@@ -69,6 +69,10 @@ add_executable(test_game_state_guard game_state_guard_test.cpp)
 target_link_libraries(test_game_state_guard PRIVATE einstein_core einstein_warnings)
 einstein_add_test(game_state_guard test_game_state_guard TIMEOUT 30 LABEL core)
 
+add_executable(test_game_seed game_seed_test.cpp)
+target_link_libraries(test_game_seed PRIVATE einstein_core einstein_warnings)
+einstein_add_test(game_seed test_game_seed TIMEOUT 30 LABEL core)
+
 add_executable(test_ai_search ai_search_test.cpp)
 target_link_libraries(test_ai_search PRIVATE einstein_ai einstein_warnings)
 einstein_add_test(ai_search test_ai_search TIMEOUT 120 LABEL ai)

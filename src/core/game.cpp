@@ -16,7 +16,10 @@
 
 namespace core {
 
-Game::Game() : gen_(std::random_device{}()) {
+Game::Game() : Game(std::random_device{}()) {
+}
+
+Game::Game(std::uint32_t seed) : gen_(seed), seed_(seed) {
 }
 
 void Game::prepare_new_game(Side player1_side) {
@@ -81,6 +84,7 @@ void Game::roll_dice() {
     }
     // std::uniform_int_distribution 的区间两端都包含，正好覆盖 1~6。
     game_state_.current_dice = std::uniform_int_distribution<int>(1, 6)(gen_);
+    ++roll_count_;
     if (game_state_.current_side == game_state_.player1_side) {
         game_state_.phase = Phase::Player1Thinking;
     } else {
@@ -130,6 +134,14 @@ void Game::make_move(Pos from, Pos to) {
 
 const GameState& Game::get_state() const {
     return game_state_;
+}
+
+std::uint32_t Game::seed() const noexcept {
+    return seed_;
+}
+
+std::uint64_t Game::roll_count() const noexcept {
+    return roll_count_;
 }
 
 void Game::check_both_ready() {

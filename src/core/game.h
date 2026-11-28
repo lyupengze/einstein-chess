@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <random>
 
 #include "game_state.h"
@@ -20,6 +21,12 @@ class Game {
 public:
     /// @brief 构造一局默认状态：空盘、LayOut 阶段，种子取自 std::random_device。
     Game();
+
+    /// @brief 用给定种子构造一局默认状态。
+    /// @param seed 骰子随机源的种子；同一构建、同一平台上，同一种子的骰序相同
+    /// @note 这里只固定骰子；AI 的随机源由 ai::set_random_seed 单独播种，两者必须
+    ///       由调用方同时设置，否则“同种子复现”只覆盖一半
+    explicit Game(std::uint32_t seed);
 
     /// @brief 重置为全新对局并记录发起方阵营。
     /// @param player1_side 发起方（CLI/GUI 中即人类）的阵营，必须是红方或蓝方
@@ -55,12 +62,22 @@ public:
     /// @brief 只读访问当前状态快照；引用生命周期与 Game 对象一致。
     [[nodiscard]] const GameState& get_state() const;
 
+    /// @brief 本局骰子随机源使用的种子。
+    /// @note 存档记录该值，读档端用“同一种子 + 已掷次数”还原骰序
+    [[nodiscard]] std::uint32_t seed() const noexcept;
+
+    /// @brief 本局自构造以来掷骰的次数。
+    /// @note 读档端在还原种子后按该次数丢弃前若干点数，得到与存档时相同的下一掷
+    [[nodiscard]] std::uint64_t roll_count() const noexcept;
+
 private:
     /// @brief 双方布阵都完成后，进入掷骰阶段并指定红方先手。
     void check_both_ready();
 
-    GameState game_state_;  ///< 当前对局快照
-    std::mt19937 gen_;      ///< 骰子随机源；每局一个实例，避免跨局共享状态
+    GameState game_state_;        ///< 当前对局快照
+    std::mt19937 gen_;            ///< 骰子随机源；每局一个实例，避免跨局共享状态
+    std::uint32_t seed_{};        ///< gen_ 的初始种子，存档与复现用
+    std::uint64_t roll_count_{};  ///< 已掷次数，读档时用于推进到同一骰序位置
 };
 
 /// @brief 在 state 的副本上走子并完成结算，返回新状态。
