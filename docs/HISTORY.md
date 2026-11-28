@@ -22,6 +22,7 @@
 | [`#gui-stale-timer`](#gui-stale-timer)                     | 上一局的延迟回调落到新局         |
 | [`#gui-toast-fade`](#gui-toast-fade)                       | Toast 没有淡入淡出               |
 | [`#gui-combo-font-warning`](#gui-combo-font-warning)       | 强度下拉框展开时打印字体警告     |
+| [`#gui-new-game-exception`](#gui-new-game-exception)       | 开局异常穿出菜单回调             |
 | [`#storage-bind-ignored`](#storage-bind-ignored)           | SQLite 参数绑定失败被忽略        |
 | [`#save-unchecked-state`](#save-unchecked-state)           | 存档字段各自合法但组合不可能     |
 | [`#core-invariant-gaps`](#core-invariant-gaps)             | 公共 API 不强制阶段顺序          |
@@ -31,9 +32,11 @@
 | [`#seed-not-affecting-dice`](#seed-not-affecting-dice)     | `--seed` 只影响 AI，骰子仍随机   |
 | [`#cli-db-open-crash`](#cli-db-open-crash)                 | 存档库打不开时异常穿出 main      |
 | [`#cli-eof-loop`](#cli-eof-loop)                           | stdin 关闭后菜单无限刷屏         |
+| [`#cli-eof-after-ai`](#cli-eof-after-ai)                   | 终局前 stdin 结束会跳过结算展示  |
 | [`#botzone-invalid-piece`](#botzone-invalid-piece)         | 非法棋子编号被当作真实棋子       |
 | [`#botzone-int-truncation`](#botzone-int-truncation)       | 超大整数被静默截断               |
 | [`#ai-shared-rng`](#ai-shared-rng)                         | 随机源不可复现且跨线程共享       |
+| [`#win-rate-truncated`](#win-rate-truncated)               | 竞速表的概率行和小于 1           |
 
 ## 对局与存档
 
@@ -160,6 +163,17 @@
 - **回归**：`gui_style`。
 - **来源**：无。
 
+### `#gui-new-game-exception` 开局异常穿出菜单回调
+
+- **现象**：从主菜单点“开始新游戏”后，若开局路径抛异常（例如快照库所在目录不可写），
+  异常穿出按钮回调，进程直接退出，玩家看不到任何提示。
+- **触发**：`GameWidget::start_new_game` 在构造对局、写现场快照时抛 `std::exception`。
+- **根因**：主菜单的“开始新游戏”lambda 没有异常边界，`start_new_game` 的失败直接冒到 Qt 事件循环。
+- **修复**：`5ec8bf1` 把 `start_new_game` 与页面切换包进 `try/catch(std::exception)`，失败弹
+  “开局失败”对话框并留在菜单页。
+- **回归**：缺；该路径依赖 GUI 运行期写文件失败，当前没有稳定的自动化入口。
+- **来源**：代码审查（2026-11-27，基线 `f3942aa`）低 1 条。
+
 ## 存储
 
 ### `#storage-bind-ignored` SQLite 参数绑定失败被忽略
@@ -229,6 +243,16 @@
 - **回归**：`cli_eof`。
 - **来源**：无（外部报告未覆盖）。
 
+### `#cli-eof-after-ai` 终局前 stdin 结束会跳过结算展示
+
+- **现象**：AI 落子形成终局后，程序仍在等“按回车继续”；此时 stdin 已结束，进程直接返回，
+  终局棋盘与获胜方都不打印，玩家看到的是半局。
+- **触发**：脚本或管道在 AI 回合结束后不再提供输入，且 AI 这一手形成了终局。
+- **根因**：AI 回合结束后无条件等待回车，EOF 时走 `return`，绕过了循环外的结算展示。
+- **修复**：`5ec8bf1` 在 AI 走子后先判 `phase == GameOver` 并 `break`，把结算交给循环外的统一展示。
+- **回归**：缺；需要构造“AI 一手终结对局”的固定局面。
+- **来源**：代码审查（2026-11-27，基线 `f3942aa`）低 2 条。
+
 ## Botzone
 
 ### `#botzone-invalid-piece` 非法棋子编号被当作真实棋子
@@ -262,4 +286,14 @@
 - **修复**：`aec4d76` 使用 `thread_local` 引擎加 `ai::set_random_seed()`。
 - **回归**：`ai_random`。
 - **来源**：外部报告（2026-11-15，基线 `f2e8bf5`）第 10 条。
+
+### `#win-rate-truncated` 竞速表的概率行和小于 1
+
+- **现象**：`estimate_win_rate()` 在远离终点的局面上可能返回略大于 1 或小于 0 的值；界面不展示
+  该值，只有直接调用方会看到。
+- **触发**：双方棋子离各自目标都很远，竞速表在 `kRaceMaxStep` 处截断。
+- **根因**：建表时每行只累计截断内的到达概率，行和可能小于 1，`win_rate()` 直接拿它比较。
+- **修复**：`52b08f7` 在建表时按行归一化，并在 `win_rate()` 里把结果夹到 `[0, 1]`。
+- **回归**：`ai_search`。
+- **来源**：代码审查（2026-11-27，基线 `f3942aa`）第 11 条。
 
