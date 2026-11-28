@@ -2,11 +2,12 @@
 /// @brief 命令行对局：选档位、选色、布阵、掷骰与走子。
 ///
 /// 对手由 ai 模块扮演，存档经 `storage::SaveManager` 写入 SQLite；人类回合内
-/// 输入 save 存档、exit 返回主菜单。`--seed` 固定随机种子便于复现同一局，
-/// `--db` 指定存档库。所有输入都按整行读取再自行解析，避免 `operator>>`
-/// 在输入缓冲区留下换行残渣。
+/// 输入 save 存档、exit 返回主菜单。`--seed` 同时固定骰子与 AI 的随机源，
+/// 便于复现同一局；`--db` 指定存档库。所有输入都按整行读取再自行解析，避免
+/// `operator>>` 在输入缓冲区留下换行残渣。
 
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <iostream>
@@ -93,6 +94,11 @@ std::optional<ai::Level> choose_ai_level() {
 // 单局主循环，直到 phase 进入 GameOver 才返回。人类回合先掷骰再输入走法，
 // 输错不消耗回合；AI 回合自动掷骰并走一步。ai_level 是当局档位，整局不变。
 void game_loop(core::Game& game, storage::SaveManager& save_manager, ai::Level ai_level) {
+    // 种子决定骰序与 AI 走法，出问题时这是复现整局所需的第一条信息；
+    // 每次进入对局打印一次，读档后的续玩也一样。
+    std::cout << "本局随机种子: " << game.seed() << "（可用 --seed " << game.seed()
+              << " 复现）\n\n";
+
     while (game.get_state().phase != core::Phase::GameOver) {
         // 每轮开头重绘棋盘：玩家能直接看到上一手（或读档）后的局面。
         std::cout << "【当前棋盘】\n";
@@ -240,9 +246,10 @@ int main(int argc, char* argv[]) {
 #endif
     std::cout << "=== 爱因斯坦棋 (CLI) ===\n";
 
-    // --seed <n>：固定 AI 随机种子，同种子可复现同一局。
+    // --seed <n>：固定骰子与 AI 的随机源，同种子可复现同一局。
     // --db <path>：显式指定存档库；不指定时仍跟随当前工作目录。
     std::string db_path(storage::kDefaultDbPath);
+    std::optional<std::uint32_t> cli_seed;
     for (int i = 1; i < argc; ++i) {
         const std::string_view arg = argv[i];
         if (arg == "--seed") {
@@ -258,7 +265,7 @@ int main(int argc, char* argv[]) {
                           << " 的整数，收到: " << std::string(seed_text) << "\n";
                 return 2;
             }
-            ai::set_random_seed(*seed);
+            cli_seed = static_cast<std::uint32_t>(*seed);
         } else if (arg == "--db") {
             if (i + 1 >= argc) {
                 std::cerr << "--db 需要一个存档文件路径\n";
@@ -313,7 +320,12 @@ int main(int argc, char* argv[]) {
 
         // 每轮新建一个 Game 对象承载当前对局：
         // 无论走"读档"还是"新局"，后续逻辑都只操作这个实例。
-        core::Game game;
+        // 骰子与 AI 两个随机源必须同时按同一种子重置：只播种一个，另一侧仍会
+        // 随上一局的状态漂移，同种子也就复现不出同一局。
+        core::Game game = cli_seed ? core::Game(*cli_seed) : core::Game();
+        if (cli_seed) {
+            ai::set_random_seed(*cli_seed);
+        }
         if (choice_str == "2") {
             // 列存档只依赖数据库；表结构损坏、被锁或 IO 失败都不应终止进程，
             // 打印原因后回到主菜单，玩家仍可开新局或退出。
