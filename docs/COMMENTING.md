@@ -196,6 +196,7 @@ CMake 目标名与测试名（`core_rules`、`cli_eof`）、第三方库原文
 | GUI 三段过渡延迟           | `game_widget.h` 的默认参数                   | 只写"见 game_widget.h"               |
 | 棋盘规则与判定顺序         | `src/core/rules.cpp` + `core_rules_test.cpp` | 一句话摘要 + 链接到 `RULES.md`       |
 | 存档字段与失败模式         | `src/storage/save_manager.h` 的格式说明      | 一句话摘要 + 链接到 `SAVE_FORMAT.md` |
+| 随机源的种子与已掷次数     | `core::Game` 的 `seed()` / `roll_count()`    | 只写“随机流随存档记录”，不抄字段值   |
 | 模块分层与状态机           | `docs/ARCHITECTURE.md`                       | 只写模块名，不抄依赖表               |
 | 已修复缺陷与回归           | `docs/HISTORY.md` 的锚点                     | 只写锚点链接，不复述根因             |
 | 构建方式与 CI job          | `.github/workflows/ci.yml` + `BUILD.md`      | 只写命令，不抄 job 细节              |
