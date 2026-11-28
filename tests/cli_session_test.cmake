@@ -1,19 +1,20 @@
-# CLI 会话回归：把“主菜单 -> 开新局 -> 选档位 -> 选色 -> 布阵”的完整交互
+# CLI 会话回归：把“主菜单 -> 开新局 -> 选档位 -> 选色 -> 布阵 -> 掷骰 -> 走子”的完整交互
 # 用脚本输入走一遍，验证每条错误输入都会重新询问、正确输入能推进流程，
 # 并确认对局中途 stdin 结束时仍能打印提示并正常返回主菜单。
 #
 # 用法：cmake -DEXE=<einstein_cli> -DINPUT=<cli_session_input.txt> -P cli_session_test.cmake
 #
 # 输入文件刻意包含各类错误：非法主菜单命令、空存档库、非法档位编号、
-# 非法颜色与非法布阵（数量不足/编号重复/数量过多），最后才是一组合法布阵。
-# 对局开始后不喂输入，让 stdin 在“按回车掷骰子”处结束。
+# 非法颜色与非法布阵（数量不足/编号重复/数量过多），最后才是一组合法布阵，
+# 随后掷骰并走一步。固定 --seed 42，使骰点与走子路径可断言。
+# 走子之后交回 AI，AI 完成回合并在“按回车继续”处遇到 stdin 结束。
 
 if(NOT DEFINED EXE OR NOT DEFINED INPUT)
     message(FATAL_ERROR "cli_session_test.cmake requires -DEXE=<path> and -DINPUT=<path>")
 endif()
 
 execute_process(
-    COMMAND "${EXE}"
+    COMMAND "${EXE}" --seed 42
     INPUT_FILE "${INPUT}"
     OUTPUT_VARIABLE cli_stdout
     ERROR_VARIABLE cli_stderr
@@ -62,10 +63,27 @@ if(layout_failure EQUAL -1)
         "CLI did not report the rejected layout.\nstdout:\n${cli_stdout}")
 endif()
 
-# 6. 合法布阵后应进入对局；stdin 在第一次掷骰询问处结束，随后回主菜单再退出。
+# 6. 合法布阵后应进入对局；固定种子下先由人类掷出 3 并走一步，
+#    之后 AI 掷出 5 并走子，最后 stdin 在“按回车继续”处结束。
 string(FIND "${cli_stdout}" "【开始游戏】" game_started)
 if(game_started EQUAL -1)
     message(FATAL_ERROR "CLI did not start the game after a valid layout.\nstdout:\n${cli_stdout}")
+endif()
+
+string(FIND "${cli_stdout}" "本局随机种子: 42" seed_printed)
+if(seed_printed EQUAL -1)
+    message(FATAL_ERROR "CLI did not print the seed of the new game.\nstdout:\n${cli_stdout}")
+endif()
+
+string(FIND "${cli_stdout}" "你掷出了: 3" human_roll)
+if(human_roll EQUAL -1)
+    message(FATAL_ERROR "CLI did not roll the expected dice for the human turn.\nstdout:\n${cli_stdout}")
+endif()
+
+string(FIND "${cli_stdout}" "电脑掷出了: 5，从 (2,4) 走到了 (2,3)" ai_turn)
+if(ai_turn EQUAL -1)
+    message(FATAL_ERROR
+        "CLI did not finish the AI turn after the scripted move.\nstdout:\n${cli_stdout}")
 endif()
 
 string(FIND "${cli_stdout}" "输入已结束，本局结束。" midgame_eof)
